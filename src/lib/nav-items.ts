@@ -1,5 +1,5 @@
 
-import { Settings, BarChartHorizontal, Package, Wrench, ShoppingCart, History, ClipboardCheck, Printer, LineChart, FileDown, Building, Warehouse, ScrollText, type LucideIcon } from 'lucide-react';
+import { Settings, BarChartHorizontal, Package, Wrench, ShoppingCart, History, ClipboardCheck, Printer, LineChart, FileDown, Building, Warehouse, ScrollText, type LucideIcon, PackageSearch } from 'lucide-react';
 
 export type NavItem = {
   href: string;
@@ -12,6 +12,7 @@ export const navItems: NavItem[] = [
   { href: '/inventory-list', icon: Package, label: 'Lagerbestand' },
   { href: '/machines', icon: Wrench, label: 'Maschinen' },
   { href: '/orders', icon: ShoppingCart, label: 'Bestellungen' },
+  { href: '/commissioning', icon: PackageSearch, label: 'Kommission' },
   { href: '/order-history', icon: History, label: 'Bestellverlauf' },
   { href: '/inventory', icon: ClipboardCheck, label: 'Inventur' },
   { href: '/labels', icon: Printer, label: 'Etiketten' },

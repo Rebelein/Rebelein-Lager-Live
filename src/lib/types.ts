@@ -1,5 +1,6 @@
 
 
+
 export type ReorderStatus = {
   status: 'arranged' | 'ordered' | null;
   arrangedAt?: string | null;
@@ -240,4 +241,14 @@ export type MaskArea = {
   y: number;
   width: number;
   height: number;
+};
+
+export type Commission = {
+  id: string;
+  name: string;
+  orderNumber: string;
+  notes?: string;
+  status: 'active' | 'completed';
+  createdAt: string;
+  createdBy: string;
 };

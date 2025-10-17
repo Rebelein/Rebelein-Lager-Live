@@ -168,6 +168,22 @@
           }
         }
       }
+    },
+    "Commission": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Commission",
+        "type": "object",
+        "description": "Represents a collection of items for a specific order or purpose.",
+        "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string", "description": "A descriptive name for the commission." },
+            "orderNumber": { "type": "string", "description": "The associated order or project number." },
+            "notes": { "type": "string", "description": "Optional additional notes." },
+            "status": { "type": "string", "enum": ["active", "completed"], "description": "The current status of the commission." },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "createdBy": { "type": "string", "description": "The name of the user who created it." }
+        },
+        "required": ["id", "name", "orderNumber", "status", "createdAt", "createdBy"]
     }
   },
   "auth": {
@@ -194,6 +210,10 @@
         "$ref": "#/entities/AppSettings"
       },
       "description": "Stores global application settings in a single document."
+    },
+    "/commissions/{commissionId}": {
+        "schema": { "$ref": "#/entities/Commission" },
+        "description": "Stores commission data."
     }
   }
 }
