@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { navItems } from '@/lib/nav-items';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Trash2, PlusCircle, Pencil, X, Settings2 } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Pencil, X, Settings2, User, Bot, Link2 } from 'lucide-react';
 import { testAiConnection } from './actions';
 import type { AppSettings, Wholesaler, WholesalerMask } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -19,6 +19,8 @@ import Image from 'next/image';
 import * as pdfjsLib from 'pdfjs-dist';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 // Configure the worker script path
@@ -135,7 +137,7 @@ function MaskEditorDialog({
                         <div className="relative w-full border rounded-lg bg-muted" style={{ aspectRatio: '1 / 1.414' }}>
                            {backgroundImage ? (
                              <div className="relative w-full h-full">
-                                <Image src={backgroundImage} alt="Lieferschein" fill={true} objectFit="contain" />
+                                <Image src={backgroundImage} alt="Lieferschein" fill={true} style={{objectFit:"contain"}} />
                                 <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 z-10" onClick={() => setBackgroundImage(null)}><X className="h-4 w-4"/></Button>
                             </div>
                            ) : <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Vorschaubild</div>}
@@ -245,26 +247,17 @@ function MaskManagementDialog({ wholesaler, open, onOpenChange, onUpdateWholesal
     );
 }
 
-const useIsDesktop = () => {
-    const [isDesktop, setIsDesktop] = React.useState(true);
-
-    React.useEffect(() => {
-        const checkScreenSize = () => {
-            setIsDesktop(window.innerWidth >= 1024); // lg breakpoint
-        };
-        checkScreenSize(); // Initial check
-        window.addEventListener('resize', checkScreenSize);
-        return () => window.removeEventListener('resize', checkScreenSize);
-    }, []);
-
-    return isDesktop;
-};
+const settingsSections = [
+    { id: 'general', label: 'Allgemein', icon: User },
+    { id: 'ai', label: 'KI & Automatisierung', icon: Bot },
+    { id: 'integrations', label: 'Integrationen', icon: Link2 }
+];
 
 
 export default function SettingsPage() {
     const { currentUser, updateUserSettings, appSettings, updateAppSettings, wholesalers, setWholesalers } = useAppContext();
     const { toast } = useToast();
-    const isDesktop = useIsDesktop();
+    const [activeSection, setActiveSection] = React.useState('general');
     
     // State for Article Analysis AI
     const [articleAiProvider, setArticleAiProvider] = React.useState('google');
@@ -425,11 +418,205 @@ export default function SettingsPage() {
         });
     };
 
+    const renderContent = () => {
+        switch (activeSection) {
+            case 'general':
+                return (
+                    <div className="space-y-6">
+                        <Card>
+                            <CardHeader><CardTitle>Anzeige</CardTitle></CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex items-center justify-between p-3 border rounded-lg">
+                                    <Label htmlFor="inventory-border-switch" className="flex-1 pr-4">Inventur-Status-Markierung</Label>
+                                    <Switch id="inventory-border-switch" checked={currentUser.showInventoryStatusBorder ?? true} onCheckedChange={handleToggleBorder} />
+                                </div>
+                                <div className="flex items-center justify-between p-3 border rounded-lg">
+                                    <Label htmlFor="nav-sort-switch" className="flex-1 pr-4">Navigation sortierbar machen</Label>
+                                    <Switch id="nav-sort-switch" checked={currentUser.isNavSortable ?? false} onCheckedChange={handleToggleNavSort} />
+                                </div>
+                                <div className="flex items-center justify-between p-3 border rounded-lg">
+                                    <Label htmlFor="dashboard-edit-switch" className="flex-1 pr-4">Dashboard anpassen</Label>
+                                    <Switch id="dashboard-edit-switch" checked={currentUser.isDashboardEditing ?? false} onCheckedChange={handleToggleDashboardEditing} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader><CardTitle>Navigationsmenü</CardTitle></CardHeader>
+                            <CardContent className="space-y-2">
+                                {navItems.map(item => {
+                                    const isDisabled = item.href === '/settings';
+                                    const visibleNavItems = currentUser.visibleNavItems ?? navItems.map(item => item.href);
+                                    return (
+                                        <div key={item.href} className="flex items-center justify-between p-3 border rounded-lg">
+                                            <Label htmlFor={`nav-${item.href}`} className="flex-1 pr-4">{item.label}</Label>
+                                            <Switch id={`nav-${item.href}`} checked={isDisabled || visibleNavItems.includes(item.href)} onCheckedChange={(checked) => handleToggleNavItem(item.href, checked)} disabled={isDisabled} />
+                                        </div>
+                                    )
+                                })}
+                            </CardContent>
+                        </Card>
+                    </div>
+                );
+            case 'ai':
+                return (
+                     <div className="space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Artikelerfassung (AI)</CardTitle>
+                                <CardDescription>KI-Modell für die Analyse von Produktseiten und Bildern.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="article-ai-provider">Anbieter</Label>
+                                        <Select value={articleAiProvider} onValueChange={(value) => { setArticleAiProvider(value); setArticleSelectedModel(''); }}>
+                                            <SelectTrigger id="article-ai-provider"><SelectValue placeholder="Anbieter wählen..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="google">Google Gemini</SelectItem>
+                                                <SelectItem value="openrouter">OpenRouter</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="article-ai-model">Modell</Label>
+                                        {articleAiProvider === 'openrouter' ? (
+                                            <Input id="article-ai-model" value={articleSelectedModel} onChange={e => setArticleSelectedModel(e.target.value)} placeholder="z.B. deepseek/deepseek-chat-v3.1:free" />
+                                        ) : (
+                                            <Select value={articleSelectedModel} onValueChange={setArticleSelectedModel} disabled={!articleAiProvider}>
+                                                <SelectTrigger id="article-ai-model"><SelectValue placeholder="Modell auswählen..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {articleAiProvider === 'google' && availableModels.google.map(model => (
+                                                        <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+                                </div>
+                                {articleAiProvider === 'google' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="article-google-api-key">Google Gemini API Key</Label>
+                                        <Input id="article-google-api-key" type="password" value={articleGoogleApiKey} onChange={e => setArticleGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
+                                    </div>
+                                )}
+                                {articleAiProvider === 'openrouter' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="article-openrouter-api-key">OpenRouter API Key</Label>
+                                        <Input id="article-openrouter-api-key" type="password" value={articleOpenRouterApiKey} onChange={e => setArticleOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
+                                    </div>
+                                )}
+                            </CardContent>
+                            <CardFooter>
+                                <Button variant="outline" onClick={() => handleTestConnection('article')} disabled={isTestingArticleConnection}>
+                                    {isTestingArticleConnection && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Verbindung testen
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Lieferschein-Erfassung (AI)</CardTitle>
+                                <CardDescription>KI-Modell für die Analyse von Lieferschein-Texten.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="delivery-ai-provider">Anbieter</Label>
+                                        <Select value={deliveryNoteAiProvider} onValueChange={(value) => { setDeliveryNoteAiProvider(value); setDeliveryNoteSelectedModel(''); }}>
+                                            <SelectTrigger id="delivery-ai-provider"><SelectValue placeholder="Anbieter wählen..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="google">Google Gemini</SelectItem>
+                                                <SelectItem value="openrouter">OpenRouter</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="delivery-ai-model">Modell</Label>
+                                        {deliveryNoteAiProvider === 'openrouter' ? (
+                                            <Input id="delivery-ai-model" value={deliveryNoteSelectedModel} onChange={e => setDeliveryNoteSelectedModel(e.target.value)} placeholder="z.B. google/gemini-flash-1.5" />
+                                        ) : (
+                                            <Select value={deliveryNoteSelectedModel} onValueChange={setDeliveryNoteSelectedModel} disabled={!deliveryNoteAiProvider}>
+                                                <SelectTrigger id="delivery-ai-model"><SelectValue placeholder="Modell auswählen..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {deliveryNoteAiProvider === 'google' && availableModels.google.map(model => (
+                                                        <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
+                                </div>
+                                {deliveryNoteAiProvider === 'google' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="delivery-google-api-key">Google Gemini API Key</Label>
+                                        <Input id="delivery-google-api-key" type="password" value={deliveryNoteGoogleApiKey} onChange={e => setDeliveryNoteGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
+                                    </div>
+                                )}
+                                {deliveryNoteAiProvider === 'openrouter' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="delivery-openrouter-api-key">OpenRouter API Key</Label>
+                                        <Input id="delivery-openrouter-api-key" type="password" value={deliveryNoteOpenRouterApiKey} onChange={e => setDeliveryNoteOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
+                                    </div>
+                                )}
+                            </CardContent>
+                            <CardFooter className="flex-col items-start gap-4">
+                                <Button variant="outline" onClick={() => handleTestConnection('deliveryNote')} disabled={isTestingDeliveryNoteConnection}>
+                                    {isTestingDeliveryNoteConnection && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Verbindung testen
+                                </Button>
+                                <Button onClick={handleSaveAiSettings}>Alle KI-Einstellungen speichern</Button>
+                            </CardFooter>
+                        </Card>
+                         <Card>
+                            <CardHeader>
+                                <CardTitle>Lieferschein-Schwärzung</CardTitle>
+                                <CardDescription>Legen Sie fest, welche Textbausteine für die KI unkenntlich gemacht werden.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {wholesalers.map(wholesaler => (
+                                    <div key={wholesaler.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                        <div>
+                                            <h3 className="font-semibold">{wholesaler.name}</h3>
+                                            <p className="text-sm text-muted-foreground">{(wholesaler.masks?.length || 0)} Maske(n) definiert</p>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={() => handleOpenMaskManagement(wholesaler)}>Verwalten</Button>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    </div>
+                );
+            case 'integrations':
+                 return (
+                    <div className="space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>GC-Gruppe Online Plus (IDS-Schnittstelle)</CardTitle>
+                                <CardDescription>Verbinden Sie die App mit der IDS-Schnittstelle.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="gc-username">Benutzername</Label>
+                                    <Input id="gc-username" placeholder="Ihr GC Online Plus Benutzername" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="gc-password">Passwort</Label>
+                                    <Input id="gc-password" type="password" placeholder="Ihr Passwort" />
+                                </div>
+                            </CardContent>
+                            <CardFooter><Button>Verbinden</Button></CardFooter>
+                        </Card>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
+
     if (!currentUser) {
         return <div>Benutzer wird geladen...</div>
     }
-
-    const visibleNavItems = currentUser.visibleNavItems ?? navItems.map(item => item.href);
     
   return (
     <div className="space-y-6">
@@ -440,215 +627,48 @@ export default function SettingsPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Section: AI & Automatisierung */}
-        <div className="lg:col-span-2 space-y-6">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Settings2 className="h-5 w-5"/> KI & Automatisierung
-            </h2>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Artikelerfassung (AI)</CardTitle>
-                    <CardDescription>
-                        KI-Modell für die Analyse von Produktseiten und Bildern.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="article-ai-provider">Anbieter</Label>
-                            <Select value={articleAiProvider} onValueChange={(value) => { setArticleAiProvider(value); setArticleSelectedModel(''); }}>
-                                <SelectTrigger id="article-ai-provider"><SelectValue placeholder="Anbieter wählen..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="google">Google Gemini</SelectItem>
-                                    <SelectItem value="openrouter">OpenRouter</SelectItem>
-                                </SelectContent>
-                            </Select>
+      {/* Mobile Accordion View */}
+      <div className="md:hidden">
+        <Accordion type="single" collapsible className="w-full space-y-4" value={activeSection} onValueChange={setActiveSection}>
+            {settingsSections.map(section => (
+                <AccordionItem key={section.id} value={section.id} className="border rounded-lg bg-card/90">
+                    <AccordionTrigger className="p-4 hover:no-underline">
+                        <div className="flex items-center gap-3">
+                           <section.icon className="h-5 w-5 text-primary" />
+                           <span className="font-semibold">{section.label}</span>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="article-ai-model">Modell</Label>
-                            {articleAiProvider === 'openrouter' ? (
-                                <Input id="article-ai-model" value={articleSelectedModel} onChange={e => setArticleSelectedModel(e.target.value)} placeholder="z.B. deepseek/deepseek-chat-v3.1:free" />
-                            ) : (
-                                <Select value={articleSelectedModel} onValueChange={setArticleSelectedModel} disabled={!articleAiProvider}>
-                                    <SelectTrigger id="article-ai-model"><SelectValue placeholder="Modell auswählen..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {articleAiProvider === 'google' && availableModels.google.map(model => (
-                                            <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        </div>
-                    </div>
-                     {articleAiProvider === 'google' && (
-                        <div className="space-y-2">
-                            <Label htmlFor="article-google-api-key">Google Gemini API Key</Label>
-                            <Input id="article-google-api-key" type="password" value={articleGoogleApiKey} onChange={e => setArticleGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
-                        </div>
-                    )}
-                    {articleAiProvider === 'openrouter' && (
-                        <div className="space-y-2">
-                            <Label htmlFor="article-openrouter-api-key">OpenRouter API Key</Label>
-                            <Input id="article-openrouter-api-key" type="password" value={articleOpenRouterApiKey} onChange={e => setArticleOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
-                        </div>
-                    )}
-                </CardContent>
-                <CardFooter>
-                    <Button variant="outline" onClick={() => handleTestConnection('article')} disabled={isTestingArticleConnection}>
-                        {isTestingArticleConnection && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Verbindung testen
-                    </Button>
-                </CardFooter>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Lieferschein-Erfassung (AI)</CardTitle>
-                    <CardDescription>
-                        KI-Modell für die Analyse von Lieferschein-Texten.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div className="space-y-2">
-                            <Label htmlFor="delivery-ai-provider">Anbieter</Label>
-                            <Select value={deliveryNoteAiProvider} onValueChange={(value) => { setDeliveryNoteAiProvider(value); setDeliveryNoteSelectedModel(''); }}>
-                                <SelectTrigger id="delivery-ai-provider"><SelectValue placeholder="Anbieter wählen..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="google">Google Gemini</SelectItem>
-                                    <SelectItem value="openrouter">OpenRouter</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="delivery-ai-model">Modell</Label>
-                            {deliveryNoteAiProvider === 'openrouter' ? (
-                                <Input id="delivery-ai-model" value={deliveryNoteSelectedModel} onChange={e => setDeliveryNoteSelectedModel(e.target.value)} placeholder="z.B. google/gemini-flash-1.5" />
-                            ) : (
-                                <Select value={deliveryNoteSelectedModel} onValueChange={setDeliveryNoteSelectedModel} disabled={!deliveryNoteAiProvider}>
-                                    <SelectTrigger id="delivery-ai-model"><SelectValue placeholder="Modell auswählen..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {deliveryNoteAiProvider === 'google' && availableModels.google.map(model => (
-                                            <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        </div>
-                    </div>
-                    {deliveryNoteAiProvider === 'google' && (
-                        <div className="space-y-2">
-                            <Label htmlFor="delivery-google-api-key">Google Gemini API Key</Label>
-                            <Input id="delivery-google-api-key" type="password" value={deliveryNoteGoogleApiKey} onChange={e => setDeliveryNoteGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
-                        </div>
-                    )}
-                    {deliveryNoteAiProvider === 'openrouter' && (
-                        <div className="space-y-2">
-                            <Label htmlFor="delivery-openrouter-api-key">OpenRouter API Key</Label>
-                            <Input id="delivery-openrouter-api-key" type="password" value={deliveryNoteOpenRouterApiKey} onChange={e => setDeliveryNoteOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
-                        </div>
-                    )}
-                </CardContent>
-                <CardFooter className="flex-col items-start gap-4">
-                    <Button variant="outline" onClick={() => handleTestConnection('deliveryNote')} disabled={isTestingDeliveryNoteConnection}>
-                        {isTestingDeliveryNoteConnection && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Verbindung testen
-                    </Button>
-                     <Button onClick={handleSaveAiSettings}>Alle KI-Einstellungen speichern</Button>
-                </CardFooter>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Lieferschein-Schwärzung</CardTitle>
-                    <CardDescription>
-                        Legen Sie fest, welche Textbausteine für die KI unkenntlich gemacht werden.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                    {wholesalers.map(wholesaler => (
-                        <div key={wholesaler.id} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div>
-                                <h3 className="font-semibold">{wholesaler.name}</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    {(wholesaler.masks?.length || 0)} Maske(n) definiert
-                                </p>
-                            </div>
-                            <Button variant="outline" size="sm" onClick={() => handleOpenMaskManagement(wholesaler)}>Verwalten</Button>
-                        </div>
-                    ))}
-                </CardContent>
-            </Card>
-        </div>
-
-        {/* Section: Anpassung */}
-        <div className="lg:col-span-1 space-y-6">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Pencil className="h-5 w-5"/> Persönliche Anpassung
-            </h2>
-            <Card>
-                <CardHeader><CardTitle>Anzeige</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <Label htmlFor="inventory-border-switch" className="flex-1 pr-4">Inventur-Status-Markierung</Label>
-                        <Switch id="inventory-border-switch" checked={currentUser.showInventoryStatusBorder ?? true} onCheckedChange={handleToggleBorder} />
-                    </div>
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <Label htmlFor="nav-sort-switch" className="flex-1 pr-4">Navigation sortierbar machen</Label>
-                        <Switch id="nav-sort-switch" checked={currentUser.isNavSortable ?? false} onCheckedChange={handleToggleNavSort} />
-                    </div>
-                    {isDesktop && <div className="flex items-center justify-between p-3 border rounded-lg">
-                        <Label htmlFor="dashboard-edit-switch" className="flex-1 pr-4">Dashboard anpassen</Label>
-                        <Switch id="dashboard-edit-switch" checked={currentUser.isDashboardEditing ?? false} onCheckedChange={handleToggleDashboardEditing} />
-                    </div>}
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader><CardTitle>Navigationsmenü</CardTitle></CardHeader>
-                <CardContent className="space-y-2">
-                    {navItems.map(item => {
-                        const isDisabled = item.href === '/settings';
-                        return (
-                            <div key={item.href} className="flex items-center justify-between p-3 border rounded-lg">
-                                <Label htmlFor={`nav-${item.href}`} className="flex-1 pr-4">{item.label}</Label>
-                                <Switch id={`nav-${item.href}`} checked={isDisabled || visibleNavItems.includes(item.href)} onCheckedChange={(checked) => handleToggleNavItem(item.href, checked)} disabled={isDisabled} />
-                            </div>
-                        )
-                    })}
-                </CardContent>
-            </Card>
-        </div>
-
-         {/* Section: Integrationen */}
-        <div className="lg:col-span-1 space-y-6">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-                <X className="h-5 w-5 rotate-45"/> Integrationen
-            </h2>
-            <Card>
-                <CardHeader>
-                    <CardTitle>GC-Gruppe Online Plus (IDS-Schnittstelle)</CardTitle>
-                    <CardDescription>
-                        Verbinden Sie die App mit der IDS-Schnittstelle.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="gc-username">Benutzername</Label>
-                        <Input id="gc-username" placeholder="Ihr GC Online Plus Benutzername" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="gc-password">Passwort</Label>
-                        <Input id="gc-password" type="password" placeholder="Ihr Passwort" />
-                    </div>
-                </CardContent>
-                <CardFooter>
-                    <Button>Verbinden</Button>
-                </CardFooter>
-            </Card>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-4 pt-0">
+                       <Separator className="mb-4" />
+                       {renderContent()}
+                    </AccordionContent>
+                </AccordionItem>
+            ))}
+        </Accordion>
+      </div>
+      
+      {/* Desktop Grid View */}
+      <div className="hidden md:grid md:grid-cols-[250px_1fr] gap-8">
+        <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
+          {settingsSections.map(section => (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id)}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary',
+                activeSection === section.id && 'bg-muted font-semibold text-primary'
+              )}
+            >
+              <section.icon className="h-4 w-4" />
+              {section.label}
+            </button>
+          ))}
+        </nav>
+        <div className="min-w-0">
+           {renderContent()}
         </div>
       </div>
+      
       {managingWholesaler && (
         <MaskManagementDialog
             wholesaler={managingWholesaler}
@@ -660,3 +680,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
