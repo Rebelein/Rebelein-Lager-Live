@@ -1,7 +1,14 @@
-# Settings to manage and configure a Firebase App Hosting backend.
-# https://firebase.google.com/docs/app-hosting/configure
+# yaml-language-server: $schema=https://firebase.google.com/static/apphosting/schema.json
+
+specVersion: v1alpha1
+
+buildConfig:
+  buildCommand: npm run build
+  destinationDir: .next
 
 runConfig:
-  # Increase this value if you'd like to automatically spin up
-  # more instances in response to increased traffic.
-  maxInstances: 1
+  cpu: 1
+  memoryMiB: 1024
+  
+requiredAPIs:
+  - cloudbuild.googleapis.com

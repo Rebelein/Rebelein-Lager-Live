@@ -1,21 +1,21 @@
-# **App Name**: LagerMeister PWA
+# **App Name**: SHK LagerMeister
 
 ## Core Features:
 
-- Artikel erfassen: Erfassung neuer Artikel mit Details wie Name, Beschreibung, Lagerort, Menge und Mindestbestand.
-- Lagerbestände verwalten: Anzeige der aktuellen Lagerbestände je Artikel mit Möglichkeit zur Anpassung der Menge.
-- Bestellvorschläge: Generiert automatische Bestellvorschläge basierend auf Mindestbeständen und Verbrauchsdaten. Das System wird als "tool" eingesetzt, um sicherzustellen, dass kritische Informationen für die Generierung der Bestellvorschläge nicht fehlen.
-- Lagerbewegungshistorie: Protokollierung aller Lagerbewegungen (Zugänge, Abgänge) mit Zeitstempel und Benutzer.
-- Artikel suchen: Schnelle Suche nach Artikeln anhand von Name oder Artikelnummer.
-- Barcode-Scanning: Einscannen von Barcodes zur schnellen Erfassung von Artikeln und Mengen.
-- Benutzerverwaltung: Verwaltung von Benutzerkonten und Berechtigungen.
+- Artikel hinzufügen/bearbeiten: Hinzufügen und Bearbeiten von Artikeln mit Details wie Bezeichnung, Artikelnummer und Lagerort.
+- Bestandsbuchungen: Buchen von Bestandszugängen und -abgängen mit Mengen und zugehörigen Daten.
+- Lagerbestandsanzeige: Übersichtliche Anzeige des aktuellen Lagerbestands für jeden Artikel.
+- Such- und Filterfunktion: Schnelle Suche und Filterung von Artikeln nach verschiedenen Kriterien.
+- Benachrichtigungsfunktion: Senden von Benachrichtigungen bei Unterschreitung eines Mindestbestands.
+- Automatisierte Bestandsprognose: Nutze eine KI-gesteuerte Komponente zur Vorhersage von Materialbedarf basierend auf historischen Daten und aktuellen Aufträgen, um frühzeitig Engpässe zu vermeiden.
+- Integration with existing SHK systems: Enable users to provide the application access to common SHK applications and pre-populate part names, numbers and locations.
 
 ## Style Guidelines:
 
-- Primärfarbe: Gedämpftes Blau (#6699CC) für eine professionelle und beruhigende Atmosphäre.
-- Hintergrundfarbe: Sehr helles Grau (#F0F0F0), fast Weiß, für eine saubere Optik.
-- Akzentfarbe: Warmes Orange (#FFB347) für wichtige Aktionen und Hinweise.
-- Schriftart: 'Inter' (sans-serif) für klare Lesbarkeit in allen Bereichen.
-- Klare, gut erkennbare Icons zur visuellen Unterstützung der Funktionen.
-- Übersichtliches Layout mit Fokus auf Benutzerfreundlichkeit und schneller Navigation.
-- Subtile Animationen zur Verbesserung der Benutzererfahrung (z.B. Ladeanimationen, Hover-Effekte).
+- Primary color: Cool blue-gray (#607D8B) for a professional and calm feel.
+- Background color: Light gray (#ECEFF1), a desaturated version of the primary color, for a clean backdrop.
+- Accent color: Orange (#FF9800), analogous to green on the color wheel, to highlight key actions.
+- Body and headline font: 'PT Sans' for a modern and clear UI.
+- Simple, outline-style icons for easy recognition of functions.
+- Clean and structured layout to facilitate easy navigation and usability.
+- Subtle transitions and animations for feedback and enhanced user experience.
