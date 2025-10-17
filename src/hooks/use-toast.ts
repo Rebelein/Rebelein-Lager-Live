@@ -1,3 +1,4 @@
+
 "use client"
 
 // Inspired by react-hot-toast library
@@ -7,6 +8,7 @@ import type {
   ToastActionElement,
   ToastProps,
 } from "@/components/ui/toast"
+import { useAppContext } from "@/context/AppContext";
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
@@ -173,6 +175,7 @@ function toast({ ...props }: Toast) {
 
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
+  const { dbConnectionStatus } = useAppContext();
 
   React.useEffect(() => {
     listeners.push(setState)
@@ -184,9 +187,18 @@ function useToast() {
     }
   }, [state])
 
+  const customToast = React.useCallback((props: Toast) => {
+     if (props.variant === 'destructive' && dbConnectionStatus !== 'connected') {
+        // Suppress destructive toasts when offline, as they are likely connection errors
+        console.log("Toast suppressed due to offline status:", props.title);
+        return;
+    }
+    toast(props);
+  }, [dbConnectionStatus]);
+
   return {
     ...state,
-    toast,
+    toast: customToast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }

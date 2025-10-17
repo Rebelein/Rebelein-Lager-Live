@@ -10,12 +10,16 @@ import { useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { startOfMonth, startOfYear, endOfYear, format as formatDate, subDays } from 'date-fns';
+import { startOfMonth, startOfYear, endOfYear, subDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { initialUsers, initialWholesalers, initialLocations, initialInventory, initialOrders, initialMachines } from '@/lib/data';
 import { navItems } from '@/lib/nav-items';
+import { isInventoryItem, isMachine } from '@/lib/utils';
+
+
+type DbConnectionStatus = 'connecting' | 'connected' | 'error';
 
 interface AppContextType {
+  dbConnectionStatus: DbConnectionStatus;
   isLoading: boolean;
   isUserSelectionRequired: boolean;
   items: (InventoryItem | Machine)[];
@@ -86,9 +90,96 @@ const allDashboardCards: DashboardCardLayout[] = [
     { id: 'turnover', size: 'default' },
 ];
 
+const getFromLocalStorage = <T>(key: string, defaultValue: T): T => {
+    try {
+        if (typeof window === 'undefined') return defaultValue;
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+        console.warn(`Error reading localStorage key “${key}”:`, error);
+        return defaultValue;
+    }
+};
+
+const saveToLocalStorage = <T>(key: string, value: T) => {
+    try {
+        if (typeof window === 'undefined') return;
+        window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+        console.warn(`Error writing to localStorage key “${key}”:`, error);
+    }
+};
+
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  
+  // Overall Loading State & DB Connection
+  const [dbConnectionStatus, setDbConnectionStatus] = useState<DbConnectionStatus>('connecting');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Data states, initialized from localStorage
+  const [users, setUsersState] = useState<User[]>(() => getFromLocalStorage('users', []));
+  const [wholesalers, setWholesalersState] = useState<Wholesaler[]>(() => getFromLocalStorage('wholesalers', []));
+  const [locations, setLocationsState] = useState<Location[]>(() => getFromLocalStorage('locations', []));
+  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>(() => getFromLocalStorage('items', []));
+  const [orders, setOrdersState] = useState<Order[]>(() => getFromLocalStorage('orders', []));
+  const [appSettings, setAppSettingsState] = useState<AppSettings>(() => getFromLocalStorage('appSettings', {}));
+
+  // Firebase real-time data hooks
+  const { data: usersData, error: usersError } = useCollection<User>(useMemoFirebase(() => collection(firestore, 'users'), [firestore]));
+  const { data: wholesalersData, error: wholesalersError } = useCollection<Wholesaler>(useMemoFirebase(() => collection(firestore, 'wholesalers'), [firestore]));
+  const { data: locationsData, error: locationsError } = useCollection<Location>(useMemoFirebase(() => collection(firestore, 'locations'), [firestore]));
+  const { data: articlesData, error: articlesError } = useCollection<InventoryItem>(useMemoFirebase(() => collection(firestore, 'articles'), [firestore]));
+  const { data: machinesData, error: machinesError } = useCollection<Machine>(useMemoFirebase(() => collection(firestore, 'machines'), [firestore]));
+  const { data: ordersData, error: ordersError } = useCollection<Order>(useMemoFirebase(() => collection(firestore, 'orders'), [firestore]));
+  const { data: settingsData, error: settingsError } = useDoc<AppSettings>(useMemoFirebase(() => doc(firestore, 'app_settings', 'global'), [firestore]));
+  
+  const anyError = usersError || wholesalersError || locationsError || articlesError || machinesError || ordersError || settingsError;
+
+  // Sync Firestore data to state and localStorage
+  useEffect(() => {
+    if (usersData) { setUsersState(usersData); saveToLocalStorage('users', usersData); }
+  }, [usersData]);
+  useEffect(() => {
+    if (wholesalersData) { setWholesalersState(wholesalersData); saveToLocalStorage('wholesalers', wholesalersData); }
+  }, [wholesalersData]);
+  useEffect(() => {
+    if (locationsData) { setLocationsState(locationsData); saveToLocalStorage('locations', locationsData); }
+  }, [locationsData]);
+  useEffect(() => {
+     if (articlesData && machinesData) {
+        const combinedItems = [...articlesData, ...machinesData];
+        setItemsState(combinedItems);
+        saveToLocalStorage('items', combinedItems);
+    }
+  }, [articlesData, machinesData]);
+  useEffect(() => {
+    if (ordersData) { setOrdersState(ordersData); saveToLocalStorage('orders', ordersData); }
+  }, [ordersData]);
+  useEffect(() => {
+    if (settingsData) { setAppSettingsState(settingsData); saveToLocalStorage('appSettings', settingsData); }
+  }, [settingsData]);
+  
+  useEffect(() => {
+    if (anyError) {
+      setDbConnectionStatus('error');
+    } else {
+      const allLoaded = usersData && wholesalersData && locationsData && articlesData && machinesData && ordersData && settingsData;
+      if (allLoaded) {
+        setDbConnectionStatus('connected');
+        if(isInitialLoad) setIsInitialLoad(false);
+      } else {
+        setDbConnectionStatus('connecting');
+      }
+    }
+  }, [usersData, wholesalersData, locationsData, articlesData, machinesData, ordersData, settingsData, anyError, isInitialLoad]);
+
+
+  const isLoading = isInitialLoad && dbConnectionStatus === 'connecting';
+
+  // --- All other state and logic from original context ---
   const [currentUser, setActiveUser] = useState<User | null>(null);
   const [favoriteUser, setFavoriteUserInternal] = useState<User | null>(null);
   
@@ -97,37 +188,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [detailViewTab, setDetailViewTab] = useState('overview');
 
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
-  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(new Set());
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(() => getFromLocalStorage('dismissedNotifications', new Set()));
   
   const [dashboardLayout, setDashboardLayoutState] = useState<DashboardCardLayout[]>(allDashboardCards);
-
-
-  const { data: usersData, isLoading: usersLoading } = useCollection<User>(useMemoFirebase(() => collection(firestore, 'users'), [firestore]));
-  const { data: wholesalersData, isLoading: wholesalersLoading } = useCollection<Wholesaler>(useMemoFirebase(() => collection(firestore, 'wholesalers'), [firestore]));
-  const { data: locationsData, isLoading: locationsLoading } = useCollection<Location>(useMemoFirebase(() => collection(firestore, 'locations'), [firestore]));
-  const { data: articlesData, isLoading: articlesLoading } = useCollection<InventoryItem>(useMemoFirebase(() => collection(firestore, 'articles'), [firestore]));
-  const { data: machinesData, isLoading: machinesLoading } = useCollection<Machine>(useMemoFirebase(() => collection(firestore, 'machines'), [firestore]));
-  const { data: ordersData, isLoading: ordersLoading } = useCollection<Order>(useMemoFirebase(() => collection(firestore, 'orders'), [firestore]));
-  const { data: settingsData, isLoading: settingsLoading } = useDoc<AppSettings>(useMemoFirebase(() => doc(firestore, 'app_settings', 'global'), [firestore]));
-
-  const users = useMemo(() => usersData || initialUsers, [usersData]);
-  const wholesalers = useMemo(() => wholesalersData || initialWholesalers, [wholesalersData]);
-  const locations = useMemo(() => locationsData || initialLocations, [locationsData]);
-  const orders = useMemo(() => ordersData || initialOrders, [ordersData]);
-  const appSettings = useMemo(() => settingsData || {}, [settingsData]);
-
-  const items = useMemo(() => {
-    const articles = articlesData || initialInventory;
-    const machines = machinesData || initialMachines;
-    return [...articles, ...machines];
-  }, [articlesData, machinesData]);
   
-  const isLoading = articlesLoading || machinesLoading || usersLoading || wholesalersLoading || ordersLoading || locationsLoading || settingsLoading;
-  const isUserSelectionRequired = !usersLoading && !currentUser;
+  const isUserSelectionRequired = !isLoading && !currentUser;
 
   const allChangelog = useMemo(() => {
     return items
-      .filter((item): item is InventoryItem => item.itemType === 'item')
+      .filter(isInventoryItem)
       .flatMap(item => 
         (item.changelog || []).map(log => ({
           ...log,
@@ -159,36 +228,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setDashboardLayout = (layout: DashboardCardLayout[]) => {
       setDashboardLayoutState(layout);
-      try {
-          localStorage.setItem('dashboardLayout', JSON.stringify(layout));
-      } catch (e) {
-          console.error("Failed to save dashboard layout to localStorage", e);
-      }
+      saveToLocalStorage('dashboardLayout', layout);
   };
 
   const setCurrentUser = useCallback((user: User | null) => {
     setActiveUser(user);
     if (user) {
-      try {
-        localStorage.setItem('favoriteUserId', user.id);
-      } catch (error) {
-        console.error("Could not save favorite user ID to localStorage:", error);
-      }
+      saveToLocalStorage('activeUserId', user.id);
     }
   }, []);
 
   const setFavoriteUser = useCallback((user: User) => {
     setFavoriteUserInternal(user);
     setActiveUser(user);
-    try {
-      localStorage.setItem('favoriteUserId', user.id);
-    } catch (error) {
-      console.error("Could not save favorite user ID to localStorage:", error);
-    }
+    saveToLocalStorage('favoriteUserId', user.id);
   }, []);
   
   useEffect(() => {
-    if (!usersLoading && users.length > 0 && !currentUser) {
+    if (users.length > 0 && !currentUser) {
       try {
         const favoriteUserId = localStorage.getItem('favoriteUserId');
         const user = users.find(u => u.id === favoriteUserId);
@@ -200,15 +257,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.error("Could not read favorite user ID from localStorage:", error);
       }
     }
-  }, [users, usersLoading, currentUser]);
+  }, [users, currentUser]);
 
   
   const updateAppSettings = useCallback((settings: AppSettings) => {
-    if (!firestore) return;
+    if (!firestore || dbConnectionStatus !== 'connected') return;
     const settingsRef = doc(firestore, 'app_settings', 'global');
     //mongodb
     setDocumentNonBlocking(settingsRef, settings, { merge: true });
-  }, [firestore]);
+  }, [firestore, dbConnectionStatus]);
 
 
   const notifications = useMemo<Notification[]>(() => {
@@ -238,7 +295,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 2. Minimum Stock Breach (Main Warehouse only)
     items.forEach(item => {
-        if(item.itemType === 'machine') return;
+        if(!isInventoryItem(item)) return;
         const mainStock = (item.stocks || []).find(s => s.locationId === mainWarehouseId);
         const mainMinStock = (item.minStocks || []).find(ms => ms.locationId === mainWarehouseId);
 
@@ -294,7 +351,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 5. Rented machines by current user (if user is selected)
     if (currentUser) {
         const userRentedMachines = items.filter((item): item is Machine =>
-            item.itemType === 'machine' &&
+            isMachine(item) &&
             item.rentalStatus === 'rented' &&
             item.rentedBy?.type === 'user' &&
             item.rentedBy?.id === currentUser.id
@@ -330,22 +387,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [notifications]);
   
   const dismissNotification = useCallback((notificationId: string) => {
-    setDismissedNotificationIds(prev => new Set(prev).add(notificationId));
+    setDismissedNotificationIds(prev => {
+        const newDismissed = new Set(prev).add(notificationId);
+        saveToLocalStorage('dismissedNotifications', Array.from(newDismissed));
+        return newDismissed;
+    });
   }, []);
 
   const dismissAllNotifications = useCallback(() => {
-    setDismissedNotificationIds(new Set(notifications.map(n => n.id)));
+    const allIds = new Set(notifications.map(n => n.id));
+    setDismissedNotificationIds(allIds);
+    saveToLocalStorage('dismissedNotifications', Array.from(allIds));
   }, [notifications]);
 
   const addItem = useCallback((newItem: InventoryItem) => {
-    if (!firestore) return;
+    if (!firestore || dbConnectionStatus !== 'connected') return;
     const itemRef = doc(firestore, 'articles', newItem.id);
     //mongodb
     setDocumentNonBlocking(itemRef, newItem, { merge: true });
-  }, [firestore]);
+  }, [firestore, dbConnectionStatus]);
 
     const updateItem = useCallback((itemId: string, data: Partial<InventoryItem | Machine>, isMachine: boolean = false) => {
-        if (!firestore) return;
+        if (!firestore || dbConnectionStatus !== 'connected') return;
         const collectionName = isMachine ? 'machines' : 'articles';
         const itemRef = doc(firestore, collectionName, itemId);
 
@@ -358,19 +421,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             //mongodb
             updateDocumentNonBlocking(itemRef, data);
         }
-    }, [firestore, items]);
+    }, [firestore, items, dbConnectionStatus]);
 
   const setUsers = useCallback((newUsers: User[]) => {
-      if (!firestore) return;
+      if (!firestore || dbConnectionStatus !== 'connected') return;
       newUsers.forEach(user => {
           const userRef = doc(firestore, 'users', user.id);
           //mongodb
           setDocumentNonBlocking(userRef, user, { merge: true });
       });
-  }, [firestore]);
+  }, [firestore, dbConnectionStatus]);
 
   const addUser = useCallback((name: string) => {
-    if (!firestore) return;
+    if (!firestore || dbConnectionStatus !== 'connected') return;
     const newUser: User = {
       id: new Date().toISOString(),
       name,
@@ -379,43 +442,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     //mongodb
     setDocumentNonBlocking(userRef, newUser, { merge: true });
     setCurrentUser(newUser); // Set new user as active
-  }, [firestore, setCurrentUser]);
+  }, [firestore, setCurrentUser, dbConnectionStatus]);
 
   const updateUserSettings = useCallback((settings: Partial<Omit<User, 'id' | 'name'>>) => {
-    if (!currentUser || !firestore) return;
+    if (!currentUser || !firestore || dbConnectionStatus !== 'connected') return;
     const updatedUser = { ...currentUser, ...settings };
     setActiveUser(updatedUser);
     const userRef = doc(firestore, 'users', currentUser.id);
     //mongodb
     updateDocumentNonBlocking(userRef, settings);
-  }, [currentUser, firestore]);
+  }, [currentUser, firestore, dbConnectionStatus]);
 
   const setWholesalers = useCallback((newWholesalers: Wholesaler[]) => {
-      if (!firestore) return;
+      if (!firestore || dbConnectionStatus !== 'connected') return;
       newWholesalers.forEach(wholesaler => {
           const wholesalerRef = doc(firestore, 'wholesalers', wholesaler.id);
           //mongodb
           setDocumentNonBlocking(wholesalerRef, wholesaler, { merge: true });
       });
-  }, [firestore]);
+  }, [firestore, dbConnectionStatus]);
 
     const setOrders = useCallback((newOrders: Order[]) => {
-        if (!firestore) return;
+        if (!firestore || dbConnectionStatus !== 'connected') return;
         newOrders.forEach(order => {
             const orderRef = doc(firestore, 'orders', order.id);
             //mongodb
             setDocumentNonBlocking(orderRef, order, { merge: true });
         });
-    }, [firestore]);
+    }, [firestore, dbConnectionStatus]);
 
     const setLocations = useCallback((newLocations: Location[]) => {
-        if (!firestore) return;
+        if (!firestore || dbConnectionStatus !== 'connected') return;
         newLocations.forEach(location => {
             const locationRef = doc(firestore, 'locations', location.id);
             //mongodb
             setDocumentNonBlocking(locationRef, location, { merge: true });
         });
-    }, [firestore]);
+    }, [firestore, dbConnectionStatus]);
     
   const latestInventoryLogs = useMemo(() => {
     return allChangelog.filter(log => log.type === 'inventory');
@@ -429,7 +492,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (!acc[log.userId]) {
           acc[log.userId] = { userId: log.userId, userName: log.userName, count: 0 };
         }
-        acc[log.userId].count++;
+        acc[log.userId]!.count++;
         return acc;
       }, {} as { [userId: string]: { userId: string; userName: string; count: number } });
 
@@ -437,7 +500,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [latestInventoryLogs]);
 
    const updateItemsToOrdered = useCallback((itemsToUpdate: InventoryItem[], order: Order, markAsOrdered: boolean, locationId: string) => {
-    if (!currentUser || !firestore) return;
+    if (!currentUser || !firestore || dbConnectionStatus !== 'connected') return;
     
     itemsToUpdate.forEach(item => {
         const itemRef = doc(firestore, 'articles', item.id);
@@ -480,10 +543,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         //mongodb
         updateDocumentNonBlocking(itemRef, updatedData);
     });
-  }, [currentUser, firestore]);
+  }, [currentUser, firestore, dbConnectionStatus]);
 
   const createOrder = useCallback((wholesalerId: string, itemsToOrder: InventoryItem[], locationId: string, isVehicleRequest: boolean): Order => {
-    if (!firestore || !currentUser) throw new Error("Firestore not initialized or user not logged in");
+    if (!firestore || !currentUser || dbConnectionStatus !== 'connected') throw new Error("Firestore not initialized or user not logged in");
     const wholesaler = wholesalers.find(w => w.id === wholesalerId);
     if (!wholesaler && wholesalerId !== 'unbekannt') {
       throw new Error("Wholesaler not found");
@@ -505,12 +568,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       locationId: isVehicleRequest ? locationId : null,
       initiatedBy: { userId: currentUser.id, userName: currentUser.name },
       items: itemsToOrder.map((item): OrderItem => {
-        const supplierInfo = item.suppliers?.find(s => s.wholesalerId === wholesalerId);
-        const reorderStatus = item.reorderStatus[locationId];
+        const supplierInfo = isInventoryItem(item) ? item.suppliers?.find(s => s.wholesalerId === wholesalerId) : undefined;
+        const reorderStatus = isInventoryItem(item) ? item.reorderStatus[locationId] : undefined;
         return {
           itemId: item.id,
           itemName: item.name,
-          itemNumber: Array.isArray(item.manufacturerItemNumbers) && item.manufacturerItemNumbers.length > 0 ? (item.manufacturerItemNumbers[0]?.number || '') : '',
+          itemNumber: isInventoryItem(item) && Array.isArray(item.manufacturerItemNumbers) && item.manufacturerItemNumbers.length > 0 ? (item.manufacturerItemNumbers[0]?.number || '') : '',
           wholesalerItemNumber: supplierInfo?.wholesalerItemNumber,
           quantity: reorderStatus?.quantity || 0,
           receivedQuantity: 0,
@@ -525,10 +588,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDocumentNonBlocking(orderRef, newOrder, { merge: true });
     updateItemsToOrdered(itemsToOrder, newOrder, false, locationId);
     return newOrder;
-  }, [orders.length, wholesalers, firestore, updateItemsToOrdered, locations, currentUser]);
+  }, [orders.length, wholesalers, firestore, updateItemsToOrdered, locations, currentUser, dbConnectionStatus]);
 
     const addItemsToOrder = useCallback((orderId: string, itemsToAdd: InventoryItem[], locationId: string) => {
-        if (!firestore) return;
+        if (!firestore || dbConnectionStatus !== 'connected') return;
         const orderRef = doc(firestore, 'orders', orderId);
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
@@ -537,8 +600,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         itemsToAdd.forEach(itemToAdd => {
             const existingItemIndex = newItems.findIndex(i => i.itemId === itemToAdd.id);
-            const supplierInfo = itemToAdd.suppliers?.find(s => s.wholesalerId === order.wholesalerId);
-            const reorderStatus = itemToAdd.reorderStatus[locationId];
+            const supplierInfo = isInventoryItem(itemToAdd) ? itemToAdd.suppliers?.find(s => s.wholesalerId === order.wholesalerId) : undefined;
+            const reorderStatus = isInventoryItem(itemToAdd) ? itemToAdd.reorderStatus[locationId] : undefined;
 
             if (existingItemIndex > -1) {
                 const existingItem = newItems[existingItemIndex];
@@ -549,7 +612,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 newItems.push({
                     itemId: itemToAdd.id,
                     itemName: itemToAdd.name,
-                    itemNumber: Array.isArray(itemToAdd.manufacturerItemNumbers) && itemToAdd.manufacturerItemNumbers.length > 0 ? (itemToAdd.manufacturerItemNumbers[0]?.number || '') : '',
+                    itemNumber: isInventoryItem(itemToAdd) && Array.isArray(itemToAdd.manufacturerItemNumbers) && itemToAdd.manufacturerItemNumbers.length > 0 ? (itemToAdd.manufacturerItemNumbers[0]?.number || '') : '',
                     wholesalerItemNumber: supplierInfo?.wholesalerItemNumber,
                     quantity: reorderStatus?.quantity || 0,
                     receivedQuantity: 0,
@@ -563,10 +626,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         //mongodb
         updateDocumentNonBlocking(orderRef, updatedOrder);
         updateItemsToOrdered(itemsToAdd, updatedOrder, false, locationId);
-    }, [firestore, orders, updateItemsToOrdered]);
+    }, [firestore, orders, updateItemsToOrdered, dbConnectionStatus]);
     
     const confirmOrder = useCallback((orderId: string) => {
-        if (!firestore || !currentUser) return;
+        if (!firestore || !currentUser || dbConnectionStatus !== 'connected') return;
         const orderRef = doc(firestore, 'orders', orderId);
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
@@ -589,11 +652,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 updateItemsToOrdered([item], confirmedOrder, true, locationId);
             }
         });
-  }, [firestore, orders, items, currentUser, updateItemsToOrdered]);
+  }, [firestore, orders, items, currentUser, updateItemsToOrdered, dbConnectionStatus]);
 
 
   const receiveOrderItem = useCallback((orderId: string, itemId: string, quantity: number, commissionOnly: boolean) => {
-    if (!currentUser || !firestore) return;
+    if (!currentUser || !firestore || dbConnectionStatus !== 'connected') return;
 
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
@@ -631,7 +694,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!(commissionOnly && isVehicleOrder)) {
         const orderItem = order.items.find(i => i.itemId === itemId);
         const itemToUpdate = items.find(i => i.id === itemId);
-        if(!itemToUpdate || !orderItem || itemToUpdate.itemType === 'machine') return;
+        if(!itemToUpdate || !orderItem || !isInventoryItem(itemToUpdate)) return;
 
         const itemRef = doc(firestore, 'articles', itemId);
         const currentStockInfo = itemToUpdate.stocks.find(s => s.locationId === orderItem.locationId);
@@ -661,18 +724,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         //mongodb
         updateDocumentNonBlocking(itemRef, { stocks: updatedStocks, changelog: [...(itemToUpdate.changelog || []), logEntry], reorderStatus: updatedReorderStatus });
     }
-}, [currentUser, firestore, orders, items, locations]);
+}, [currentUser, firestore, orders, items, locations, dbConnectionStatus]);
 
 
 const loadCommissionedItem = useCallback((orderId: string, itemId: string) => {
-    if (!currentUser || !firestore) return;
+    if (!currentUser || !firestore || dbConnectionStatus !== 'connected') return;
     const now = new Date().toISOString();
 
     const order = orders.find(o => o.id === orderId);
     const itemToUpdate = items.find(i => i.id === itemId);
     const orderItem = order?.items.find(i => i.itemId === itemId);
 
-    if (!order || !itemToUpdate || !orderItem || orderItem.status !== 'commissioned' || itemToUpdate.itemType === 'machine') return;
+    if (!order || !itemToUpdate || !orderItem || orderItem.status !== 'commissioned' || !isInventoryItem(itemToUpdate)) return;
     
     const orderRef = doc(firestore, 'orders', orderId);
     const itemRef = doc(firestore, 'articles', itemId);
@@ -720,11 +783,11 @@ const loadCommissionedItem = useCallback((orderId: string, itemId: string) => {
     //mongodb
     updateDocumentNonBlocking(itemRef, updatedItemData);
 
-}, [currentUser, firestore, orders, items, locations]);
+}, [currentUser, firestore, orders, items, locations, dbConnectionStatus]);
 
 
 const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) => {
-    if (!firestore) return;
+    if (!firestore || dbConnectionStatus !== 'connected') return;
     const order = orders.find(o => o.id === orderId);
     if (!order || order.status !== 'draft') return;
     
@@ -757,10 +820,10 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
             }
         }
     }
-}, [firestore, orders, items]);
+}, [firestore, orders, items, dbConnectionStatus]);
 
     const removeSingleItemFromArrangedOrder = useCallback((itemId: string, locationId: string) => {
-        if (!currentUser || !firestore) return;
+        if (!currentUser || !firestore || dbConnectionStatus !== 'connected') return;
 
         const itemToUpdate = items.find(i => i.id === itemId);
         if (!itemToUpdate || itemToUpdate.itemType === 'machine' || !itemToUpdate.reorderStatus[locationId] || itemToUpdate.reorderStatus[locationId]?.status !== 'arranged') return;
@@ -785,11 +848,11 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
         };
         //mongodb
         updateDocumentNonBlocking(itemRef, updatedData);
-    }, [currentUser, firestore, items, locations]);
+    }, [currentUser, firestore, items, locations, dbConnectionStatus]);
 
 
   const cancelArrangedOrder = useCallback((itemIds: string[], locationId: string) => {
-        if (!currentUser || !firestore) return;
+        if (!currentUser || !firestore || dbConnectionStatus !== 'connected') return;
 
         const now = new Date().toISOString();
 
@@ -820,10 +883,10 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
             //mongodb
             updateDocumentNonBlocking(itemRef, updatedData);
         });
-    }, [currentUser, firestore, items, locations]);
+    }, [currentUser, firestore, items, locations, dbConnectionStatus]);
 
   const removeItemFromLocation = useCallback((itemId: string, locationId: string) => {
-    if (!firestore) return;
+    if (!firestore || dbConnectionStatus !== 'connected') return;
     const item = items.find(i => i.id === itemId);
     if (!item || item.itemType === 'machine') return;
 
@@ -849,10 +912,10 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
       //mongodb
       updateDocumentNonBlocking(itemRef, updatedData);
     }
-  }, [firestore, items]);
+  }, [firestore, items, dbConnectionStatus]);
 
   const addItemToLocation = useCallback((itemId: string, locationId: string) => {
-    if (!currentUser || !firestore) return;
+    if (!currentUser || !firestore || dbConnectionStatus !== 'connected') return;
     const itemTemplate = items.find(i => i.id === itemId);
     if (!itemTemplate || itemTemplate.itemType === 'machine') return;
 
@@ -879,10 +942,10 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     };
     //mongodb
     updateDocumentNonBlocking(itemRef, updatedData);
-  }, [firestore, items, currentUser]);
+  }, [firestore, items, currentUser, dbConnectionStatus]);
 
   const transferStock = useCallback((itemId: string, fromLocationId: string, toLocationId: string, quantity: number) => {
-    if (!currentUser || !firestore) return;
+    if (!currentUser || !firestore || dbConnectionStatus !== 'connected') return;
     const item = items.find(i => i.id === itemId);
     if (!item || item.itemType === 'machine') return;
 
@@ -933,10 +996,10 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
 
     //mongodb
     updateDocumentNonBlocking(itemRef, updatedItemData);
-  }, [currentUser, firestore, items, locations]);
+  }, [currentUser, firestore, items, locations, dbConnectionStatus]);
 
   const bulkImportItems = useCallback((csvData: string, locationId: string): number => {
-    if (!currentUser || !firestore) {
+    if (!currentUser || !firestore || dbConnectionStatus !== 'connected') {
       throw new Error("Benutzer oder Datenbank nicht initialisiert.");
     }
 
@@ -1002,11 +1065,17 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     });
     
     return successfulImports;
-  }, [currentUser, firestore]);
+  }, [currentUser, firestore, dbConnectionStatus]);
 
    const handleQuickStockChange = useCallback((itemId: string, locationId: string, type: 'in' | 'out' | 'inventory', quantity: number) => {
-    if (!currentUser || !firestore) {
-        console.error("User or firestore not available");
+    if (!currentUser || !firestore || dbConnectionStatus !== 'connected') {
+        if(dbConnectionStatus !== 'connected'){
+            toast({
+              title: 'Offline',
+              description: 'Änderungen sind nur bei aktiver Datenbankverbindung möglich.',
+              variant: 'destructive',
+            });
+        }
         return;
     }
     
@@ -1141,7 +1210,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     //mongodb
     updateDocumentNonBlocking(itemRef, updatedData);
     
-  }, [currentUser, firestore, items, toast]);
+  }, [currentUser, firestore, items, toast, dbConnectionStatus]);
 
   const getAvailableYears = useCallback(() => {
     const years = new Set<number>();
@@ -1202,12 +1271,12 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     const yearlyData: YearlyInventoryExportRow[] = [];
 
     items.forEach(item => {
-        if(item.itemType === 'machine') return;
+        if(!isInventoryItem(item)) return;
         item.stocks.forEach(stock => {
             const location = locations.find(l => l.id === stock.locationId);
             if (!location) return;
 
-            const endOfYearStock = getStockAtDate(item, endOfYearDate);
+            const endOfYearStock = getStockAtDate(item, endOfYearDate, location.id);
             
             yearlyData.push({
                 itemId: item.id,
@@ -1291,6 +1360,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
 
 
   const value = {
+    dbConnectionStatus,
     isLoading,
     isUserSelectionRequired,
     items,

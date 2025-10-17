@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -13,6 +14,7 @@ import { useAppContext } from '@/context/AppContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { LoadingOverlay } from '@/components/layout/loading-overlay';
 import { NotificationBell } from './notification-bell';
+import { SyncStatus } from './sync-status';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -140,7 +142,7 @@ const SortableTooltipLink = ({ id, item, active, isNavSortable }: { id: string, 
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { users, currentUser, updateUserSettings, favoriteUser, setActiveUser, setFavoriteUser, isLoading, setUsers, addUser, isUserSelectionRequired } = useAppContext();
+  const { users, currentUser, updateUserSettings, favoriteUser, setActiveUser, setFavoriteUser, isLoading, setUsers, addUser, isUserSelectionRequired, dbConnectionStatus } = useAppContext();
   const [isClient, setIsClient] = React.useState(false);
 
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
@@ -321,6 +323,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
           <div className="ml-auto flex items-center gap-4">
+            <SyncStatus status={dbConnectionStatus} />
             <NotificationBell />
              <Select onValueChange={handleUserChange} value={currentUser?.id || ''}>
               <SelectTrigger className="w-[220px]">
