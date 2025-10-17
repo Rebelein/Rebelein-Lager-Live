@@ -947,26 +947,29 @@ export default function MachinesPage() {
 
   return (
     <div className="grid gap-6">
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">Maschinen</h1>
-        <div className="ml-auto flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className='flex-1'>
+            <h1 className="text-lg font-semibold md:text-2xl">Maschinen</h1>
+            <p className="text-sm text-muted-foreground mt-1">Verwalten Sie hier Ihren Maschinen- und Werkzeugpark.</p>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
             size="sm"
             variant="outline"
-            className="h-8 gap-1"
+            className="h-9 gap-1 flex-1 sm:flex-initial"
             onClick={openScanner}
           >
             <ScanLine className="h-4 w-4" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Ausleihen / Zurückgeben
+              Scannen
             </span>
           </Button>
           <Button
             size="sm"
-            className="h-8 gap-1"
+            className="h-9 gap-1 flex-1 sm:flex-initial"
             onClick={() => handleOpenForm(null)}
           >
-            <PlusCircle className="h-3.5 w-3.5" />
+            <PlusCircle className="h-4 w-4" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
               Neue Maschine
             </span>
@@ -985,76 +988,78 @@ export default function MachinesPage() {
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Verliehene Maschinen ({rentedMachines.length})</CardTitle>
-          <CardDescription>
-            Diese Maschinen sind aktuell bei Mitarbeitern oder Kunden im Einsatz.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
-            {rentedMachines.length > 0 ? (
-              rentedMachines.map(machine => (
-                <MachineCard key={machine.id} machine={machine} 
-                  setCurrentItem={setCurrentItem}
-                  setIsRentalModalOpen={setIsRentalModalOpen}
-                  setIsReturnModalOpen={setIsReturnModalOpen}
-                  handleOpenForm={handleOpenForm}
-                  setIsReservationOpen={setIsReservationOpen}
-                  setIsQrCodeOpen={setIsQrCodeOpen}
-                  handleSetMachineStatus={handleSetMachineStatus}
-                  setIsReservationConflictOpen={setIsReservationConflictOpen}
-                  setConflictingReservation={setConflictingReservation}
-                  handleCancelReservation={handleCancelReservation}
-                />
-              ))
-            ) : (
-              <div className="col-span-full py-12 text-center text-muted-foreground">
-                Aktuell sind keine Maschinen verliehen.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <div className='grid gap-6 lg:grid-cols-2'>
+        <Card className='lg:col-span-2'>
+            <CardHeader>
+            <CardTitle>Verliehene Maschinen ({rentedMachines.length})</CardTitle>
+            <CardDescription>
+                Diese Maschinen sind aktuell bei Mitarbeitern oder Kunden im Einsatz.
+            </CardDescription>
+            </CardHeader>
+            <CardContent>
+            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+                {rentedMachines.length > 0 ? (
+                rentedMachines.map(machine => (
+                    <MachineCard key={machine.id} machine={machine} 
+                    setCurrentItem={setCurrentItem}
+                    setIsRentalModalOpen={setIsRentalModalOpen}
+                    setIsReturnModalOpen={setIsReturnModalOpen}
+                    handleOpenForm={handleOpenForm}
+                    setIsReservationOpen={setIsReservationOpen}
+                    setIsQrCodeOpen={setIsQrCodeOpen}
+                    handleSetMachineStatus={handleSetMachineStatus}
+                    setIsReservationConflictOpen={setIsReservationConflictOpen}
+                    setConflictingReservation={setConflictingReservation}
+                    handleCancelReservation={handleCancelReservation}
+                    />
+                ))
+                ) : (
+                <div className="col-span-full py-12 text-center text-muted-foreground">
+                    Aktuell sind keine Maschinen verliehen.
+                </div>
+                )}
+            </div>
+            </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Verfügbare Maschinen & Werkstatt ({availableMachines.length})
-          </CardTitle>
-          <CardDescription>
-            Diese Maschinen sind im Lager verfügbar, reserviert oder zur
-            Reparatur.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
-            {availableMachines.length > 0 ? (
-              availableMachines.map(machine => (
-                <MachineCard
-                  key={machine.id}
-                  machine={machine}
-                  setCurrentItem={setCurrentItem}
-                  setIsRentalModalOpen={setIsRentalModalOpen}
-                  setIsReturnModalOpen={setIsReturnModalOpen}
-                  handleOpenForm={handleOpenForm}
-                  setIsReservationOpen={setIsReservationOpen}
-                  setIsQrCodeOpen={setIsQrCodeOpen}
-                  handleSetMachineStatus={handleSetMachineStatus}
-                  setIsReservationConflictOpen={setIsReservationConflictOpen}
-                  setConflictingReservation={setConflictingReservation}
-                  handleCancelReservation={handleCancelReservation}
-                />
-              ))
-            ) : (
-              <div className="col-span-full py-12 text-center text-muted-foreground">
-                Keine verfügbaren Maschinen oder Maschinen in Reparatur gefunden.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        <Card className='lg:col-span-2'>
+            <CardHeader>
+            <CardTitle>
+                Verfügbare Maschinen & Werkstatt ({availableMachines.length})
+            </CardTitle>
+            <CardDescription>
+                Diese Maschinen sind im Lager verfügbar, reserviert oder zur
+                Reparatur.
+            </CardDescription>
+            </CardHeader>
+            <CardContent>
+            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+                {availableMachines.length > 0 ? (
+                availableMachines.map(machine => (
+                    <MachineCard
+                    key={machine.id}
+                    machine={machine}
+                    setCurrentItem={setCurrentItem}
+                    setIsRentalModalOpen={setIsRentalModalOpen}
+                    setIsReturnModalOpen={setIsReturnModalOpen}
+                    handleOpenForm={handleOpenForm}
+                    setIsReservationOpen={setIsReservationOpen}
+                    setIsQrCodeOpen={setIsQrCodeOpen}
+                    handleSetMachineStatus={handleSetMachineStatus}
+                    setIsReservationConflictOpen={setIsReservationConflictOpen}
+                    setConflictingReservation={setConflictingReservation}
+                    handleCancelReservation={handleCancelReservation}
+                    />
+                ))
+                ) : (
+                <div className="col-span-full py-12 text-center text-muted-foreground">
+                    Keine verfügbaren Maschinen oder Maschinen in Reparatur gefunden.
+                </div>
+                )}
+            </div>
+            </CardContent>
+        </Card>
+      </div>
 
       <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
         <DialogContent>
