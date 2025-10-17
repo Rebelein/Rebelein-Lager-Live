@@ -51,12 +51,13 @@ function MaskEditorDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (name: string, redactionPhrases: string[], backgroundImage: string | null) => void;
+  onSave: (name: string, redactionPhrases: string[], requiredPhrases: string[], backgroundImage: string | null) => void;
   mask: WholesalerMask | null;
 }) {
     const [maskName, setMaskName] = React.useState('');
     const [backgroundImage, setBackgroundImage] = React.useState<string | null>(null);
     const [redactionPhrases, setRedactionPhrases] = React.useState('');
+    const [requiredPhrases, setRequiredPhrases] = React.useState('');
     const { toast } = useToast();
 
     React.useEffect(() => {
@@ -64,6 +65,7 @@ function MaskEditorDialog({
             setMaskName(initialMask?.name || 'Standard-Maske');
             setBackgroundImage(initialMask?.backgroundImage || null);
             setRedactionPhrases((initialMask?.redactionPhrases || []).join('\n'));
+            setRequiredPhrases((initialMask?.requiredPhrases || []).join('\n'));
         }
     }, [initialMask, open]);
 
@@ -108,13 +110,14 @@ function MaskEditorDialog({
             toast({ title: "Name fehlt", description: "Bitte geben Sie der Maske einen Namen.", variant: "destructive" });
             return;
         }
-        const phrases = redactionPhrases.split('\n').map(p => p.trim()).filter(Boolean);
-        onSave(maskName, phrases, backgroundImage);
+        const redaction = redactionPhrases.split('\n').map(p => p.trim()).filter(Boolean);
+        const required = requiredPhrases.split('\n').map(p => p.trim()).filter(Boolean);
+        onSave(maskName, redaction, required, backgroundImage);
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>{initialMask ? 'Maske bearbeiten' : 'Neue Maske erstellen'}</DialogTitle>
                 </DialogHeader>
@@ -140,15 +143,27 @@ function MaskEditorDialog({
                     </div>
                   </ScrollArea>
                    <ScrollArea className="h-full">
-                      <div className="space-y-2 pr-2">
-                           <h4 className="font-semibold">Zu entfernende Textbausteine</h4>
-                          <p className="text-sm text-muted-foreground">Geben Sie hier die genauen Textbausteine ein, die vor der KI-Analyse entfernt werden sollen (ein Eintrag pro Zeile).</p>
-                          <Textarea 
-                            value={redactionPhrases}
-                            onChange={(e) => setRedactionPhrases(e.target.value)}
-                            className="h-80 font-mono text-xs"
-                            placeholder={'Kundennummer:\nRechnungsadresse\nUSt-IdNr.'}
-                          />
+                      <div className="space-y-6 pr-2">
+                           <div>
+                                <h4 className="font-semibold">Zu entfernende Textbausteine</h4>
+                                <p className="text-sm text-muted-foreground">Die komplette Zeile, in der einer dieser Textbausteine vorkommt, wird entfernt.</p>
+                                <Textarea 
+                                    value={redactionPhrases}
+                                    onChange={(e) => setRedactionPhrases(e.target.value)}
+                                    className="h-40 font-mono text-xs mt-2"
+                                    placeholder={'Kundennummer:\nRechnungsadresse\nUSt-IdNr.'}
+                                />
+                            </div>
+                             <div>
+                                <h4 className="font-semibold">Wichtige Textbausteine</h4>
+                                <p className="text-sm text-muted-foreground">Textbausteine, die für die KI-Analyse zwingend erforderlich sind (z.B. "Kommission:", "Bestell-Nr.").</p>
+                                <Textarea 
+                                    value={requiredPhrases}
+                                    onChange={(e) => setRequiredPhrases(e.target.value)}
+                                    className="h-40 font-mono text-xs mt-2"
+                                    placeholder={'Ihre Kommission:\nAuftragsnummer'}
+                                />
+                            </div>
                       </div>
                    </ScrollArea>
                 </div>
@@ -167,12 +182,12 @@ function MaskManagementDialog({ wholesaler, open, onOpenChange, onUpdateWholesal
 
     if (!wholesaler) return null;
 
-    const handleSaveMask = (name: string, redactionPhrases: string[], backgroundImage: string | null) => {
+    const handleSaveMask = (name: string, redactionPhrases: string[], requiredPhrases: string[], backgroundImage: string | null) => {
         let updatedMasks: WholesalerMask[];
         if (editingMask) { // Editing existing mask
-            updatedMasks = (wholesaler.masks || []).map(m => m.id === editingMask.id ? { ...m, name, redactionPhrases, backgroundImage: backgroundImage || undefined } : m);
+            updatedMasks = (wholesaler.masks || []).map(m => m.id === editingMask.id ? { ...m, name, redactionPhrases, requiredPhrases, backgroundImage: backgroundImage || undefined } : m);
         } else { // Adding new mask
-            const newMask: WholesalerMask = { id: new Date().toISOString(), name, redactionPhrases, backgroundImage: backgroundImage || undefined };
+            const newMask: WholesalerMask = { id: new Date().toISOString(), name, redactionPhrases, requiredPhrases, backgroundImage: backgroundImage || undefined };
             updatedMasks = [...(wholesaler.masks || []), newMask];
         }
         onUpdateWholesaler({ ...wholesaler, masks: updatedMasks });

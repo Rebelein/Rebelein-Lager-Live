@@ -1,17 +1,18 @@
+
 'use client'
 
 import * as React from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAppContext } from '@/context/AppContext'
 import type { InventoryItem, Order, OrderItem, Location, Wholesaler, WholesalerMask } from '@/lib/types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
-import { ClipboardCopy, ShoppingCart, Inbox, Minus, Plus, X, Trash2, Truck, PackageCheck, Scan, Check, FileWarning, Camera, Zap, ZapOff, RefreshCw, Upload, ImagePlus, ClipboardPaste } from 'lucide-react'
+import { ClipboardCopy, ShoppingCart, Inbox, Minus, Plus, X, Trash2, Truck, PackageCheck, Scan, Check, FileWarning, Camera, Zap, ZapOff, RefreshCw, Upload, ImagePlus, ClipboardPaste, AlertTriangle } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { getOrderStatusBadgeVariant, getOrderStatusText, applyMaskToImage, isInventoryItem } from '@/lib/utils'
+import { getOrderStatusBadgeVariant, getOrderStatusText, isInventoryItem } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,8 @@ import Image from 'next/image'
 import Webcam from 'react-webcam'
 import { Slider } from '@/components/ui/slider'
 import * as pdfjsLib from 'pdfjs-dist';
+import Tesseract from 'tesseract.js';
+import { Textarea } from '@/components/ui/textarea'
 
 // Configure the worker script path
 if (typeof window !== 'undefined') {
@@ -67,10 +70,12 @@ export default function OrdersPage() {
   const [isDeliveryNoteScannerOpen, setIsDeliveryNoteScannerOpen] = React.useState(false);
   const [isCameraScannerOpen, setIsCameraScannerOpen] = React.useState(false);
   const [deliveryNoteImage, setDeliveryNoteImage] = React.useState<string | null>(null);
+  const [ocrTextBlocks, setOcrTextBlocks] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
   const [analysisResult, setAnalysisResult] = React.useState<AnalyzeDeliveryNoteOutput | null>(null);
   const [analyzedOrder, setAnalyzedOrder] = React.useState<Order | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [missingRequiredPhrases, setMissingRequiredPhrases] = useState<string[]>([]);
 
     // Camera state
     const webcamRef = React.useRef<Webcam>(null);
@@ -151,22 +156,17 @@ export default function OrdersPage() {
         }
     };
     
-    const takePicture = React.useCallback(async () => {
-        if (webcamRef.current && selectedMaskForScan) {
-            const imageSrc = webcamRef.current.getScreenshot();
-            if (imageSrc) {
-                try {
-                    const maskedImage = await applyMaskToImage(imageSrc, selectedMaskForScan.areas);
-                    setDeliveryNoteImage(maskedImage);
-                    setIsCameraScannerOpen(false);
-                    setIsDeliveryNoteScannerOpen(true);
-                } catch (error) {
-                    toast({ title: "Fehler beim Maskieren", description: "Das Bild konnte nicht verarbeitet werden.", variant: "destructive" });
-                    console.error(error);
-                }
-            }
-        }
-    }, [webcamRef, selectedMaskForScan, toast]);
+   const takePicture = useCallback(async () => {
+    if (webcamRef.current) {
+      const imageSrc = webcamRef.current.getScreenshot();
+      if (imageSrc) {
+        setDeliveryNoteImage(imageSrc);
+        setIsCameraScannerOpen(false);
+        setIsDeliveryNoteScannerOpen(true);
+        await processImageWithOCR(imageSrc);
+      }
+    }
+  }, [webcamRef]);
   
   const arrangedItemsByLocation = React.useMemo(() => {
     const groupedByLocation: { [locationId: string]: InventoryItem[] } = {};
@@ -388,6 +388,48 @@ export default function OrdersPage() {
         setTimeout(() => fileInputRef.current?.click(), 100);
     };
 
+    const processImageWithOCR = async (imageSrc: string) => {
+        if (!selectedMaskForScan) return;
+        setIsAnalyzing(true);
+        toast({ title: 'OCR gestartet', description: 'Erkenne Text auf dem Lieferschein...' });
+
+        try {
+            const result = await Tesseract.recognize(imageSrc, 'deu');
+            
+            let processedText = result.data.text;
+            const redactionPhrases = selectedMaskForScan.redactionPhrases || [];
+
+            // Smarter redaction: remove the whole line containing the phrase
+            const lines = processedText.split('\n');
+            const redactedLines = lines.filter(line => 
+                !redactionPhrases.some(phrase => line.toLowerCase().includes(phrase.toLowerCase()))
+            );
+            processedText = redactedLines.join('\n');
+            
+            // For now, we set the whole text as one block. This can be improved later.
+            setOcrTextBlocks([processedText]);
+            
+            // Check for required phrases
+            const lowerCaseText = processedText.toLowerCase();
+            const missingPhrases = (selectedMaskForScan.requiredPhrases || []).filter(
+                phrase => !lowerCaseText.includes(phrase.toLowerCase())
+            );
+            setMissingRequiredPhrases(missingPhrases);
+            if (missingPhrases.length > 0) {
+                 toast({ title: 'Warnung', description: 'Einige wichtige Felder wurden nicht gefunden.', variant: 'destructive' });
+            }
+
+            toast({ title: 'Texterkennung erfolgreich!', description: 'Text wurde extrahiert und bereinigt.' });
+        } catch (error) {
+            console.error('OCR Error:', error);
+            toast({ title: 'OCR-Fehler', description: 'Text konnte nicht erkannt werden.', variant: 'destructive' });
+            setOcrTextBlocks([]);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+
     const handleDeliveryNoteImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file || !selectedMaskForScan) return;
@@ -420,8 +462,8 @@ export default function OrdersPage() {
                  return;
             }
 
-            const maskedImage = await applyMaskToImage(dataUrl, selectedMaskForScan.areas);
-            setDeliveryNoteImage(maskedImage);
+            setDeliveryNoteImage(dataUrl);
+            await processImageWithOCR(dataUrl);
 
         } catch (error) {
             console.error("Error processing file:", error);
@@ -430,10 +472,12 @@ export default function OrdersPage() {
     };
     
     const handleAnalyzeDeliveryNote = async () => {
-        if (!deliveryNoteImage) {
-            toast({ title: "Fehler", description: "Bitte Bild des Lieferscheins hochladen.", variant: 'destructive' });
+        if (ocrTextBlocks.length === 0) {
+            toast({ title: "Fehler", description: "Kein Text zum Analysieren vorhanden.", variant: 'destructive' });
             return;
         }
+
+        const fullText = ocrTextBlocks.join('\n\n');
 
         const aiConfig = appSettings?.deliveryNoteAi;
         if (!aiConfig?.provider || !aiConfig?.model || !aiConfig?.apiKey) {
@@ -450,7 +494,6 @@ export default function OrdersPage() {
         setAnalyzedOrder(null);
         
         try {
-            // Collect all items from all open orders and enrich them with all possible supplier numbers
             const allOpenOrderItems = openOrders.flatMap(order => 
                 order.items.map(orderItem => {
                     const fullItem = items.find(i => i.id === orderItem.itemId);
@@ -463,14 +506,13 @@ export default function OrdersPage() {
                         ...orderItem,
                         orderId: order.id,
                         orderNumber: order.orderNumber,
-                        // Provide all known wholesaler numbers for this item
                         allWholesalerItemNumbers: [...new Set(allSupplierNumbers)], 
                     };
                 })
             );
 
             const result = await analyzeDeliveryNote({
-                photoDataUri: deliveryNoteImage,
+                deliveryNoteText: fullText,
                 orderItems: allOpenOrderItems,
                 provider: aiConfig.provider,
                 model: aiConfig.model,
@@ -537,11 +579,9 @@ export default function OrdersPage() {
         setActiveTab('open');
         setIsDeliveryNoteScannerOpen(false);
         
-        // Use a timeout to ensure the DOM has updated after tab switch
         setTimeout(() => {
             const orderCard = orderRefs.current[analyzedOrder.id];
             orderCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Maybe add a temporary highlight effect
             orderCard?.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
             setTimeout(() => {
                  orderCard?.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
@@ -593,15 +633,10 @@ export default function OrdersPage() {
                     const reader = new FileReader();
                     reader.onload = async (event) => {
                         if (event.target?.result) {
-                            try {
-                                const maskedImage = await applyMaskToImage(event.target.result as string, selectedMaskForScan.areas);
-                                setDeliveryNoteImage(maskedImage);
-                                setIsDeliveryNoteScannerOpen(true);
-                                toast({ title: 'Bild eingefügt', description: 'Das Bild aus der Zwischenablage wurde maskiert und übernommen.' });
-                            } catch (error) {
-                                toast({ title: "Fehler beim Maskieren", description: "Das Bild konnte nicht verarbeitet werden.", variant: "destructive" });
-                                console.error(error);
-                            }
+                            setDeliveryNoteImage(event.target.result as string);
+                            setIsDeliveryNoteScannerOpen(true);
+                            await processImageWithOCR(event.target.result as string);
+                            toast({ title: 'Bild eingefügt und verarbeitet.' });
                         }
                     };
                     reader.readAsDataURL(blob);
@@ -621,6 +656,12 @@ export default function OrdersPage() {
                 variant: 'destructive',
             });
         }
+    };
+    
+    const handleOcrBlockChange = (index: number, newText: string) => {
+        const newBlocks = [...ocrTextBlocks];
+        newBlocks[index] = newText;
+        setOcrTextBlocks(newBlocks);
     };
 
     const isFullReceiptPossible = analysisResult?.matchedItems.every(item => item.matchStatus === 'ok') ?? false;
@@ -885,9 +926,9 @@ export default function OrdersPage() {
       <Dialog open={isCameraScannerOpen} onOpenChange={setIsCameraScannerOpen}>
         <DialogContent className="max-w-4xl">
             <DialogHeader>
-                <DialogTitle>Lieferschein ausrichten &amp; scannen</DialogTitle>
+                <DialogTitle>Lieferschein fotografieren</DialogTitle>
                 <DialogDescription>
-                    Positionieren Sie den Lieferschein so, dass die relevanten Bereiche innerhalb der hellen Rechtecke liegen.
+                    Fotografieren Sie den Lieferschein. Sorgen Sie für gute Beleuchtung.
                 </DialogDescription>
             </DialogHeader>
             <div className="relative aspect-[4/5] w-full max-w-full mx-auto overflow-hidden rounded-lg border mt-4 bg-black">
@@ -905,22 +946,6 @@ export default function OrdersPage() {
                     onUserMedia={checkTorchSupport}
                     className="w-full h-full object-contain"
                 />
-                 {selectedMaskForScan && (
-                    <div className="absolute inset-0 pointer-events-none">
-                        {selectedMaskForScan.areas.map((area, index) => (
-                            <div
-                                key={index}
-                                className="absolute border-2 border-dashed border-primary bg-primary/20"
-                                style={{
-                                    left: `${area.x}%`,
-                                    top: `${area.y}%`,
-                                    width: `${area.width}%`,
-                                    height: `${area.height}%`,
-                                }}
-                            ></div>
-                        ))}
-                    </div>
-                )}
             </div>
             <div className="flex flex-col gap-4 mt-4">
                 <div className="flex items-center gap-4 bg-muted p-2 rounded-lg">
@@ -1113,12 +1138,12 @@ export default function OrdersPage() {
       <Dialog open={isDeliveryNoteScannerOpen} onOpenChange={setIsDeliveryNoteScannerOpen}>
         <DialogContent className="max-w-4xl">
             <DialogHeader>
-                <DialogTitle>Lieferschein scannen</DialogTitle>
-                <DialogDescription>Fotografieren Sie den Lieferschein. Die KI wird versuchen, die Bestellung zuzuordnen und die gelieferten Artikel abzugleichen.</DialogDescription>
+                <DialogTitle>Lieferschein scannen &amp; prüfen</DialogTitle>
+                <DialogDescription>Überprüfen Sie den erkannten Text, bevor Sie ihn an die KI senden.</DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
                 <div className="space-y-4">
-                    <Label>Lieferschein-Foto</Label>
+                    <Label>Lieferschein-Vorschau</Label>
                     <Card className="flex items-center justify-center h-60 border-dashed relative">
                         {deliveryNoteImage ? (
                             <div className="relative w-full h-full">
@@ -1131,28 +1156,29 @@ export default function OrdersPage() {
                                 <Button type="button" variant="outline" size="sm" onClick={handlePasteFromClipboard}><ClipboardPaste className="mr-2 h-4 w-4" />Einfügen</Button>
                             </div>
                         )}
-                         <Input
-                            type="file"
-                            className="hidden"
-                            ref={fileInputRef}
-                            accept="image/*,.pdf"
-                            onChange={handleDeliveryNoteImageUpload}
-                        />
+                         <Input type="file" className="hidden" ref={fileInputRef} accept="image/*,.pdf" onChange={handleDeliveryNoteImageUpload} />
                     </Card>
-                     <Button className="w-full" onClick={handleAnalyzeDeliveryNote} disabled={!deliveryNoteImage || isAnalyzing}>
+                     <Button className="w-full" onClick={handleAnalyzeDeliveryNote} disabled={ocrTextBlocks.length === 0 || isAnalyzing}>
                         {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Scan className="mr-2 h-4 w-4" />}
-                        Lieferschein analysieren
+                        Text an KI senden &amp; Abgleich starten
                     </Button>
                 </div>
                 <div className="space-y-4">
-                    {isAnalyzing ? (
-                         <div className="flex flex-col items-center justify-center gap-4 h-full">
+                     <Label>Erkannter &amp; bereinigter Text</Label>
+                    {isAnalyzing && !analysisResult ? (
+                         <div className="flex flex-col items-center justify-center gap-4 h-full border rounded-lg bg-muted/50">
                             <Loader2 className="h-10 w-10 animate-spin text-primary" />
                             <p className="text-muted-foreground">Analysiere Lieferschein...</p>
                         </div>
                     ) : analysisResult && analyzedOrder ? (
                         <div className="space-y-4">
                              <h4 className="font-semibold">Abgleich für Bestellung: <span className="text-primary">{analyzedOrder.orderNumber}</span></h4>
+                              {missingRequiredPhrases.length > 0 && (
+                                <div className="p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-600 dark:text-yellow-300">
+                                    <p className="font-bold flex items-center gap-2"><AlertTriangle className="h-5 w-5"/> Wichtige Felder fehlen</p>
+                                    <p className="text-sm mt-1">Folgende wichtige Felder wurden nicht gefunden: {missingRequiredPhrases.join(', ')}</p>
+                                </div>
+                             )}
                              <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -1193,8 +1219,28 @@ export default function OrdersPage() {
                             </Button>
                         </div>
                     ) : (
-                         <div className="flex flex-col items-center justify-center gap-4 h-full border rounded-md bg-muted/50">
-                            <p className="text-muted-foreground text-center">Hier erscheint das Ergebnis des Abgleichs.</p>
+                         <div className="flex flex-col gap-2 h-full">
+                            {missingRequiredPhrases.length > 0 && (
+                                <div className="p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-600 dark:text-yellow-300">
+                                    <p className="font-bold flex items-center gap-2"><AlertTriangle className="h-5 w-5"/> Wichtige Felder fehlen</p>
+                                    <p className="text-sm mt-1">Folgende wichtige Felder wurden nicht gefunden: {missingRequiredPhrases.join(', ')}</p>
+                                </div>
+                             )}
+                            <div className="flex-grow space-y-2">
+                                {ocrTextBlocks.map((block, index) => (
+                                    <Textarea
+                                        key={index}
+                                        value={block}
+                                        onChange={(e) => handleOcrBlockChange(index, e.target.value)}
+                                        className="font-mono text-xs w-full min-h-[100px] flex-grow"
+                                    />
+                                ))}
+                            </div>
+                            {ocrTextBlocks.length === 0 && (
+                                <div className="flex items-center justify-center h-full border rounded-md bg-muted/50">
+                                    <p className="text-muted-foreground text-center">Hier erscheint der erkannte Text.</p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

@@ -130,6 +130,7 @@ export type WholesalerMask = {
   id: string;
   name: string;
   redactionPhrases?: string[];
+  requiredPhrases?: string[];
   backgroundImage?: string;
 }
 
@@ -232,3 +233,11 @@ export type DashboardLayout = {
     layout: DashboardCardLayout[];
     isEditing: boolean;
 }
+
+// Typ für die OCR-Maskierungsbereiche, falls Sie ihn an anderer Stelle benötigen
+export type MaskArea = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
