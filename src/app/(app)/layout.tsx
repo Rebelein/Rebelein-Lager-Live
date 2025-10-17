@@ -10,10 +10,16 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   return (
     <FirebaseClientProvider>
       <AppProvider>
-        <AppShell>{children}</AppShell>
+        {isClient ? <AppShell>{children}</AppShell> : null}
       </AppProvider>
     </FirebaseClientProvider>
   );
