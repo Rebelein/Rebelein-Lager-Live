@@ -34,6 +34,11 @@ export function UserSelectionDialog() {
   } = useAppContext();
   const [showNewUserForm, setShowNewUserForm] = React.useState(false);
   const [newUserName, setNewUserName] = React.useState('');
+  const [isClient, setIsClient] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleSelectUser = (user: User) => {
     setCurrentUser(user);
@@ -46,6 +51,10 @@ export function UserSelectionDialog() {
       setShowNewUserForm(false);
     }
   };
+
+  if (!isClient) {
+    return null;
+  }
 
   return (
     <Dialog open={isUserSelectionRequired}>
