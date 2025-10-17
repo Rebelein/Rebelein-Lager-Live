@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAppContext } from '@/context/AppContext';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { navItems } from '@/components/layout/app-shell';
+import { navItems } from '@/lib/nav-items';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Trash2, PlusCircle, Pencil } from 'lucide-react';
 import { testAiConnection } from './actions';
