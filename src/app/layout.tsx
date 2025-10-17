@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"
+// Toaster wird von hier entfernt
 
 export const metadata: Metadata = {
   title: 'Rebelein Lager',
@@ -31,7 +31,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased h-full font-sans">
         {children}
-        <Toaster />
+        {/* Toaster wird von hier entfernt, um Hydration-Fehler zu vermeiden */}
       </body>
     </html>
   );

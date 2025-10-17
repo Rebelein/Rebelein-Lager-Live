@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { useToast, Toaster } from '@/hooks/use-toast';
 import type { User } from '@/lib/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
@@ -374,6 +374,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {showApp ? (
             <>
               {children}
+              <Toaster />
             </>
           ) : null}
           {isClient && <UserSelectionDialog />}

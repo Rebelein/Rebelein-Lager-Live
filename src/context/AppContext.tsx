@@ -11,7 +11,7 @@ import { collection, doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { startOfMonth, startOfYear, endOfYear, subDays } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { useToast as useOriginalToast } from '@/hooks/use-toast';
 import { navItems } from '@/lib/nav-items';
 import { isInventoryItem, isMachine } from '@/lib/utils';
 
@@ -113,7 +113,7 @@ const saveToLocalStorage = <T,>(key: string, value: T) => {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const firestore = useFirestore();
-  const { toast } = useToast();
+  const { toast } = useOriginalToast();
   
   // Overall Loading State & DB Connection
   const [dbConnectionStatus, setDbConnectionStatus] = useState<DbConnectionStatus>('connecting');
@@ -193,6 +193,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [dashboardLayout, setDashboardLayoutState] = useState<DashboardCardLayout[]>(allDashboardCards);
   
   const isUserSelectionRequired = !isLoading && !currentUser;
+
+  const customToast = useCallback((props: Parameters<typeof toast>[0]) => {
+     if (props.variant === 'destructive' && dbConnectionStatus !== 'connected') {
+        console.log("Toast suppressed due to offline status:", props.title);
+        return;
+    }
+    toast(props);
+  }, [dbConnectionStatus, toast]);
 
   const allChangelog = useMemo(() => {
     return items
@@ -1068,7 +1076,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
    const handleQuickStockChange = useCallback((itemId: string, locationId: string, type: 'in' | 'out' | 'inventory', quantity: number) => {
     if (!currentUser || !firestore || dbConnectionStatus !== 'connected') {
         if(dbConnectionStatus !== 'connected'){
-            toast({
+            customToast({
               title: 'Offline',
               description: 'Änderungen sind nur bei aktiver Datenbankverbindung möglich.',
               variant: 'destructive',
@@ -1101,7 +1109,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     }
 
     if (newStock < 0) {
-        toast({
+        customToast({
           title: 'Fehler',
           description: 'Der Lagerbestand kann nicht negativ werden.',
           variant: 'destructive',
@@ -1155,7 +1163,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
           itemId: itemToUpdate.id,
           itemName: itemToUpdate.name,
         });
-         toast({ title: 'Bestellvorschlag storniert', description: `Der Vorschlag für ${itemToUpdate.name} wurde entfernt, da der Bestand wieder ausreicht.` });
+         customToast({ title: 'Bestellvorschlag storniert', description: `Der Vorschlag für ${itemToUpdate.name} wurde entfernt, da der Bestand wieder ausreicht.` });
       } else if (neededQuantity !== reorderStatus.quantity) {
         // Stock still below min, but required quantity changed. Adjust reorder.
         updatedReorderStatus[locationId] = {
@@ -1173,7 +1181,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
           itemId: itemToUpdate.id,
           itemName: itemToUpdate.name,
         });
-        toast({ title: 'Bestellvorschlag angepasst', description: `Die Bestellmenge für ${itemToUpdate.name} wurde auf ${neededQuantity} Stk. aktualisiert.` });
+        customToast({ title: 'Bestellvorschlag angepasst', description: `Die Bestellmenge für ${itemToUpdate.name} wurde auf ${neededQuantity} Stk. aktualisiert.` });
       }
     } else if (neededQuantity > 0 && !reorderStatus?.status) {
         // Stock fell below min and no reorder exists, create a new one.
@@ -1194,7 +1202,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
             itemId: itemToUpdate.id,
             itemName: itemToUpdate.name,
         });
-        toast({
+        customToast({
             title: 'Nachbestellung angeordnet',
             description: `Bestand von ${itemToUpdate.name} ist unter dem Minimum. ${neededQuantity} Stk. wurden zur Nachbestellung angeordnet.`,
         });
@@ -1208,7 +1216,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     //mongodb
     updateDocumentNonBlocking(itemRef, updatedData);
     
-  }, [currentUser, firestore, items, toast, dbConnectionStatus]);
+  }, [currentUser, firestore, items, customToast, dbConnectionStatus]);
 
   const getAvailableYears = useCallback(() => {
     const years = new Set<number>();
