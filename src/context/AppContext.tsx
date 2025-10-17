@@ -13,6 +13,7 @@ import { setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocki
 import { startOfMonth, startOfYear, endOfYear, format as formatDate, subDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { initialUsers, initialWholesalers, initialLocations, initialInventory, initialOrders, initialMachines } from '@/lib/data';
+import { navItems } from '@/lib/nav-items';
 
 interface AppContextType {
   isLoading: boolean;

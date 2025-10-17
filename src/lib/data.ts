@@ -1,5 +1,5 @@
 import type { InventoryItem, User, Wholesaler, Order, Location, Machine } from './types';
-import { navItems } from '@/components/layout/app-shell';
+import { navItems } from '@/lib/nav-items';
 
 const allNavItems = navItems.map(item => item.href);
 
