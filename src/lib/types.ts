@@ -126,17 +126,10 @@ export type ChangeLogEntry = {
 };
 
 
-export type MaskArea = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
 export type WholesalerMask = {
   id: string;
   name: string;
-  areas: MaskArea[];
+  redactionPhrases?: string[];
   backgroundImage?: string;
 }
 

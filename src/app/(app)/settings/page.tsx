@@ -11,14 +11,14 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { navItems } from '@/lib/nav-items';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Trash2, PlusCircle, Pencil } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Pencil, X } from 'lucide-react';
 import { testAiConnection } from './actions';
-import type { AppSettings, Wholesaler, WholesalerMask, MaskArea } from '@/lib/types';
+import type { AppSettings, Wholesaler, WholesalerMask } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import Image from 'next/image';
 import * as pdfjsLib from 'pdfjs-dist';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Slider } from '@/components/ui/slider';
+import { Textarea } from '@/components/ui/textarea';
 
 
 // Configure the worker script path
@@ -51,23 +51,19 @@ function MaskEditorDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (name: string, areas: MaskArea[], backgroundImage: string | null) => void;
+  onSave: (name: string, redactionPhrases: string[], backgroundImage: string | null) => void;
   mask: WholesalerMask | null;
 }) {
     const [maskName, setMaskName] = React.useState('');
-    const [maskAreas, setMaskAreas] = React.useState<MaskArea[]>([]);
     const [backgroundImage, setBackgroundImage] = React.useState<string | null>(null);
-    const [isDrawing, setIsDrawing] = React.useState(false);
-    const [startPoint, setStartPoint] = React.useState<{ x: number; y: number } | null>(null);
-    const [currentRect, setCurrentRect] = React.useState<MaskArea | null>(null);
-    const imageContainerRef = React.useRef<HTMLDivElement>(null);
+    const [redactionPhrases, setRedactionPhrases] = React.useState('');
     const { toast } = useToast();
 
     React.useEffect(() => {
         if (open) {
             setMaskName(initialMask?.name || 'Standard-Maske');
-            setMaskAreas(initialMask?.areas || []);
             setBackgroundImage(initialMask?.backgroundImage || null);
+            setRedactionPhrases((initialMask?.redactionPhrases || []).join('\n'));
         }
     }, [initialMask, open]);
 
@@ -107,68 +103,13 @@ function MaskEditorDialog({
         }
     };
     
-    const getRelativeCoords = (e: React.MouseEvent) => {
-        if (!imageContainerRef.current) return { x: 0, y: 0 };
-        const rect = imageContainerRef.current.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        return { x, y };
-    };
-
-    const handleMouseDown = (e: React.MouseEvent) => {
-        if (!backgroundImage) return;
-        setIsDrawing(true);
-        const { x, y } = getRelativeCoords(e);
-        setStartPoint({ x, y });
-    };
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDrawing || !startPoint) return;
-        const { x, y } = getRelativeCoords(e);
-        const newRect: MaskArea = {
-            x: Math.min(startPoint.x, x),
-            y: Math.min(startPoint.y, y),
-            width: Math.abs(x - startPoint.x),
-            height: Math.abs(y - startPoint.y),
-        };
-        setCurrentRect(newRect);
-    };
-
-    const handleMouseUp = () => {
-        if (isDrawing && currentRect) {
-            setMaskAreas([...maskAreas, currentRect]);
-        }
-        setIsDrawing(false);
-        setStartPoint(null);
-        setCurrentRect(null);
-    };
-
-    const removeArea = (index: number) => {
-        setMaskAreas(maskAreas.filter((_, i) => i !== index));
-    };
-    
-    const addArea = () => {
-        setMaskAreas([...maskAreas, { x: 10, y: 10, width: 30, height: 15 }]);
-    };
-    
-    const updateArea = (index: number, field: keyof MaskArea, value: number) => {
-        if (isNaN(value)) return;
-        
-        const newAreas = [...maskAreas];
-        const area = newAreas[index];
-        if (area) {
-            (area[field] as any) = value;
-            setMaskAreas(newAreas);
-        }
-    };
-
-
     const handleSave = () => {
         if (!maskName.trim()) {
             toast({ title: "Name fehlt", description: "Bitte geben Sie der Maske einen Namen.", variant: "destructive" });
             return;
         }
-        onSave(maskName, maskAreas, backgroundImage);
+        const phrases = redactionPhrases.split('\n').map(p => p.trim()).filter(Boolean);
+        onSave(maskName, phrases, backgroundImage);
     };
 
     return (
@@ -188,82 +129,26 @@ function MaskEditorDialog({
                             <Label>Beispiel-Lieferschein (Bild oder PDF)</Label>
                             <Input type="file" onChange={handleFileChange} accept="image/*,.pdf" />
                         </div>
-                        <div
-                            ref={imageContainerRef}
-                            className="relative w-full border-2 border-dashed rounded-lg bg-muted cursor-crosshair"
-                            style={{ aspectRatio: '1 / 1.414' }} // DIN A4
-                            onMouseDown={handleMouseDown}
-                            onMouseMove={handleMouseMove}
-                            onMouseUp={handleMouseUp}
-                            onMouseLeave={handleMouseUp}
-                        >
-                            {backgroundImage && <Image src={backgroundImage} alt="Lieferschein" layout="fill" objectFit="contain" />}
-                            {maskAreas.map((area, index) => (
-                                <div
-                                    key={index}
-                                    className="absolute border-2 border-blue-500 bg-blue-500/30"
-                                    style={{ left: `${area.x}%`, top: `${area.y}%`, width: `${area.width}%`, height: `${area.height}%` }}
-                                ></div>
-                            ))}
-                            {currentRect && (
-                                <div
-                                    className="absolute border-2 border-green-500 bg-green-500/30"
-                                    style={{ left: `${currentRect.x}%`, top: `${currentRect.y}%`, width: `${currentRect.width}%`, height: `${currentRect.height}%` }}
-                                ></div>
-                            )}
+                        <div className="relative w-full border rounded-lg bg-muted" style={{ aspectRatio: '1 / 1.414' }}>
+                           {backgroundImage ? (
+                             <div className="relative w-full h-full">
+                                <Image src={backgroundImage} alt="Lieferschein" layout="fill" objectFit="contain" />
+                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 z-10" onClick={() => setBackgroundImage(null)}><X className="h-4 w-4"/></Button>
+                            </div>
+                           ) : <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Vorschaubild</div>}
                         </div>
                     </div>
                   </ScrollArea>
                    <ScrollArea className="h-full">
                       <div className="space-y-2 pr-2">
-                           <div className="flex justify-between items-center">
-                              <h4 className="font-semibold">Sichtbare Bereiche</h4>
-                              <Button variant="outline" size="sm" onClick={addArea}><PlusCircle className="mr-2 h-4 w-4"/>Hinzufügen</Button>
-                           </div>
-                          <p className="text-sm text-muted-foreground">Ziehen Sie mit der Maus Rechtecke auf dem Bild oder passen Sie die Werte mit den Reglern an.</p>
-                          {maskAreas.length === 0 && <p className="text-sm text-muted-foreground pt-4">Noch keine Bereiche definiert.</p>}
-                          <div className="space-y-2">
-                              {maskAreas.map((area, index) => (
-                                  <div key={index} className="p-3 border rounded-md bg-muted/50 space-y-2">
-                                      <div className="flex justify-between items-center">
-                                          <span className="text-sm font-medium">Bereich {index + 1}</span>
-                                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeArea(index)}>
-                                              <Trash2 className="h-4 w-4 text-destructive" />
-                                          </Button>
-                                      </div>
-                                      <div className="grid grid-cols-1 gap-y-2">
-                                          <div className="space-y-1">
-                                              <div className="flex justify-between text-xs">
-                                                <Label htmlFor={`area-x-${index}`}>X (%)</Label>
-                                                <span>{area.x.toFixed(1)}</span>
-                                              </div>
-                                              <Slider id={`area-x-${index}`} min={0} max={100} step={0.1} value={[area.x]} onValueChange={v => updateArea(index, 'x', v[0]!)} />
-                                          </div>
-                                           <div className="space-y-1">
-                                              <div className="flex justify-between text-xs">
-                                                <Label htmlFor={`area-y-${index}`}>Y (%)</Label>
-                                                <span>{area.y.toFixed(1)}</span>
-                                              </div>
-                                              <Slider id={`area-y-${index}`} min={0} max={100} step={0.1} value={[area.y]} onValueChange={v => updateArea(index, 'y', v[0]!)} />
-                                          </div>
-                                           <div className="space-y-1">
-                                               <div className="flex justify-between text-xs">
-                                                <Label htmlFor={`area-w-${index}`}>Breite (%)</Label>
-                                                <span>{area.width.toFixed(1)}</span>
-                                               </div>
-                                              <Slider id={`area-w-${index}`} min={0} max={100} step={0.1} value={[area.width]} onValueChange={v => updateArea(index, 'width', v[0]!)} />
-                                          </div>
-                                           <div className="space-y-1">
-                                              <div className="flex justify-between text-xs">
-                                                <Label htmlFor={`area-h-${index}`}>Höhe (%)</Label>
-                                                <span>{area.height.toFixed(1)}</span>
-                                              </div>
-                                              <Slider id={`area-h-${index}`} min={0} max={100} step={0.1} value={[area.height]} onValueChange={v => updateArea(index, 'height', v[0]!)} />
-                                          </div>
-                                      </div>
-                                  </div>
-                              ))}
-                          </div>
+                           <h4 className="font-semibold">Zu entfernende Textbausteine</h4>
+                          <p className="text-sm text-muted-foreground">Geben Sie hier die genauen Textbausteine ein, die vor der KI-Analyse entfernt werden sollen (ein Eintrag pro Zeile).</p>
+                          <Textarea 
+                            value={redactionPhrases}
+                            onChange={(e) => setRedactionPhrases(e.target.value)}
+                            className="h-80 font-mono text-xs"
+                            placeholder={'Kundennummer:\nRechnungsadresse\nUSt-IdNr.'}
+                          />
                       </div>
                    </ScrollArea>
                 </div>
@@ -282,12 +167,12 @@ function MaskManagementDialog({ wholesaler, open, onOpenChange, onUpdateWholesal
 
     if (!wholesaler) return null;
 
-    const handleSaveMask = (name: string, areas: MaskArea[], backgroundImage: string | null) => {
+    const handleSaveMask = (name: string, redactionPhrases: string[], backgroundImage: string | null) => {
         let updatedMasks: WholesalerMask[];
         if (editingMask) { // Editing existing mask
-            updatedMasks = (wholesaler.masks || []).map(m => m.id === editingMask.id ? { ...m, name, areas, backgroundImage: backgroundImage || undefined } : m);
+            updatedMasks = (wholesaler.masks || []).map(m => m.id === editingMask.id ? { ...m, name, redactionPhrases, backgroundImage: backgroundImage || undefined } : m);
         } else { // Adding new mask
-            const newMask: WholesalerMask = { id: new Date().toISOString(), name, areas, backgroundImage: backgroundImage || undefined };
+            const newMask: WholesalerMask = { id: new Date().toISOString(), name, redactionPhrases, backgroundImage: backgroundImage || undefined };
             updatedMasks = [...(wholesaler.masks || []), newMask];
         }
         onUpdateWholesaler({ ...wholesaler, masks: updatedMasks });
@@ -543,9 +428,9 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>Lieferschein-Masken</CardTitle>
+            <CardTitle>Lieferschein-Schwärzung</CardTitle>
             <CardDescription>
-                Definieren Sie für jeden Großhändler, welche Bereiche auf einem Lieferschein für die KI-Analyse sichtbar sein sollen, um sensible Daten zu schützen.
+                Legen Sie für jeden Großhändler fest, welche Textbausteine auf einem Lieferschein automatisch für die KI unkenntlich gemacht werden sollen.
             </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -559,7 +444,7 @@ export default function SettingsPage() {
                                 : 'Keine Masken definiert'}
                         </p>
                     </div>
-                    <Button variant="outline" onClick={() => handleOpenMaskManagement(wholesaler)}>Masken verwalten</Button>
+                    <Button variant="outline" onClick={() => handleOpenMaskManagement(wholesaler)}>Schwärzung verwalten</Button>
                 </div>
             ))}
         </CardContent>
@@ -808,5 +693,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
