@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Settings, PanelLeft, Building, Printer, ClipboardCheck, ShoppingCart, BarChartHorizontal, Package, History, Warehouse, FileDown, LineChart, Wrench, ScrollText, type LucideIcon, Star, PlusCircle, MoreVertical, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@/components/ui/sheet';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import Logo from '@/components/logo';
 import { useAppContext } from '@/context/AppContext';
