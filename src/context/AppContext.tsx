@@ -1,9 +1,8 @@
 
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import type { InventoryItem, User, Wholesaler, ChangeLogEntry, Order, Location, YearlyInventoryExportRow, StockTurnover, AnalysisData, OrderItem, Notification, AppSettings, DashboardLayout, DashboardCardLayout, Machine, ReorderStatus } from '@/lib/types';
+import type { InventoryItem, User, Wholesaler, ChangeLogEntry, Order, Location, YearlyInventoryExportRow, StockTurnover, AnalysisData, OrderItem, Notification, AppSettings, DashboardLayout, DashboardCardLayout, Machine, ReorderStatus, Commission } from '@/lib/types';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useMemoFirebase } from '@/firebase/provider';
@@ -133,10 +132,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const { data: locationsData, error: locationsError } = useCollection<Location>(useMemoFirebase(() => collection(firestore, 'locations'), [firestore]));
   const { data: articlesData, error: articlesError } = useCollection<InventoryItem>(useMemoFirebase(() => collection(firestore, 'articles'), [firestore]));
   const { data: machinesData, error: machinesError } = useCollection<Machine>(useMemoFirebase(() => collection(firestore, 'machines'), [firestore]));
+  const { data: commissionsData, error: commissionsError } = useCollection<Commission>(useMemoFirebase(() => collection(firestore, 'commissions'), [firestore]));
   const { data: ordersData, error: ordersError } = useCollection<Order>(useMemoFirebase(() => collection(firestore, 'orders'), [firestore]));
   const { data: settingsData, error: settingsError } = useDoc<AppSettings>(useMemoFirebase(() => doc(firestore, 'app_settings', 'global'), [firestore]));
   
-  const anyError = usersError || wholesalersError || locationsError || articlesError || machinesError || ordersError || settingsError;
+  const anyError = usersError || wholesalersError || locationsError || articlesError || machinesError || ordersError || settingsError || commissionsError;
 
   // Sync Firestore data to state and localStorage
   useEffect(() => {
@@ -166,7 +166,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (anyError) {
       setDbConnectionStatus('error');
     } else {
-      const allLoaded = usersData && wholesalersData && locationsData && articlesData && machinesData && ordersData && settingsData;
+      const allLoaded = usersData && wholesalersData && locationsData && articlesData && machinesData && ordersData && settingsData && commissionsData;
       if (allLoaded) {
         setDbConnectionStatus('connected');
         if(isInitialLoad) setIsInitialLoad(false);
@@ -174,7 +174,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDbConnectionStatus('connecting');
       }
     }
-  }, [usersData, wholesalersData, locationsData, articlesData, machinesData, ordersData, settingsData, anyError, isInitialLoad]);
+  }, [usersData, wholesalersData, locationsData, articlesData, machinesData, ordersData, settingsData, commissionsData, anyError, isInitialLoad]);
 
 
   const isLoading = isInitialLoad && dbConnectionStatus === 'connecting';
@@ -188,7 +188,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [detailViewTab, setDetailViewTab] = useState('overview');
 
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
-  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(() => getFromLocalStorage('dismissedNotifications', new Set()));
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(() => {
+    const stored = getFromLocalStorage<string[]>('dismissedNotifications', []);
+    return new Set(stored);
+  });
   
   const [dashboardLayout, setDashboardLayoutState] = useState<DashboardCardLayout[]>(allDashboardCards);
   
@@ -1436,3 +1439,5 @@ export function useAppContext() {
   }
   return context;
 }
+
+    
