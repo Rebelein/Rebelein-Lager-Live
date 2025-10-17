@@ -1477,14 +1477,16 @@ const handleBarcodeScan = (scannedBarcode: string) => {
             i.itemType === 'item' &&
             i.mainLocation === mainLoc && 
             i.subLocation === subLoc &&
-            (activeLocationId === 'all' || i.stocks.some(s => s.locationId === activeLocationId))
+            i.stocks.some(s => s.locationId === activeLocationId)
         );
         if (itemsInCompartment.length > 1) {
             setCompartmentItems(itemsInCompartment);
-            setIsCompartmentSelectOpen(true);
+            setIsSmartScannerOpen(false); // Close scanner first
+            setTimeout(() => setIsCompartmentSelectOpen(true), 100); // Then open dialog
         } else if (itemsInCompartment.length === 1 && itemsInCompartment[0]) {
             const event = new CustomEvent('openStockModal', { detail: { item: itemsInCompartment[0], quantity: 1, type: 'out' } });
             window.dispatchEvent(event);
+            setIsSmartScannerOpen(false);
         } else {
             toast({ title: 'Fehler', description: 'Keine Artikel in diesem Lagerfach gefunden.', variant: 'destructive' });
         }
@@ -1500,6 +1502,7 @@ const handleBarcodeScan = (scannedBarcode: string) => {
             const event = new CustomEvent('openStockModal', { detail: { item, quantity: 1, type: 'out' } });
             window.dispatchEvent(event);
             toast({ title: 'Artikel gefunden!', description: `Bestandsbuchung für ${item.name} geöffnet.` });
+            setIsSmartScannerOpen(false);
         } else {
             toast({
                 title: 'Artikel nicht gefunden',
@@ -1508,7 +1511,7 @@ const handleBarcodeScan = (scannedBarcode: string) => {
             });
         }
     }
-    setIsSmartScannerOpen(false);
+    // Don't close scanner immediately, wait for potential dialog
   }, [items, activeLocationId, smartScannerType, toast]);
 
 
@@ -3047,6 +3050,32 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
           </form>
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={isCompartmentSelectOpen} onOpenChange={setIsCompartmentSelectOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Artikel auswählen</DialogTitle>
+                <DialogDescription>
+                    Dieses Lagerfach enthält mehrere Artikel. Bitte wählen Sie den gewünschten Artikel aus.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-2 max-h-96 overflow-y-auto">
+                {compartmentItems.map(item => (
+                    <Button key={item.id} variant="outline" className="w-full justify-start h-auto py-2" onClick={() => {
+                      const event = new CustomEvent('openStockModal', { detail: { item: item, quantity: 1, type: 'out' } });
+                      window.dispatchEvent(event);
+                      setIsCompartmentSelectOpen(false);
+                    }}>
+                        <div>
+                            <p className="font-semibold text-left">{item.name}</p>
+                            <p className="text-xs text-muted-foreground text-left">{item.manufacturerItemNumbers?.[0]?.number}</p>
+                        </div>
+                    </Button>
+                ))}
+            </div>
+        </DialogContent>
+    </Dialog>
+
        <Dialog open={isImageReuseOpen} onOpenChange={setIsImageReuseOpen}>
         <DialogContent className="max-w-4xl">
             <DialogHeader>

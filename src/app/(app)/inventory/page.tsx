@@ -12,12 +12,13 @@ import { useAppContext } from '@/context/AppContext';
 import type { InventoryItem } from '@/lib/types';
 import { format, differenceInDays } from 'date-fns';
 import { cn, isInventoryItem } from '@/lib/utils';
-import { Info, Minus, Plus, CameraOff, Crown, Award, Activity } from 'lucide-react';
+import { Info, Minus, Plus, CameraOff, Crown, Award, Activity, Star, Warehouse } from 'lucide-react';
 import Webcam from 'react-webcam';
 import jsQR from 'jsqr';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 const getLatestInventoryDate = (lastInventoriedAt: { [locationId: string]: string | null } | undefined | null): string | null => {
@@ -59,6 +60,9 @@ export default function InventoryPage() {
     const [hasCameraPermission, setHasCameraPermission] = React.useState<boolean | null>(null);
     const [isClient, setIsClient] = React.useState(false);
     const lastScannedId = React.useRef<string | null>(null);
+    
+    const mainWarehouse = React.useMemo(() => locations.find(l => !l.isVehicle), [locations]);
+
 
     React.useEffect(() => {
         setIsClient(true);
@@ -108,11 +112,13 @@ export default function InventoryPage() {
         const favId = currentUser.favoriteLocationId;
         if (favId && locations.some(l => l.id === favId)) {
             setActiveLocationId(favId);
-        } else if(locations.length > 0) {
+        } else if(mainWarehouse) {
+            setActiveLocationId(mainWarehouse.id);
+        } else if (locations.length > 0) {
             setActiveLocationId(locations[0]!.id);
         }
         }
-    }, [locations, currentUser]);
+    }, [locations, currentUser, mainWarehouse]);
 
 
     const handleUpdateStock = () => {
@@ -136,12 +142,13 @@ export default function InventoryPage() {
         if (scannedData.startsWith('compartment::')) {
             const [, mainLoc, subLoc] = scannedData.split('::');
             const itemsInCompartment = items.filter(i => 
+                isInventoryItem(i) &&
                 i.mainLocation === mainLoc && 
                 i.subLocation === subLoc &&
-                (activeLocationId === 'all' || i.stocks.some(s => s.locationId === activeLocationId))
+                (i.stocks.some(s => s.locationId === activeLocationId))
             );
             if (itemsInCompartment.length > 1) {
-                setCompartmentItems(itemsInCompartment.filter(isInventoryItem));
+                setCompartmentItems(itemsInCompartment as InventoryItem[]);
                 setIsCompartmentSelectOpen(true);
             } else if (itemsInCompartment.length === 1 && itemsInCompartment[0]) {
                 if (isInventoryItem(itemsInCompartment[0])) {
@@ -227,6 +234,14 @@ export default function InventoryPage() {
         }
         return () => clearInterval(intervalId);
     }, [captureCode, hasCameraPermission, isCountModalOpen, isCompartmentSelectOpen, handleCodeScanned]);
+    
+    const handleQuickSwitchToggle = (value: 'warehouse' | 'favorite') => {
+      if (value === 'favorite' && currentUser?.favoriteLocationId) {
+          setActiveLocationId(currentUser.favoriteLocationId);
+      } else if (value === 'warehouse' && mainWarehouse) {
+          setActiveLocationId(mainWarehouse.id);
+      }
+  };
 
     if (!locations || !items) {
         return <div>Laden...</div>
@@ -251,6 +266,34 @@ export default function InventoryPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {currentUser?.favoriteLocationId && mainWarehouse && (
+                            <RadioGroup
+                                value={activeLocationId === currentUser.favoriteLocationId ? 'favorite' : 'warehouse'}
+                                onValueChange={(value) => handleQuickSwitchToggle(value as 'warehouse' | 'favorite')}
+                                className="relative flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground max-w-sm mx-auto mb-4"
+                            >
+                                <div className={cn(
+                                    "absolute left-1 top-1 h-7 w-[calc(50%-4px)] rounded-md bg-background shadow-sm transition-transform duration-200 ease-in-out",
+                                    activeLocationId === currentUser.favoriteLocationId ? "translate-x-full" : "translate-x-0"
+                                )}></div>
+                                <Label
+                                    htmlFor="warehouse-switch"
+                                    className="relative z-10 flex flex-1 cursor-pointer items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium"
+                                >
+                                    <RadioGroupItem value="warehouse" id="warehouse-switch" className="sr-only" />
+                                    <Warehouse className={cn("w-4 h-4", activeLocationId === mainWarehouse?.id && "text-primary")} />
+                                    Lager
+                                </Label>
+                                <Label
+                                    htmlFor="favorite-switch"
+                                    className="relative z-10 flex flex-1 cursor-pointer items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium"
+                                >
+                                    <RadioGroupItem value="favorite" id="favorite-switch" className="sr-only" />
+                                    <Star className={cn("w-4 h-4", activeLocationId === currentUser?.favoriteLocationId && "text-primary")} />
+                                    Favorit
+                                </Label>
+                            </RadioGroup>
+                        )}
                         <div className="flex items-center space-x-2 my-4 justify-center">
                             <Label htmlFor="scanner-type-switch">QR-Code</Label>
                             <Switch
@@ -438,10 +481,13 @@ export default function InventoryPage() {
                             Dieses Lagerfach enthält mehrere Artikel. Bitte wählen Sie den gewünschten Artikel aus.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4 space-y-2">
+                    <div className="py-4 space-y-2 max-h-96 overflow-y-auto">
                         {compartmentItems.map(item => (
-                            <Button key={item.id} variant="outline" className="w-full justify-start" onClick={() => handleOpenCountModal(item)}>
-                                {item.name}
+                            <Button key={item.id} variant="outline" className="w-full justify-start h-auto py-2" onClick={() => handleOpenCountModal(item)}>
+                                <div>
+                                    <p className="font-semibold text-left">{item.name}</p>
+                                    <p className="text-xs text-muted-foreground text-left">{item.manufacturerItemNumbers?.[0]?.number}</p>
+                                </div>
                             </Button>
                         ))}
                     </div>
