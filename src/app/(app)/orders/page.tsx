@@ -717,7 +717,7 @@ export default function OrdersPage() {
                        <CardHeader>
                             <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                                 <div className="flex-1 min-w-0">
-                                    <CardTitle className="truncate">{order.wholesalerName}</CardTitle>
+                                    <CardTitle className="break-words">{order.wholesalerName}</CardTitle>
                                     <CardDescription>
                                         {order.items.length} Artikel
                                         <span className="font-semibold text-foreground ml-2">Bestell-Nr: {order.orderNumber}</span>
@@ -734,7 +734,7 @@ export default function OrdersPage() {
                             {order.items.map(item => (
                               <div key={item.itemId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-medium truncate">{item.itemName}</p>
+                                  <p className="font-medium break-words">{item.itemName}</p>
                                   <p className="text-sm text-muted-foreground truncate">{item.wholesalerItemNumber || item.itemNumber}</p>
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
@@ -772,7 +772,7 @@ export default function OrdersPage() {
                                 <CardHeader>
                                     <div className="flex justify-between items-start gap-2">
                                         <div className="flex-1 min-w-0">
-                                            <CardTitle className="truncate">{wholesalerName}</CardTitle>
+                                            <CardTitle className="break-words">{wholesalerName}</CardTitle>
                                             <CardDescription>{itemsToOrder.length} Artikel</CardDescription>
                                         </div>
                                         <Button variant="destructive" size="icon" onClick={() => handleOpenCancelConfirm(wholesalerId, itemsToOrder, locationId)}>
@@ -788,7 +788,7 @@ export default function OrdersPage() {
                                         return (
                                             <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
                                               <div className="flex-1 min-w-0">
-                                                  <p className="font-medium truncate">{item.name}</p>
+                                                  <p className="font-medium break-words">{item.name}</p>
                                                   <p className="text-sm text-muted-foreground truncate">{supplierInfo?.wholesalerItemNumber || item.manufacturerItemNumbers[0]?.number || ''}</p>
                                               </div>
                                               <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
@@ -832,7 +832,7 @@ export default function OrdersPage() {
                             <CardHeader>
                                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                                   <div className="flex-1 min-w-0">
-                                    <CardTitle className="truncate">{order.orderNumber}</CardTitle>
+                                    <CardTitle className="break-words">{order.orderNumber}</CardTitle>
                                     <CardDescription>{order.wholesalerName} - {new Date(order.date).toLocaleDateString()}</CardDescription>
                                   </div>
                                   <div className="flex items-center gap-2 self-start sm:self-center">
@@ -847,7 +847,7 @@ export default function OrdersPage() {
                                     {order.items.map(item => (
                                         <div key={item.itemId} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-medium truncate">{item.itemName}</p>
+                                                <p className="font-medium break-words">{item.itemName}</p>
                                                 <p className="text-sm text-muted-foreground truncate">{item.wholesalerItemNumber || item.itemNumber}</p>
                                             </div>
                                             <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0">
@@ -895,7 +895,7 @@ export default function OrdersPage() {
                                 return (
                                     <div key={`${order.id}-${item.itemId}`} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-medium truncate">{item.itemName}</p>
+                                            <p className="font-medium break-words">{item.itemName}</p>
                                             <p className="text-sm text-muted-foreground">Für: <span className="font-semibold">{location?.name || item.locationId}</span></p>
                                         </div>
                                         <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0">
