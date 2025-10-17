@@ -166,10 +166,10 @@ export const applyMaskToImage = (imageDataUrl: string, maskAreas: MaskArea[]): P
   });
 };
 
-export function isInventoryItem(item: InventoryItem | Machine): item is InventoryItem {
-  return item.itemType === 'item';
+export function isInventoryItem(item: InventoryItem | Machine | undefined | null): item is InventoryItem {
+  return !!item && item.itemType === 'item';
 }
 
-export function isMachine(item: InventoryItem | Machine): item is Machine {
-  return item.itemType === 'machine';
+export function isMachine(item: InventoryItem | Machine | undefined | null): item is Machine {
+  return !!item && item.itemType === 'machine';
 }
