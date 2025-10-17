@@ -302,8 +302,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col sm:max-w-xs">
-              <SheetTitle>Hauptnavigation</SheetTitle>
-              <SheetDescription className="sr-only">Eine Liste von Links zu den Hauptbereichen der Anwendung.</SheetDescription>
+              <SheetHeader>
+                <SheetTitle>Hauptnavigation</SheetTitle>
+              </SheetHeader>
               <nav className="mt-4 flex-1 grid gap-1 text-lg font-medium overflow-y-auto">
                  <Link
                   href="#"
