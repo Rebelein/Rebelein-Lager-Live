@@ -682,27 +682,20 @@ export default function OrdersPage() {
       </Card>
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-         <div className="flex items-center gap-2 sm:gap-4">
-            <TabsList className="h-auto justify-start flex-wrap">
+         <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+            <TabsList className="grid grid-cols-3 w-full sm:w-auto h-auto sm:h-10">
                 <TabsTrigger value="suggestions">
-                    <span className="sm:hidden">Vorschläge</span>
-                    <span className="hidden sm:inline">Bestellvorschläge</span>
+                    Bestellvorschläge
                 </TabsTrigger>
                 <TabsTrigger value="open">
-                    <span className="sm:hidden">Offene</span>
-                    <span className="hidden sm:inline">Offene Bestellungen</span>
+                    Offene Bestellungen
                 </TabsTrigger>
                 <TabsTrigger value="commissioning">
-                    <span className="sm:hidden">Kom.</span>
-                    <span className="hidden sm:inline">Kommissionierung</span>
+                    Kommissionierung
                 </TabsTrigger>
             </TabsList>
-            <div className="ml-auto flex items-center gap-2">
-                <Button size="icon" variant="outline" className="h-9 w-9 sm:hidden" onClick={handleOpenPreScanDialog}>
-                    <Scan className="h-5 w-5" />
-                    <span className="sr-only">Lieferschein scannen</span>
-                </Button>
-                <Button variant="outline" className="hidden sm:flex" onClick={handleOpenPreScanDialog}>
+            <div className="ml-auto flex items-center gap-2 w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto" onClick={handleOpenPreScanDialog}>
                     <Scan className="mr-2 h-4 w-4" />
                     Lieferschein scannen
                 </Button>
@@ -721,7 +714,7 @@ export default function OrdersPage() {
                 {draftOrders.map(order => (
                      <Card key={order.id}>
                        <CardHeader>
-                            <div className="flex justify-between items-start gap-2">
+                            <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                                 <div className="flex-1">
                                     <CardTitle>{order.wholesalerName}</CardTitle>
                                     <CardDescription>
@@ -736,23 +729,21 @@ export default function OrdersPage() {
                             </div>
                         </CardHeader>
                       <CardContent>
-                          <div className="overflow-x-auto -mx-6 sm:mx-0">
-                            <div className="divide-y">
-                              {order.items.map(item => (
-                                <div key={item.itemId} className="flex items-center justify-between p-2 sm:p-0">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium truncate">{item.itemName}</p>
-                                    <p className="text-sm text-muted-foreground">{item.wholesalerItemNumber || item.itemNumber}</p>
-                                  </div>
-                                  <div className="flex items-center gap-4 ml-4">
-                                      <span className="font-medium">{item.quantity} Stk.</span>
-                                      <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(order.id, item.itemId)}>
-                                          <X className="h-4 w-4 text-destructive" />
-                                      </Button>
-                                  </div>
+                          <div className="divide-y">
+                            {order.items.map(item => (
+                              <div key={item.itemId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{item.itemName}</p>
+                                  <p className="text-sm text-muted-foreground">{item.wholesalerItemNumber || item.itemNumber}</p>
                                 </div>
-                              ))}
-                            </div>
+                                <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
+                                    <span className="font-medium">{item.quantity} Stk.</span>
+                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(order.id, item.itemId)}>
+                                        <X className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                       </CardContent>
                        <CardFooter className="justify-end">
@@ -794,12 +785,12 @@ export default function OrdersPage() {
                                     {itemsToOrder.map(item => {
                                         const supplierInfo = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId)
                                         return (
-                                            <div key={item.id} className="flex items-center justify-between p-2 sm:p-0 sm:py-2">
+                                            <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
                                               <div className="flex-1 min-w-0">
                                                   <p className="font-medium truncate">{item.name}</p>
                                                   <p className="text-sm text-muted-foreground">{supplierInfo?.wholesalerItemNumber || item.manufacturerItemNumbers[0]?.number || ''}</p>
                                               </div>
-                                              <div className="flex items-center gap-4 ml-4">
+                                              <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
                                                 <span className="font-medium">{item.reorderStatus[locationId]?.quantity} Stk.</span>
                                                 <Button variant="ghost" size="icon" onClick={() => handleOpenCancelSingleItem(item.id, locationId)}>
                                                     <X className="h-4 w-4 text-destructive" />
