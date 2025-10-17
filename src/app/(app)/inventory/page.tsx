@@ -485,7 +485,7 @@ export default function InventoryPage() {
                                 <Plus className="h-6 w-6" />
                             </Button>
                         </div>
-                        {currentItem && activeLocationId && countedStock < (currentItem.minStocks.find(ms => ms.locationId === activeLocationId)?.quantity ?? 0) && (
+                        {currentItem && activeLocationId && isInventoryItem(currentItem) && countedStock < (currentItem.minStocks.find(ms => ms.locationId === activeLocationId)?.quantity ?? 0) && (
                             <div className="mt-4 p-3 bg-orange-100 border-l-4 border-orange-500 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-600">
                                 <div className="flex">
                                     <div className="py-1"><Info className="h-5 w-5 text-orange-500 mr-3" /></div>
