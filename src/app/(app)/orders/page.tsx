@@ -716,8 +716,8 @@ export default function OrdersPage() {
                      <Card key={order.id}>
                        <CardHeader>
                             <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
-                                <div className="flex-1">
-                                    <CardTitle>{order.wholesalerName}</CardTitle>
+                                <div className="flex-1 min-w-0">
+                                    <CardTitle className="truncate">{order.wholesalerName}</CardTitle>
                                     <CardDescription>
                                         {order.items.length} Artikel
                                         <span className="font-semibold text-foreground ml-2">Bestell-Nr: {order.orderNumber}</span>
@@ -735,7 +735,7 @@ export default function OrdersPage() {
                               <div key={item.itemId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium truncate">{item.itemName}</p>
-                                  <p className="text-sm text-muted-foreground">{item.wholesalerItemNumber || item.itemNumber}</p>
+                                  <p className="text-sm text-muted-foreground truncate">{item.wholesalerItemNumber || item.itemNumber}</p>
                                 </div>
                                 <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
                                     <span className="font-medium">{item.quantity} Stk.</span>
@@ -771,8 +771,8 @@ export default function OrdersPage() {
                               <Card key={`${locationId}-${wholesalerId}`} className="mb-4">
                                 <CardHeader>
                                     <div className="flex justify-between items-start gap-2">
-                                        <div className="flex-1">
-                                            <CardTitle>{wholesalerName}</CardTitle>
+                                        <div className="flex-1 min-w-0">
+                                            <CardTitle className="truncate">{wholesalerName}</CardTitle>
                                             <CardDescription>{itemsToOrder.length} Artikel</CardDescription>
                                         </div>
                                         <Button variant="destructive" size="icon" onClick={() => handleOpenCancelConfirm(wholesalerId, itemsToOrder, locationId)}>
@@ -789,7 +789,7 @@ export default function OrdersPage() {
                                             <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
                                               <div className="flex-1 min-w-0">
                                                   <p className="font-medium truncate">{item.name}</p>
-                                                  <p className="text-sm text-muted-foreground">{supplierInfo?.wholesalerItemNumber || item.manufacturerItemNumbers[0]?.number || ''}</p>
+                                                  <p className="text-sm text-muted-foreground truncate">{supplierInfo?.wholesalerItemNumber || item.manufacturerItemNumbers[0]?.number || ''}</p>
                                               </div>
                                               <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
                                                 <span className="font-medium">{item.reorderStatus[locationId]?.quantity} Stk.</span>
@@ -831,8 +831,8 @@ export default function OrdersPage() {
                         <Card key={order.id} ref={(el: HTMLDivElement | null) => { if (el) orderRefs.current[order.id] = el; }}>
                             <CardHeader>
                                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                                  <div>
-                                    <CardTitle>{order.orderNumber}</CardTitle>
+                                  <div className="flex-1 min-w-0">
+                                    <CardTitle className="truncate">{order.orderNumber}</CardTitle>
                                     <CardDescription>{order.wholesalerName} - {new Date(order.date).toLocaleDateString()}</CardDescription>
                                   </div>
                                   <div className="flex items-center gap-2 self-start sm:self-center">
@@ -848,7 +848,7 @@ export default function OrdersPage() {
                                         <div key={item.itemId} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-medium truncate">{item.itemName}</p>
-                                                <p className="text-sm text-muted-foreground">{item.wholesalerItemNumber || item.itemNumber}</p>
+                                                <p className="text-sm text-muted-foreground truncate">{item.wholesalerItemNumber || item.itemNumber}</p>
                                             </div>
                                             <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0">
                                                 <p className="font-medium text-sm">
@@ -894,8 +894,8 @@ export default function OrdersPage() {
                                 const location = locations.find(l => l.id === item.locationId);
                                 return (
                                     <div key={`${order.id}-${item.itemId}`} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                        <div className="flex-1">
-                                            <p className="font-medium">{item.itemName}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium truncate">{item.itemName}</p>
                                             <p className="text-sm text-muted-foreground">Für: <span className="font-semibold">{location?.name || item.locationId}</span></p>
                                         </div>
                                         <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0">

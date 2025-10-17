@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -16,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { getOrderStatusBadgeVariant, getOrderStatusText } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/componentsui/select';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon, Search } from 'lucide-react';
@@ -328,7 +329,7 @@ export default function OrderHistoryPage() {
                                     {order.items.map(item => (
                                         <TableRow key={item.itemId}>
                                             <TableCell className="font-medium">{item.receivedQuantity} / {item.quantity}</TableCell>
-                                            <TableCell>{item.itemName}</TableCell>
+                                            <TableCell className="min-w-[200px]"><p className="truncate font-medium">{item.itemName}</p></TableCell>
                                             <TableCell>{item.itemNumber}</TableCell>
                                             <TableCell>{item.wholesalerItemNumber || '-'}</TableCell>
                                             <TableCell>{locations.find(l => l.id === item.locationId)?.name || 'N/A'}</TableCell>

@@ -279,7 +279,7 @@ const ItemCard = ({ item, activeLocationId, isCompactView }: { item: InventoryIt
             </div>
             )}
             <div className="flex-1 min-w-0 pr-2">
-                <p className="text-sm font-semibold">{item.name}</p>
+                <p className="text-sm font-semibold truncate">{item.name}</p>
                 <div className="text-xs text-muted-foreground flex items-center gap-x-2 flex-wrap">
                     <span
                         onClick={(e) => { e.stopPropagation(); copyToClipboard(itemNumberToDisplay, 'Hersteller Art-Nr.'); }}
@@ -1056,7 +1056,7 @@ React.useEffect(() => {
             const uniqueNumbers: ManufacturerItemNumber[] = [];
             const seen = new Set<string>();
             for (const num of numbers) {
-                if (!seen.has(num.number)) {
+                if (num.number && !seen.has(num.number)) {
                     uniqueNumbers.push(num);
                     seen.add(num.number);
                 }
@@ -3124,4 +3124,3 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
     
 
     
-
