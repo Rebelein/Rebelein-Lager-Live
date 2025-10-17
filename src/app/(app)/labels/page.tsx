@@ -79,7 +79,8 @@ export default function LabelsPage() {
   const filteredItems = React.useMemo(() => {
     return items.filter(item => {
         const term = searchTerm.toLowerCase();
-        const matchesSearch = item.name.toLowerCase().includes(term) || (isInventoryItem(item) && item.manufacturerItemNumbers[0]?.number.toLowerCase().includes(term));
+        const manufacturerItemNumber = isInventoryItem(item) && item.manufacturerItemNumbers && item.manufacturerItemNumbers[0] ? item.manufacturerItemNumbers[0].number : '';
+        const matchesSearch = item.name.toLowerCase().includes(term) || manufacturerItemNumber.toLowerCase().includes(term);
 
         const matchesLocation = selectedLocationId === 'all' || item.stocks.some(s => s.locationId === selectedLocationId);
         const matchesMainLocation = selectedMainLocation === 'all' || item.mainLocation === selectedMainLocation;
@@ -298,7 +299,7 @@ const handleDownload = React.useCallback(async () => {
                                     return(
                                     <TableRow key={item.id}>
                                         <TableCell><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(checked) => handleSelectItem(item.id, !!checked)} aria-label={`${item.name} auswählen`} /></TableCell>
-                                        <TableCell>{needsLabelUpdate && isInventoryItem(item) && (<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenQuickPrint(item)}><AlertCircle className="h-5 w-5 text-yellow-500" /></Button> )}</TableCell>
+                                        <TableCell>{needsLabelUpdate && isInventoryItem(item) && (<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenQuickPrint(item as InventoryItem)}><AlertCircle className="h-5 w-5 text-yellow-500" /></Button> )}</TableCell>
                                         <TableCell className="font-medium">{item.name}</TableCell>
                                         <TableCell>{item.mainLocation} / {item.subLocation}</TableCell>
                                         <TableCell className="text-right">{item.stocks.reduce((acc, s) => acc + s.quantity, 0)}</TableCell>
@@ -448,16 +449,17 @@ const handleDownload = React.useCallback(async () => {
             <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-4 rounded-md min-h-[200px] overflow-auto">
               <div ref={printAreaRef} className="print-area bg-white flex flex-wrap gap-2 p-2" style={{fontFamily: "'PT Sans', sans-serif"}}>
                 {activeTab !== 'compartment' && itemsToPrint.map(item => {
-                    const wholesalerName = isInventoryItem(item) ? wholesalers.find(w => w.id === item.preferredWholesalerId)?.name || '' : '';
+                    if(!isInventoryItem(item)) return null;
+                    const wholesalerName = wholesalers.find(w => w.id === item.preferredWholesalerId)?.name || '';
                     let finalBarcodeValue: string | null = null;
-                    if (barcodeSource === 'preferred') { if (isInventoryItem(item)) { const supplier = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId); finalBarcodeValue = supplier?.wholesalerItemNumber || null; } } else if (barcodeSource === 'ean') { finalBarcodeValue = isInventoryItem(item) ? item.barcode || null : null; } else if (barcodeSource === 'manufacturer') { finalBarcodeValue = isInventoryItem(item) ? item.manufacturerItemNumbers[0]?.number : null; } else { if (isInventoryItem(item)) { const supplier = item.suppliers.find(s => s.wholesalerId === barcodeSource); finalBarcodeValue = supplier?.wholesalerItemNumber || null; } }
+                    if (barcodeSource === 'preferred') { const supplier = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId); finalBarcodeValue = supplier?.wholesalerItemNumber || null; } else if (barcodeSource === 'ean') { finalBarcodeValue = item.barcode || null; } else if (barcodeSource === 'manufacturer') { finalBarcodeValue = item.manufacturerItemNumbers[0]?.number || null; } else { const supplier = item.suppliers.find(s => s.wholesalerId === barcodeSource); finalBarcodeValue = supplier?.wholesalerItemNumber || null; }
                     return(
                       <div key={item.id} className="label-container bg-white" data-filename={`etikett-${item.name.replace(/\s+/g, '-').toLowerCase()}.png`}>
                           <div className="p-1 bg-white border flex items-stretch justify-center gap-1" style={{ width: `${labelWidthPx}px`, height: `${labelHeightPx}px`, boxSizing: 'content-box' }}>
                              <div className="flex-1 h-full flex flex-col justify-between items-center overflow-hidden p-1">
                                   <div className="w-full text-center">
                                       <p className="text-black font-bold" style={{ fontSize: `${Math.max(8, (labelHeightPx * 0.18) * (fontSize / 100))}px`, lineHeight: 1.1, wordBreak: 'break-word' }}>{item.name}</p>
-                                      <p className="text-gray-600" style={{ fontSize: `${Math.max(7, (labelHeightPx * 0.13) * (fontSize / 100))}px`, lineHeight: 1, wordBreak: 'break-word' }}>{isInventoryItem(item) ? item.manufacturerItemNumbers[0]?.number || '' : ''}</p>
+                                      <p className="text-gray-600" style={{ fontSize: `${Math.max(7, (labelHeightPx * 0.13) * (fontSize / 100))}px`, lineHeight: 1, wordBreak: 'break-word' }}>{item.manufacturerItemNumbers[0]?.number || ''}</p>
                                   </div>
                                   <div className="w-full text-center text-gray-500" style={{ fontSize: `${Math.max(7, (labelHeightPx * 0.11) * (fontSize / 100))}px`, lineHeight: 1, wordBreak: 'break-word' }}>
                                       <p>{item.mainLocation} / {item.subLocation}</p>
@@ -514,3 +516,5 @@ const handleDownload = React.useCallback(async () => {
     </div>
   );
 }
+
+    
