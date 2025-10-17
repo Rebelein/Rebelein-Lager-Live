@@ -94,7 +94,7 @@ import { Switch } from '@/components/ui/switch';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Slider } from '@/components/ui/slider';
 import { DateRange } from 'react-day-picker';
-import { useFirestore } from '@/firebase/provider';
+import { useFirestore } from '@/firebase';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 
@@ -567,7 +567,7 @@ export default function MachinesPage() {
       rentalStatus: 'rented',
       rentedBy: rentedBy,
       rentalHistory: [...(currentItem.rentalHistory || []), newHistoryEntry],
-    }, true);
+    });
 
     toast({
       title: 'Maschine verliehen',
@@ -618,7 +618,7 @@ export default function MachinesPage() {
       rentedBy: null,
       needsConsumables: needsConsumables,
       rentalHistory: [...(currentItem.rentalHistory || []), newHistoryEntry],
-    }, true);
+    });
 
     toast({
       title: 'Maschine zurückgegeben',
@@ -750,7 +750,7 @@ export default function MachinesPage() {
     const formData = new FormData(e.currentTarget);
     const now = new Date().toISOString();
 
-    const updatedData = {
+    const updatedData: Partial<Machine> = {
       name: formData.get('name') as string,
       manufacturer: formData.get('manufacturer') as string,
       model: formData.get('model') as string,
@@ -772,7 +772,7 @@ export default function MachinesPage() {
       updateItem(currentItem.id, {
         ...updatedData,
         rentalHistory: [...(currentItem.rentalHistory || []), newHistoryEntry],
-      }, true);
+      });
       toast({ title: 'Maschine aktualisiert' });
     } else {
       const newHistoryEntry: RentalHistoryEntry = {
@@ -797,7 +797,7 @@ export default function MachinesPage() {
         changelog: [],
         ...updatedData,
       };
-      updateItem(newItem.id, newItem, true); 
+      updateItem(newItem.id, newItem); 
       toast({ title: 'Maschine erstellt' });
     }
     setIsFormOpen(false);
@@ -834,7 +834,7 @@ export default function MachinesPage() {
     updateItem(machine.id, {
       rentalStatus: status,
       rentalHistory: [...(machine.rentalHistory || []), newHistoryEntry],
-    }, true);
+    });
 
     toast({ title: 'Status geändert' });
 
@@ -897,7 +897,7 @@ export default function MachinesPage() {
       reservations: [...existingReservations, newReservation],
       rentalHistory: [...(currentItem.rentalHistory || []), newHistoryEntry],
       rentalStatus: newRentalStatus,
-    }, true);
+    });
 
     toast({ title: 'Maschine reserviert' });
     setIsReservationOpen(false);
@@ -937,7 +937,7 @@ export default function MachinesPage() {
       reservations: updatedReservations,
       rentalHistory: [...(currentItem.rentalHistory || []), newHistoryEntry],
       rentalStatus: newRentalStatus,
-    }, true);
+    });
     toast({ title: 'Reservierung storniert', variant: 'destructive' });
   };
   

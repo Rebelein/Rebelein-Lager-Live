@@ -6,7 +6,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { InventoryItem, User, Wholesaler, ChangeLogEntry, Order, Location, YearlyInventoryExportRow, StockTurnover, AnalysisData, OrderItem, Notification, AppSettings, DashboardLayout, DashboardCardLayout, Machine, ReorderStatus } from '@/lib/types';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
-import { useMemoFirebase } from '@/firebase';
+import { useMemoFirebase } from '@/firebase/provider';
 import { collection, doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -24,7 +24,7 @@ interface AppContextType {
   isUserSelectionRequired: boolean;
   items: (InventoryItem | Machine)[];
   addItem: (item: InventoryItem) => void;
-  updateItem: (itemId: string, data: Partial<InventoryItem | Machine>, isMachine?: boolean) => void;
+  updateItem: (itemId: string, data: Partial<InventoryItem | Machine>) => void;
   users: User[];
   setUsers: (users: User[]) => void;
   addUser: (name: string) => void;
@@ -90,7 +90,7 @@ const allDashboardCards: DashboardCardLayout[] = [
     { id: 'turnover', size: 'default' },
 ];
 
-const getFromLocalStorage = <T>(key: string, defaultValue: T): T => {
+const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
     try {
         if (typeof window === 'undefined') return defaultValue;
         const item = window.localStorage.getItem(key);
@@ -101,7 +101,7 @@ const getFromLocalStorage = <T>(key: string, defaultValue: T): T => {
     }
 };
 
-const saveToLocalStorage = <T>(key: string, value: T) => {
+const saveToLocalStorage = <T,>(key: string, value: T) => {
     try {
         if (typeof window === 'undefined') return;
         window.localStorage.setItem(key, JSON.stringify(value));
@@ -407,20 +407,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDocumentNonBlocking(itemRef, newItem, { merge: true });
   }, [firestore, dbConnectionStatus]);
 
-    const updateItem = useCallback((itemId: string, data: Partial<InventoryItem | Machine>, isMachine: boolean = false) => {
+    const updateItem = useCallback((itemId: string, data: Partial<InventoryItem | Machine>) => {
         if (!firestore || dbConnectionStatus !== 'connected') return;
-        const collectionName = isMachine ? 'machines' : 'articles';
+        
+        const existingItem = items.find(i => i.id === itemId);
+        if (!existingItem) return;
+
+        const isMachineItem = isMachine(existingItem);
+        const collectionName = isMachineItem ? 'machines' : 'articles';
         const itemRef = doc(firestore, collectionName, itemId);
 
-        const isNewItem = !items.some(i => i.id === itemId);
-
-        if (isNewItem) {
-            //mongodb
-            setDocumentNonBlocking(itemRef, data, { merge: true });
-        } else {
-            //mongodb
-            updateDocumentNonBlocking(itemRef, data);
-        }
+        //mongodb
+        updateDocumentNonBlocking(itemRef, data);
     }, [firestore, items, dbConnectionStatus]);
 
   const setUsers = useCallback((newUsers: User[]) => {
