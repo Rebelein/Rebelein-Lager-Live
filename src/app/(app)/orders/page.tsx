@@ -685,13 +685,13 @@ export default function OrdersPage() {
          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
             <TabsList className="grid grid-cols-3 w-full sm:w-auto h-auto sm:h-10">
                 <TabsTrigger value="suggestions">
-                    Bestellvorschläge
+                    Vorschl.
                 </TabsTrigger>
                 <TabsTrigger value="open">
-                    Offene Bestellungen
+                    Offen
                 </TabsTrigger>
                 <TabsTrigger value="commissioning">
-                    Kommissionierung
+                    Kom.
                 </TabsTrigger>
             </TabsList>
             <div className="ml-auto flex items-center gap-2 w-full sm:w-auto">
