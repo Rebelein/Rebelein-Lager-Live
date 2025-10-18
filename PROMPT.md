@@ -141,5 +141,3 @@ Nutze **Firebase Firestore** als Datenbank. Die Daten sollen in den folgenden Co
 -   **Fehlerbehandlung:** Implementiere eine robuste Fehlerbehandlung, insbesondere für Datenbankzugriffe und KI-Anfragen.
 
 Dieser Prompt beschreibt die vollständigen Anforderungen, um die **SHK LagerMeister** Anwendung 1:1 zu replizieren.
-
-    
