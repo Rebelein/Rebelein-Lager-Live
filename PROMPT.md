@@ -96,16 +96,31 @@ Nutze **Firebase Firestore** als Datenbank. Die Daten sollen in den folgenden Co
 ## 4. UI/UX & Design-Richtlinien
 
 -   **Farbschema (ShadCN Theme `globals.css`):**
-    -   **Primary:** Ein kühles Blaugrau (`#607D8B`) für ein professionelles Erscheinungsbild.
-    -   **Background:** Ein helles Grau (`#ECEFF1`).
-    -   **Accent:** Orange (`#FF9800`) zur Hervorhebung von Aktionen.
--   **Schriftart:** `PT Sans`.
--   **Icons:** `lucide-react`.
--   **Layout:**
-    -   Verwende durchgehend ein responsives Design, das sich flüssig an alle Bildschirmgrößen anpasst (Flexbox & Grid).
-    -   Auf Mobilgeräten sollen Tabellen in Listen von Karten umgewandelt werden.
-    -   Lange Texte (z.B. Artikelnamen) müssen korrekt umgebrochen werden (`break-words`) und dürfen das Layout nicht sprengen.
--   **Komponenten:** Nutze die vordefinierten ShadCN UI-Komponenten (`Card`, `Button`, `Dialog`, `Table`, etc.).
+    -   **Hintergrund (`background`):** Ein sehr helles, fast weißes Grau (`hsl(210 40% 96.1%)`), um eine saubere und offene Arbeitsfläche zu schaffen.
+    -   **Karten & UI-Elemente (`card`):** Reines Weiß (`hsl(0 0% 100%)`), um sich klar vom Hintergrund abzuheben und Inhalte zu strukturieren.
+    -   **Primärfarbe (`primary`):** Ein professionelles, mittleres Blau (`hsl(142.1 70.6% 45.3%)`) für alle primären Aktionen (Buttons, aktive Links, wichtige Icons).
+    -   **Akzentfarbe (`accent`):** Ein subtiles, helles Grau (`hsl(210 40% 96.1%)`) für Hover-Zustände auf Listenelementen und Menüs.
+    -   **Destruktiv (`destructive`):** Ein klares Rot (`hsl(0 84.2% 60.2%)`) für Lösch-Buttons und Warnhinweise.
+    -   **Ring & Fokus (`ring`):** Die Primärfarbe wird verwendet, um fokussierte Elemente (z.B. Eingabefelder) hervorzuheben.
+
+-   **Typografie:**
+    -   **Schriftart:** Verwende durchgehend `PT Sans` für gute Lesbarkeit.
+    -   **Hierarchie:**
+        -   Seitentitel: Groß und fett (`text-3xl font-bold`).
+        -   Karten-Titel: Etwas kleiner, aber ebenfalls fett (`text-lg font-semibold`).
+        -   Beschreibungen & Labels: Normaler Text in `text-sm`, oft in einer leicht abgedunkelten Farbe (`text-muted-foreground`).
+        -   Fließtext: `text-base` oder `text-sm`.
+
+-   **Layout & Abstände:**
+    -   **Seitenstruktur:** Eine feste Seitenleiste auf dem Desktop, die auf Mobilgeräten zu einem ausklappbaren Menü wird. Der Hauptinhaltsbereich hat ein durchgängiges Padding.
+    -   **Abstände:** Verwende das Tailwind-Spacing-System konsequent für `margin` und `padding` (`p-4`, `p-6`, `gap-4`, `space-y-4`), um ein konsistentes und luftiges Layout zu gewährleisten.
+    -   **Responsivität:** Das Design muss "mobile-first" sein. Komplexe Elemente wie Tabellen müssen auf schmalen Bildschirmen zu vertikalen Kartenlisten umbrechen.
+
+-   **Komponenten & Interaktivität:**
+    -   **Karten (`Card`):** Das primäre Gliederungselement. Verwende `rounded-lg` für abgerundete Ecken und einen dezenten Schatten (`shadow-sm`), um Tiefe zu erzeugen.
+    -   **Buttons (`Button`):** Müssen bei Hover einen leichten visuellen Effekt zeigen (z.B. Aufhellen/Abdunkeln). Beim Klick soll eine kurze Skalierungsanimation (`active:scale-95`) für taktiles Feedback sorgen.
+    -   **Eingabefelder (`Input`):** Klare Umrandung (`border`), die sich bei Fokus mit der `ring`-Farbe hervorhebt.
+    -   **Icons:** Verwende Icons aus `lucide-react` konsistent, um Aktionen zu verdeutlichen (z.B. `PlusCircle` für Hinzufügen, `Trash2` für Löschen).
 
 ---
 
@@ -126,3 +141,5 @@ Nutze **Firebase Firestore** als Datenbank. Die Daten sollen in den folgenden Co
 -   **Fehlerbehandlung:** Implementiere eine robuste Fehlerbehandlung, insbesondere für Datenbankzugriffe und KI-Anfragen.
 
 Dieser Prompt beschreibt die vollständigen Anforderungen, um die **SHK LagerMeister** Anwendung 1:1 zu replizieren.
+
+    
