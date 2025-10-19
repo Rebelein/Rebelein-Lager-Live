@@ -2313,10 +2313,10 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
             <DialogTitle>Sind Sie sicher?</DialogTitle>
             <DialogDescription>
               Möchten Sie den Artikel &quot;{itemToDelete?.item.name}&quot; wirklich aus dem Lagerort &quot;{locations.find(l => l.id === itemToDelete?.locationId)?.name}&quot; entfernen? Diese Aktion kann nicht rückgängig gemacht werden. Der Artikel bleibt in anderen Lagerorten erhalten.
-              {itemToDelete && itemToDelete.dependentItems > 0 && (
+              {itemToDelete && itemToDelete.dependentItems > 1 && (
                 <div className="mt-4 p-3 bg-destructive/10 border-l-4 border-destructive text-destructive-foreground">
-                    <p className="font-bold">Warnung: Verknüpfte Bilder</p>
-                    <p>Das Bild dieses Artikels wird von {itemToDelete.dependentItems} anderen Artikeln verwendet. Das Löschen dieses Artikels wird diese Verknüpfungen aufbrechen.</p>
+                    <div className="font-bold">Warnung: Verknüpfte Bilder</div>
+                    <div>Das Bild dieses Artikels wird von {itemToDelete.dependentItems - 1} anderen Artikeln verwendet. Das Löschen dieses Artikels wird diese Verknüpfungen aufbrechen.</div>
                 </div>
               )}
             </DialogDescription>
@@ -3149,7 +3149,3 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
     </div>
   );
 }
-
-    
-
-    
