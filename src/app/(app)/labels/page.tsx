@@ -492,12 +492,16 @@ const handleDownload = React.useCallback(async () => {
                           <div className="flex-grow flex items-center gap-2">
                             <div className="flex-1 overflow-hidden">
                                 <ul style={{ fontSize: `${Math.max(5, (labelHeightPx * 0.1) * (fontSize/100))}px`, lineHeight: 1.3 }}>
-                                    {comp.items.slice(0, 5).map(item => (
+                                    {comp.items.slice(0, 5).map(item => {
+                                      const supplier = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId);
+                                      const itemNumber = supplier?.wholesalerItemNumber || '';
+                                      return (
                                         <li key={item.id} className="truncate">
                                             <span className="font-semibold text-black">{item.name}</span>
-                                            <span className="text-gray-500 ml-2">{item.preferredManufacturerItemNumber || (Array.isArray(item.manufacturerItemNumbers) && item.manufacturerItemNumbers[0]?.number) || ''}</span>
+                                            <span className="text-gray-500 ml-2">{itemNumber}</span>
                                         </li>
-                                    ))}
+                                      )
+                                    })}
                                     {comp.items.length > 5 && <li className="font-bold text-black mt-1">... und {comp.items.length - 5} weitere</li>}
                                 </ul>
                             </div>
