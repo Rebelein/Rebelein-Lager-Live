@@ -78,6 +78,7 @@ export default function LabelsPage() {
   
   const filteredItems = React.useMemo(() => {
     return items.filter(item => {
+        if (item.itemType !== 'item') return false;
         const term = searchTerm.toLowerCase();
         const manufacturerItemNumber = isInventoryItem(item) && item.manufacturerItemNumbers && item.manufacturerItemNumbers[0] ? item.manufacturerItemNumbers[0].number : '';
         const matchesSearch = item.name.toLowerCase().includes(term) || manufacturerItemNumber.toLowerCase().includes(term);
@@ -172,7 +173,7 @@ const handleDownload = React.useCallback(async () => {
         if (activeTab !== 'compartment') {
             selectedItems.forEach(itemId => {
                 const item = items.find(i => i.id === itemId);
-                if (!item || !currentUser) return;
+                if (!item || !currentUser || !isInventoryItem(item)) return;
                 const newLogEntry: ChangeLogEntry = {
                     id: `${now}-${Math.random()}`,
                     date: now,
@@ -295,6 +296,7 @@ const handleDownload = React.useCallback(async () => {
                         <TableBody>
                             {filteredItems.length > 0 ? (
                                 filteredItems.map(item => {
+                                    if (!isInventoryItem(item)) return null;
                                     const needsLabelUpdate = !!((item.changelog || []).filter(log => log.type === 'update').sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] && isInventoryItem(item) && item.labelLastPrintedAt && new Date((item.changelog || []).filter(log => log.type === 'update').sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]!.date) > new Date(item.labelLastPrintedAt));
                                     return(
                                     <TableRow key={item.id}>
@@ -452,14 +454,14 @@ const handleDownload = React.useCallback(async () => {
                     if(!isInventoryItem(item)) return null;
                     const wholesalerName = wholesalers.find(w => w.id === item.preferredWholesalerId)?.name || '';
                     let finalBarcodeValue: string | null = null;
-                    if (barcodeSource === 'preferred') { const supplier = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId); finalBarcodeValue = supplier?.wholesalerItemNumber || null; } else if (barcodeSource === 'ean') { finalBarcodeValue = item.barcode || null; } else if (barcodeSource === 'manufacturer') { finalBarcodeValue = item.manufacturerItemNumbers[0]?.number || null; } else { const supplier = item.suppliers.find(s => s.wholesalerId === barcodeSource); finalBarcodeValue = supplier?.wholesalerItemNumber || null; }
+                    if (barcodeSource === 'preferred') { const supplier = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId); finalBarcodeValue = supplier?.wholesalerItemNumber || null; } else if (barcodeSource === 'ean') { finalBarcodeValue = item.barcode || null; } else if (barcodeSource === 'manufacturer') { finalBarcodeValue = item.preferredManufacturerItemNumber || (Array.isArray(item.manufacturerItemNumbers) && item.manufacturerItemNumbers[0]?.number) || null; } else { const supplier = item.suppliers.find(s => s.wholesalerId === barcodeSource); finalBarcodeValue = supplier?.wholesalerItemNumber || null; }
                     return(
                       <div key={item.id} className="label-container bg-white" data-filename={`etikett-${item.name.replace(/\s+/g, '-')}-${item.subLocation}.png`}>
                           <div className="p-1 bg-white border flex items-stretch justify-center gap-1" style={{ width: `${labelWidthPx}px`, height: `${labelHeightPx}px`, boxSizing: 'content-box' }}>
                              <div className="flex-1 h-full flex flex-col justify-between items-center overflow-hidden p-1">
                                   <div className="w-full text-center">
                                       <p className="text-black font-bold" style={{ fontSize: `${Math.max(8, (labelHeightPx * 0.18) * (fontSize / 100))}px`, lineHeight: 1.1, wordBreak: 'break-word' }}>{item.name}</p>
-                                      <p className="text-gray-600" style={{ fontSize: `${Math.max(7, (labelHeightPx * 0.13) * (fontSize / 100))}px`, lineHeight: 1, wordBreak: 'break-word' }}>{item.manufacturerItemNumbers[0]?.number || ''}</p>
+                                      <p className="text-gray-600" style={{ fontSize: `${Math.max(7, (labelHeightPx * 0.13) * (fontSize / 100))}px`, lineHeight: 1, wordBreak: 'break-word' }}>{item.preferredManufacturerItemNumber || (Array.isArray(item.manufacturerItemNumbers) && item.manufacturerItemNumbers[0]?.number) || ''}</p>
                                   </div>
                                   <div className="w-full text-center text-gray-500" style={{ fontSize: `${Math.max(7, (labelHeightPx * 0.11) * (fontSize / 100))}px`, lineHeight: 1, wordBreak: 'break-word' }}>
                                       <p>{item.mainLocation} / {item.subLocation}</p>
@@ -493,7 +495,7 @@ const handleDownload = React.useCallback(async () => {
                                     {comp.items.slice(0, 5).map(item => (
                                         <li key={item.id} className="truncate">
                                             <span className="font-semibold text-black">{item.name}</span>
-                                            <span className="text-gray-500 ml-2">{item.preferredManufacturerItemNumber || item.manufacturerItemNumbers[0]?.number}</span>
+                                            <span className="text-gray-500 ml-2">{item.preferredManufacturerItemNumber || (Array.isArray(item.manufacturerItemNumbers) && item.manufacturerItemNumbers[0]?.number) || ''}</span>
                                         </li>
                                     ))}
                                     {comp.items.length > 5 && <li className="font-bold text-black mt-1">... und {comp.items.length - 5} weitere</li>}
