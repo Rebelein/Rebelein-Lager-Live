@@ -206,7 +206,7 @@ const handleDownload = React.useCallback(async () => {
             key,
             mainLocation,
             subLocation,
-            items: items.filter(item => item.mainLocation === mainLocation && item.subLocation === subLocation)
+            items: items.filter((item): item is InventoryItem => item.itemType === 'item' && item.mainLocation === mainLocation && item.subLocation === subLocation)
         };
     })
   }, [items, selectedCompartments, activeTab]);
@@ -454,7 +454,7 @@ const handleDownload = React.useCallback(async () => {
                     let finalBarcodeValue: string | null = null;
                     if (barcodeSource === 'preferred') { const supplier = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId); finalBarcodeValue = supplier?.wholesalerItemNumber || null; } else if (barcodeSource === 'ean') { finalBarcodeValue = item.barcode || null; } else if (barcodeSource === 'manufacturer') { finalBarcodeValue = item.manufacturerItemNumbers[0]?.number || null; } else { const supplier = item.suppliers.find(s => s.wholesalerId === barcodeSource); finalBarcodeValue = supplier?.wholesalerItemNumber || null; }
                     return(
-                      <div key={item.id} className="label-container bg-white" data-filename={`etikett-${item.name.replace(/\s+/g, '-').toLowerCase()}.png`}>
+                      <div key={item.id} className="label-container bg-white" data-filename={`etikett-${item.name.replace(/\s+/g, '-')}-${item.subLocation}.png`}>
                           <div className="p-1 bg-white border flex items-stretch justify-center gap-1" style={{ width: `${labelWidthPx}px`, height: `${labelHeightPx}px`, boxSizing: 'content-box' }}>
                              <div className="flex-1 h-full flex flex-col justify-between items-center overflow-hidden p-1">
                                   <div className="w-full text-center">
@@ -488,10 +488,15 @@ const handleDownload = React.useCallback(async () => {
                           }}
                         >
                           <div className="flex-grow flex items-center gap-2">
-                            <div className="flex-1">
-                                <ul className="text-black list-disc list-inside" style={{ fontSize: `${Math.max(6, (labelHeightPx * 0.12) * (fontSize/100))}px`, lineHeight: 1.2 }}>
-                                    {comp.items.slice(0, 5).map(item => <li key={item.id} className="truncate">{item.name}</li>)}
-                                    {comp.items.length > 5 && <li className="font-bold">... und {comp.items.length - 5} weitere</li>}
+                            <div className="flex-1 overflow-hidden">
+                                <ul style={{ fontSize: `${Math.max(5, (labelHeightPx * 0.1) * (fontSize/100))}px`, lineHeight: 1.3 }}>
+                                    {comp.items.slice(0, 5).map(item => (
+                                        <li key={item.id} className="truncate">
+                                            <span className="font-semibold text-black">{item.name}</span>
+                                            <span className="text-gray-500 ml-2">{item.preferredManufacturerItemNumber || item.manufacturerItemNumbers[0]?.number}</span>
+                                        </li>
+                                    ))}
+                                    {comp.items.length > 5 && <li className="font-bold text-black mt-1">... und {comp.items.length - 5} weitere</li>}
                                 </ul>
                             </div>
                             <div className="flex items-center justify-center h-full p-1" style={{ width: `${Math.min(labelHeightPx * 0.8, 100)}px` }}>
@@ -516,5 +521,3 @@ const handleDownload = React.useCallback(async () => {
     </div>
   );
 }
-
-    
