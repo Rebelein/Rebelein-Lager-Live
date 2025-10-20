@@ -491,14 +491,19 @@ const handleDownload = React.useCallback(async () => {
                         >
                           <div className="flex-grow flex items-center gap-2">
                             <div className="flex-1 overflow-hidden">
-                                <ul style={{ fontSize: `${Math.max(5, (labelHeightPx * 0.1) * (fontSize/100))}px`, lineHeight: 1.3 }}>
+                                <ul style={{ fontSize: `${Math.max(5, (labelHeightPx * 0.1) * (fontSize/100))}px`, lineHeight: 1.3, listStyle: 'none', padding: 0, margin: 0 }}>
                                     {comp.items.slice(0, 5).map(item => {
-                                      const supplier = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId);
-                                      const itemNumber = supplier?.wholesalerItemNumber || '';
+                                      const supplier = item.suppliers?.find(s => s.wholesalerId === item.preferredWholesalerId);
+                                      const wholesalerItemNumber = supplier?.wholesalerItemNumber || '';
+                                      const manufacturerItemNumber = item.preferredManufacturerItemNumber || item.manufacturerItemNumbers?.[0]?.number || '';
+                                      
                                       return (
-                                        <li key={item.id} className="truncate">
-                                            <span className="font-semibold text-black">{item.name}</span>
-                                            <span className="text-gray-500 ml-2">{itemNumber}</span>
+                                        <li key={item.id} className="mb-1">
+                                            <p className="font-semibold text-black truncate" style={{ margin: 0 }}>{item.name}</p>
+                                            <div className="text-gray-500 truncate" style={{ fontSize: '0.9em' }}>
+                                                {wholesalerItemNumber && <p style={{ margin: 0 }}>GH: {wholesalerItemNumber}</p>}
+                                                {manufacturerItemNumber && <p style={{ margin: 0 }}>H: {manufacturerItemNumber}</p>}
+                                            </div>
                                         </li>
                                       )
                                     })}
