@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import type { Commission, CommissionItem, InventoryItem } from '@/lib/types';
-import { PlusCircle, Archive, PackageSearch, ChevronsUpDown, ClipboardList, Warehouse, CheckCircle, Circle, X, MoreHorizontal, Pencil, Trash2, ShoppingCart, Minus, Plus, Undo, Info, Printer, Mail, ScanLine, Save } from 'lucide-react';
+import { PlusCircle, Archive, PackageSearch, ChevronsUpDown, ClipboardList, Warehouse, CheckCircle, Circle, X, MoreHorizontal, Pencil, Trash2, ShoppingCart, Minus, Plus, Undo, Info, Printer, Mail, ScanLine, Save, RefreshCw, Zap, ZapOff, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -44,6 +44,7 @@ import Webcam from 'react-webcam';
 import jsQR from 'jsqr';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
+import { useCallback, useEffect } from 'react';
 
 
 const getStatusVariant = (status: Commission['status']) => {
@@ -555,6 +556,11 @@ export default function CommissioningPage() {
   const lastScannedId = React.useRef<string | null>(null);
   const [isActionDialogOpen, setIsActionDialogOpen] = React.useState(false);
 
+  const [devices, setDevices] = React.useState<MediaDeviceInfo[]>([]);
+  const [activeDeviceId, setActiveDeviceId] = React.useState<string | undefined>(undefined);
+  const [torchSupported, setTorchSupported] = React.useState(false);
+  const [torchOn, setTorchOn] = React.useState(false);
+
 
   const mainWarehouseItems = React.useMemo(() => {
     if (!mainWarehouse) return [];
@@ -735,11 +741,50 @@ export default function CommissioningPage() {
       }
     }
   }, [isContextLoading, commissions]);
+
+  const handleDevices = React.useCallback(
+        (mediaDevices: MediaDeviceInfo[]) => {
+            const videoDevices = mediaDevices.filter(({ kind }) => kind === 'videoinput');
+            setDevices(videoDevices);
+            if (!activeDeviceId && videoDevices.length > 0) {
+                // Prefer back camera
+                const backCamera = videoDevices.find(device => device.label.toLowerCase().includes('back'));
+                setActiveDeviceId(backCamera ? backCamera.deviceId : videoDevices[0]?.deviceId);
+            }
+        },
+        [activeDeviceId]
+    );
+
+   const checkTorchSupport = React.useCallback(async () => {
+        if (webcamRef.current?.stream) {
+            try {
+                const track = webcamRef.current.stream.getVideoTracks()[0];
+                if (!track) {
+                    setTorchSupported(false);
+                    return;
+                }
+                const capabilities = track.getCapabilities();
+                setTorchSupported(!!((capabilities as any).torch));
+            } catch (e) {
+                console.error("Error checking torch support:", e);
+                setTorchSupported(false);
+            }
+        }
+    }, []);
+
+    const switchCamera = () => {
+        if (devices.length > 1 && activeDeviceId) {
+            const currentIndex = devices.findIndex(d => d.deviceId === activeDeviceId);
+            const nextIndex = (currentIndex + 1) % devices.length;
+            setActiveDeviceId(devices[nextIndex]?.deviceId);
+        }
+    };
   
   const openScanner = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       setHasCameraPermission(true);
+      navigator.mediaDevices.enumerateDevices().then(handleDevices);
       stream.getTracks().forEach(track => track.stop());
       setIsScannerOpen(true);
     } catch (error) {
@@ -753,7 +798,7 @@ export default function CommissioningPage() {
     }
   };
 
-  const handleScan = React.useCallback(async (scannedData: string) => {
+  const handleScan = React.useCallback((scannedData: string) => {
     if (scannedData.startsWith('commission::')) {
         const commissionId = scannedData.split('::')[1];
         const foundCommission = commissions?.find(c => c.id === commissionId);
@@ -834,6 +879,28 @@ export default function CommissioningPage() {
         }
         return () => clearInterval(intervalId);
     }, [isScannerOpen, hasCameraPermission, captureCode]);
+
+    useEffect(() => {
+        if (webcamRef.current?.stream) {
+            checkTorchSupport();
+        }
+    }, [webcamRef.current?.stream, checkTorchSupport, activeDeviceId]);
+
+    const toggleTorch = async () => {
+        if (webcamRef.current?.stream && torchSupported) {
+            try {
+                const track = webcamRef.current.stream.getVideoTracks()[0];
+                if (!track) return;
+                await track.applyConstraints({
+                    advanced: [{ torch: !torchOn } as any]
+                });
+                setTorchOn(!torchOn);
+            } catch (e) {
+                console.error("Failed to toggle torch:", e);
+                toast({ title: "Fehler", description: "Licht konnte nicht umgeschaltet werden.", variant: "destructive" });
+            }
+        }
+    };
 
 
   return (
@@ -1285,8 +1352,9 @@ export default function CommissioningPage() {
                 audio={false}
                 ref={webcamRef}
                 screenshotFormat="image/jpeg"
-                videoConstraints={{ facingMode: 'environment' }}
+                videoConstraints={{ deviceId: activeDeviceId }}
                 className="h-full w-full object-cover"
+                onUserMedia={checkTorchSupport}
               />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center bg-muted p-4">
@@ -1303,11 +1371,24 @@ export default function CommissioningPage() {
                 <div className="absolute inset-0 rounded-lg border-[20px] border-black/20"></div>
                 <div className={cn(
                     "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-destructive opacity-75",
-                    scannerType === 'qr' ? 'h-2/3 w-2/3' : 'h-1/3 w-4/5'
+                    scannerType === 'qr' ? 'h-2/3 w-2/3' : 'h-1/3 w-5/6'
                 )}></div>
               </>
             )}
           </div>
+           <div className="flex items-center justify-center gap-4">
+                {devices.length > 1 && (
+                    <Button variant="outline" onClick={switchCamera}>
+                        <RefreshCw className="mr-2 h-4 w-4" /> Kamera wechseln
+                    </Button>
+                )}
+                {torchSupported && (
+                    <Button variant="outline" onClick={toggleTorch}>
+                        {torchOn ? <ZapOff className="mr-2 h-4 w-4" /> : <Zap className="mr-2 h-4 w-4" />}
+                        Licht
+                    </Button>
+                )}
+            </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setIsScannerOpen(false)}>Schließen</Button>
           </DialogFooter>
