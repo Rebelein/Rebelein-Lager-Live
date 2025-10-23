@@ -10,7 +10,7 @@ import { de } from 'date-fns/locale';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid } from 'lucide-react';
+import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch } from 'lucide-react';
 import { getChangeLogActionText, isInventoryItem } from '@/lib/utils';
 import {
   Collapsible,
@@ -27,6 +27,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadio
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useRouter } from 'next/navigation';
 
 const useIsDesktop = () => {
     const [isDesktop, setIsDesktop] = React.useState(false);
@@ -46,6 +47,7 @@ const useIsDesktop = () => {
 const getCardTitle = (id: string) => {
     switch (id) {
         case 'machines': return 'Maschinenstatus';
+        case 'commissions': return 'Kommissionen';
         case 'lowStock': return 'Artikel unter Mindestbestand';
         case 'arranged': return 'Angeordnete Bestellungen';
         case 'ordered': return 'Bestellte Artikel';
@@ -163,6 +165,7 @@ export default function DashboardPage() {
         };
         switch (id) {
             case 'machines': return <MachinesCard key={key} {...cardProps} />;
+            case 'commissions': return <CommissionsCard key={key} {...cardProps} />;
             case 'lowStock': return <StatCard key={key} {...cardProps} title="Artikel unter Mindestbestand" value={stats.lowStockItems.length} icon={AlertCircle} description="Benötigen Aufmerksamkeit">{stats.lowStockItems.length > 0 ? (<div className="space-y-2 text-sm max-h-56 overflow-y-auto pr-2">{stats.lowStockItems.map(({item, locationName}) => (<div key={`${item.id}-${locationName}`} className="flex justify-between"><span>{item.name}</span><span className="text-muted-foreground">{locationName}</span></div>))}</div>) : (<p className="text-sm text-muted-foreground">Alle Bestände sind im grünen Bereich.</p>)}</StatCard>;
             case 'arranged': return <StatCard key={key} {...cardProps} title="Angeordnete Bestellungen" value={stats.arrangedItems.length} icon={FileClock} description="Warten auf Bestellung">{stats.arrangedItems.length > 0 ? (<div className="space-y-2 text-sm max-h-56 overflow-y-auto pr-2">{stats.arrangedItems.map(({item, locationName, quantity}) => (<div key={`${item.id}-${locationName}`} className="flex justify-between"><span>{quantity}x {item.name}</span><span className="text-muted-foreground">{locationName}</span></div>))}</div>) : (<p className="text-sm text-muted-foreground">Keine Bestellungen angeordnet.</p>)}</StatCard>;
             case 'ordered': return <StatCard key={key} {...cardProps} title="Bestellte Artikel" value={stats.orderedItems.length} icon={Truck} description="Warten auf Lieferung">{stats.orderedItems.length > 0 ? (<div className="space-y-2 text-sm max-h-56 overflow-y-auto pr-2">{stats.orderedItems.map(({item, locationName, quantity}) => (<div key={`${item.id}-${locationName}`} className="flex justify-between"><span>{quantity}x {item.name}</span><span className="text-muted-foreground">{locationName}</span></div>))}</div>) : (<p className="text-sm text-muted-foreground">Aktuell keine offenen Bestellungen.</p>)}</StatCard>;
@@ -178,11 +181,12 @@ export default function DashboardPage() {
     
     const getGridSpan = (id: string, size: 'small' | 'default' | 'wide') => {
         const isActivityCard = id.includes('activities');
+        const isCommissionOrMachineCard = id === 'commissions' || id === 'machines';
         switch(size) {
             case 'small': return { col: 'lg:col-span-1', row: 'lg:row-span-1' };
             case 'wide': return { col: 'lg:col-span-2', row: 'lg:row-span-2' };
             default: 
-                 if (isActivityCard) {
+                 if (isActivityCard || isCommissionOrMachineCard) {
                     return { col: 'lg:col-span-1', row: 'lg:row-span-2' };
                 }
                 return { col: 'lg:col-span-1', row: 'lg:row-span-1' };
@@ -372,6 +376,58 @@ const MachinesCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
         </DraggableCardWrapper>
     );
 }
+
+const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 'default' | 'wide', onSizeChange: (size: 'small' | 'default' | 'wide') => void }) => {
+    const { commissions } = useAppContext();
+    const router = useRouter();
+
+    const draftCommissions = React.useMemo(() => {
+        return (commissions || []).filter(c => c.status === 'draft' || c.status === 'preparing');
+    }, [commissions]);
+
+    const readyCommissions = React.useMemo(() => {
+        return (commissions || []).filter(c => c.status === 'ready');
+    }, [commissions]);
+
+    const handleCardClick = () => {
+        router.push('/commissioning');
+    };
+
+    return (
+        <DraggableCardWrapper id={id} currentSize={size} onSizeChange={onSizeChange}>
+            <Card className="h-full flex flex-col cursor-pointer hover:bg-muted/50" onClick={handleCardClick}>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><PackageSearch className="h-5 w-5 text-primary" /> Kommissionen</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-grow grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <h4 className="font-semibold text-center text-sm border-b pb-2">Entwurf ({draftCommissions.length})</h4>
+                        <div className="space-y-2 pt-2 text-sm overflow-y-auto max-h-48">
+                            {draftCommissions.length > 0 ? draftCommissions.slice(0, 10).map(c => (
+                                <div key={c.id} className="p-2 border rounded-md">
+                                    <p className="font-medium truncate">{c.name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
+                                </div>
+                            )) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <h4 className="font-semibold text-center text-sm border-b pb-2">Bereitgestellt ({readyCommissions.length})</h4>
+                        <div className="space-y-2 pt-2 text-sm overflow-y-auto max-h-48">
+                            {readyCommissions.length > 0 ? readyCommissions.slice(0, 10).map(c => (
+                                <div key={c.id} className="p-2 border rounded-md">
+                                    <p className="font-medium truncate">{c.name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
+                                </div>
+                            )) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </DraggableCardWrapper>
+    );
+};
+
 
 const ActivityCard = ({ id, size, onSizeChange, title, icon: Icon, changelog }: { id: string; size: 'small' | 'default' | 'wide'; onSizeChange: (size: 'small' | 'default' | 'wide') => void; title: string; icon: React.ElementType; changelog: ChangeLogEntry[] }) => {
     return (

@@ -85,6 +85,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const allDashboardCards: DashboardCardLayout[] = [
     { id: 'machines', size: 'default' },
+    { id: 'commissions', size: 'default' },
     { id: 'lowStock', size: 'default' },
     { id: 'arranged', size: 'default' },
     { id: 'ordered', size: 'default' },
