@@ -1239,11 +1239,15 @@ export default function CommissioningPage() {
                 <DialogTitle>Kommission gescannt: {scannedCommission?.name}</DialogTitle>
                 <DialogDescription>Wählen Sie eine Aktion aus.</DialogDescription>
             </DialogHeader>
-            <DialogFooter className="grid grid-cols-2 gap-4 pt-4">
+            <DialogFooter className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
                 <Button variant="outline" size="lg" onClick={() => {
                     setDetailCommission(scannedCommission);
                     setIsActionDialogOpen(false);
-                }}>Details anzeigen</Button>
+                }}>Details</Button>
+                 <Button variant="outline" size="lg" onClick={() => {
+                    setPreparingCommission(scannedCommission);
+                    setIsActionDialogOpen(false);
+                }}>Vorbereiten</Button>
                 <Button size="lg" onClick={() => {
                     if (scannedCommission) handleWithdraw(scannedCommission);
                     setIsActionDialogOpen(false);
