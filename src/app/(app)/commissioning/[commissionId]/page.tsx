@@ -85,7 +85,7 @@ function CommissionPreparationDialog({
         );
         
         const updatedCommission = { ...commission, items: updatedItems };
-        onUpdateCommission(commission, updatedCommission); // Pass old and new state
+        onUpdateCommission(initialCommission, updatedCommission); // Pass old and new state
         setCommission(updatedCommission); // Update local state for immediate UI feedback
 
         // Handle stock changes
@@ -117,7 +117,7 @@ function CommissionPreparationDialog({
 
         const updatedItems = commission.items.filter(i => i.id !== itemId);
         const updatedCommission = { ...commission, items: updatedItems };
-        onUpdateCommission(commission, updatedCommission);
+        onUpdateCommission(initialCommission, updatedCommission);
         setCommission(updatedCommission);
         toast({ title: 'Artikel entfernt', description: 'Der Artikel wurde aus der Kommission entfernt.', variant: 'destructive'});
     };
@@ -376,18 +376,20 @@ export default function CommissioningPage() {
         handleUpdateCommission(editingCommission, commissionData);
         toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${commissionData.name}" wurde gespeichert.` });
     } else {
+        const allItemsReadyForNew = newCommissionItems.length > 0 && newCommissionItems.every(i => i.status === 'ready');
         commissionData = {
           id: `commission-${Date.now()}`,
           name: newCommissionName.trim(),
           orderNumber: newCommissionOrderNumber.trim(),
           notes: newCommissionNotes.trim(),
-          status: 'draft',
+          status: allItemsReadyForNew ? 'ready' : (newCommissionItems.length > 0 ? 'preparing' : 'draft'),
           items: newCommissionItems,
           createdAt: new Date().toISOString(),
           createdBy: currentUser.name,
           withdrawnAt: null,
+          isNewlyReady: allItemsReadyForNew,
         };
-        handleUpdateCommission({ ...commissionData, status: 'draft'}, commissionData); // Simulate an update from draft
+        addOrUpdateCommission(commissionData); 
         toast({ title: 'Kommission erstellt', description: `Die Kommission "${commissionData.name}" wurde angelegt.` });
     }
     
@@ -404,20 +406,17 @@ export default function CommissioningPage() {
   };
 
   const handleUpdateCommission = (oldCommission: Commission, updatedCommission: Commission) => {
-      const oldStatus = oldCommission.status;
       const allItemsReady = updatedCommission.items.length > 0 && updatedCommission.items.every(i => i.status === 'ready');
       const newStatus = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
       
-      let commissionToSave = { ...updatedCommission, status: newStatus, isNewlyReady: updatedCommission.isNewlyReady };
+      let commissionToSave = { ...updatedCommission, status: newStatus };
 
-      if ((oldStatus === 'draft' || oldStatus === 'preparing') && newStatus === 'ready') {
+      // Check for the specific status transition to trigger the glow effect
+      if ((oldCommission.status === 'draft' || oldCommission.status === 'preparing') && newStatus === 'ready') {
         commissionToSave.isNewlyReady = true;
       }
 
       addOrUpdateCommission(commissionToSave);
-
-      // No need to update local state like preparingCommission/detailCommission
-      // because they will get updated via the onSnapshot listener from useCollection
   }
   
   const handleWithdraw = (commission: Commission) => {
