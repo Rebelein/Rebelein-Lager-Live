@@ -1,7 +1,7 @@
 import type { InventoryItem, User, Wholesaler, Order, Location } from '../lib/types';
-import { navItems } from '@/components/layout/app-shell';
+import { navItems, type NavItem } from '../lib/nav-items';
 
-const allNavItems = navItems.map(item => item.href);
+const allNavItems = navItems.map((item: NavItem) => item.href);
 
 export const initialUsers: User[] = [
     { id: '1', name: 'Max Mustermann', visibleNavItems: allNavItems, navItemOrder: allNavItems },

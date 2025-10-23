@@ -1,6 +1,5 @@
 
 
-
 export type ReorderStatus = {
   status: 'arranged' | 'ordered' | null;
   arrangedAt?: string | null;
@@ -180,6 +179,9 @@ export type AppSettings = {
     provider: 'google' | 'openrouter';
     model: string;
     apiKey: string;
+  };
+  commission?: {
+    printerEmail?: string;
   }
 };
 
@@ -243,12 +245,23 @@ export type MaskArea = {
   height: number;
 };
 
+export type CommissionItem = {
+    id: string; // Corresponds to InventoryItem ID or a generated placeholder ID
+    name: string;
+    itemNumber: string; // Can be a real item number or a placeholder string
+    source: 'main_warehouse' | 'external_order';
+    quantity: number;
+    status: 'pending' | 'ready';
+};
+
 export type Commission = {
   id: string;
   name: string;
   orderNumber: string;
   notes?: string;
-  status: 'active' | 'completed';
+  status: 'draft' | 'preparing' | 'ready' | 'withdrawn';
   createdAt: string;
   createdBy: string;
+  withdrawnAt?: string | null;
+  items: CommissionItem[];
 };

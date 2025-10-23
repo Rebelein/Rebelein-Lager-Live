@@ -14,6 +14,32 @@ export interface ChangelogEntry {
 
 export const changelogData: ChangelogEntry[] = [
     {
+    date: '2025-10-11',
+    title: 'Digitalisierung des Kommissionier-Workflows',
+    changes: [
+      {
+        type: 'NEU',
+        description: 'Für jede Kommission kann nun ein Etikett mit einem QR-Code gedruckt werden. Auf dem Etikett stehen Kommissionsname, Auftragsnummer und Notizen.',
+      },
+      {
+        type: 'NEU',
+        description: 'Eine neue Scan-Funktion auf der Kommissionierungsseite ermöglicht das Scannen der Etiketten. Nach dem Scan kann direkt die Detailansicht geöffnet oder die Kommission als "entnommen" markiert werden.',
+      },
+       {
+        type: 'NEU',
+        description: 'Der Druckdialog für Kommissionen bietet nun zwei Optionen: "Herunterladen (Bild)" für eine PNG-Datei und "Per E-Mail senden" für den automatisierten Versand an einen Drucker.',
+      },
+       {
+        type: 'VERBESSERT',
+        description: 'Beim E-Mail-Versand wird das Etikett als A4-PDF generiert und das Standard-Mailprogramm mit vorausgefüllter Empfänger-Adresse und Betreff geöffnet.',
+      },
+       {
+        type: 'BEHOBEN',
+        description: 'Leere Kommissionen (ohne Artikel) können nun direkt entnommen werden, ohne den "Vorbereiten"-Schritt durchlaufen zu müssen.',
+      },
+    ],
+  },
+    {
     date: '2025-10-10',
     title: 'Workflow-Verbesserungen, Sicherheit & KI-Optimierungen',
     changes: [

@@ -49,22 +49,24 @@ export async function testAiConnection(params: TestConnectionParams): Promise<{ 
             }
 
             await ai.generate({
-                model: modelToUse as any,
+                model: modelToUse,
                 prompt: 'Hallo',
                 // KORREKTUR: Wir übergeben den API-Schlüssel über das 'config'-Objekt.
                 config: {
                     apiKey: params.apiKey,
-                    maxOutputTokens: 5,
-                }
+                },
+                output: {
+                    format: 'text',
+                },
             });
         }
 
         return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Test connection failed:", error);
-        let errorMessage = error.message || 'Ein unbekannter Fehler ist aufgetreten.';
-        if (error.code) { // Handle specific API errors
-            errorMessage = `Fehler: ${error.code} - ${error.message}`;
+        let errorMessage = (error as Error).message || 'Ein unbekannter Fehler ist aufgetreten.';
+        if ((error as { code?: string }).code) { // Handle specific API errors
+            errorMessage = `Fehler: ${(error as { code?: string }).code} - ${(error as Error).message}`;
         }
         if (errorMessage.includes("API key not valid")) {
             errorMessage = "Der API-Schlüssel ist ungültig oder hat nicht die nötigen Berechtigungen."

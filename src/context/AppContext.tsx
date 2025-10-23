@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import type { InventoryItem, User, Wholesaler, ChangeLogEntry, Order, Location, YearlyInventoryExportRow, StockTurnover, AnalysisData, OrderItem, Notification, AppSettings, DashboardLayout, DashboardCardLayout, Machine, ReorderStatus, Commission } from '@/lib/types';
+import type { InventoryItem, User, Wholesaler, ChangeLogEntry, Order, Location, YearlyInventoryExportRow, StockTurnover, AnalysisData, OrderItem, Notification, AppSettings, DashboardLayout, DashboardCardLayout, Machine, ReorderStatus, Commission, CommissionItem } from '@/lib/types';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useMemoFirebase } from '@/firebase/provider';
@@ -33,7 +34,6 @@ interface AppContextType {
   setOrders: (orders: Order[]) => void;
   locations: Location[];
   setLocations: (locations: Location[]) => void;
-  commissions: Commission[];
   appSettings: AppSettings;
   updateAppSettings: (settings: AppSettings) => void;
   currentUser: User | null;
@@ -73,6 +73,11 @@ interface AppContextType {
   dashboardLayout: DashboardLayout;
   setDashboardLayout: (layout: DashboardCardLayout[]) => void;
   allDashboardCards: DashboardCardLayout[];
+  mainWarehouse: Location | undefined;
+  addOrUpdateCommission: (commission: Commission) => void;
+  deleteCommission: (commissionId: string) => void;
+  reduceStockForCommissionItem: (commissionId: string, itemId: string, quantity: number) => void;
+  increaseStockForCommissionItem: (commissionId: string, itemId: string, quantity: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -123,29 +128,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsersState] = useState<User[]>(() => getFromLocalStorage('users', []));
   const [wholesalers, setWholesalersState] = useState<Wholesaler[]>(() => getFromLocalStorage('wholesalers', []));
   const [locations, setLocationsState] = useState<Location[]>(() => getFromLocalStorage('locations', []));
-  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]); // No localStorage init
+  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>(() => getFromLocalStorage('items', []));
   const [orders, setOrdersState] = useState<Order[]>(() => getFromLocalStorage('orders', []));
-  const [commissions, setCommissionsState] = useState<Commission[]>([]); // No localStorage init
   const [appSettings, setAppSettingsState] = useState<AppSettings>(() => getFromLocalStorage('appSettings', {}));
 
   // Firebase real-time data hooks
-  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const wholesalersCollectionRef = useMemoFirebase(() => collection(firestore, 'wholesalers'), [firestore]);
-  const locationsCollectionRef = useMemoFirebase(() => collection(firestore, 'locations'), [firestore]);
-  const articlesCollectionRef = useMemoFirebase(() => collection(firestore, 'articles'), [firestore]);
-  const machinesCollectionRef = useMemoFirebase(() => collection(firestore, 'machines'), [firestore]);
-  const commissionsCollectionRef = useMemoFirebase(() => collection(firestore, 'commissions'), [firestore]);
-  const ordersCollectionRef = useMemoFirebase(() => collection(firestore, 'orders'), [firestore]);
-  const settingsDocRef = useMemoFirebase(() => doc(firestore, 'app_settings', 'global'), [firestore]);
-
-  const { data: usersData, error: usersError } = useCollection<User>(usersCollectionRef);
-  const { data: wholesalersData, error: wholesalersError } = useCollection<Wholesaler>(wholesalersCollectionRef);
-  const { data: locationsData, error: locationsError } = useCollection<Location>(locationsCollectionRef);
-  const { data: articlesData, error: articlesError } = useCollection<InventoryItem>(articlesCollectionRef);
-  const { data: machinesData, error: machinesError } = useCollection<Machine>(machinesCollectionRef);
-  const { data: commissionsData, error: commissionsError } = useCollection<Commission>(commissionsCollectionRef);
-  const { data: ordersData, error: ordersError } = useCollection<Order>(ordersCollectionRef);
-  const { data: settingsData, error: settingsError } = useDoc<AppSettings>(settingsDocRef);
+  const { data: usersData, error: usersError } = useCollection<User>(useMemoFirebase(() => collection(firestore, 'users'), [firestore]));
+  const { data: wholesalersData, error: wholesalersError } = useCollection<Wholesaler>(useMemoFirebase(() => collection(firestore, 'wholesalers'), [firestore]));
+  const { data: locationsData, error: locationsError } = useCollection<Location>(useMemoFirebase(() => collection(firestore, 'locations'), [firestore]));
+  const { data: articlesData, error: articlesError } = useCollection<InventoryItem>(useMemoFirebase(() => collection(firestore, 'articles'), [firestore]));
+  const { data: machinesData, error: machinesError } = useCollection<Machine>(useMemoFirebase(() => collection(firestore, 'machines'), [firestore]));
+  const { data: commissionsData, error: commissionsError } = useCollection<Commission>(useMemoFirebase(() => collection(firestore, 'commissions'), [firestore]));
+  const { data: ordersData, error: ordersError } = useCollection<Order>(useMemoFirebase(() => collection(firestore, 'orders'), [firestore]));
+  const { data: settingsData, error: settingsError } = useDoc<AppSettings>(useMemoFirebase(() => doc(firestore, 'app_settings', 'global'), [firestore]));
   
   const anyError = usersError || wholesalersError || locationsError || articlesError || machinesError || ordersError || settingsError || commissionsError;
 
@@ -163,16 +158,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
      if (articlesData && machinesData) {
         const combinedItems = [...articlesData, ...machinesData];
         setItemsState(combinedItems);
+        saveToLocalStorage('items', combinedItems);
     }
   }, [articlesData, machinesData]);
   useEffect(() => {
     if (ordersData) { setOrdersState(ordersData); saveToLocalStorage('orders', ordersData); }
   }, [ordersData]);
-   useEffect(() => {
-    if (commissionsData) {
-        setCommissionsState(commissionsData);
-    }
-  }, [commissionsData]);
   useEffect(() => {
     if (settingsData) { setAppSettingsState(settingsData); saveToLocalStorage('appSettings', settingsData); }
   }, [settingsData]);
@@ -1382,6 +1373,76 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
       setIsDetailViewOpen(true);
     }, []);
 
+    const mainWarehouse = useMemo(() => locations.find(l => !l.isVehicle), [locations]);
+
+    const addOrUpdateCommission = useCallback((commission: Commission) => {
+        if (!firestore) return;
+        const commissionRef = doc(firestore, 'commissions', commission.id);
+        setDocumentNonBlocking(commissionRef, commission, { merge: true });
+    }, [firestore]);
+
+    const deleteCommission = useCallback((commissionId: string) => {
+        if (!firestore) return;
+        const commissionRef = doc(firestore, 'commissions', commissionId);
+        deleteDocumentNonBlocking(commissionRef);
+    }, [firestore]);
+    
+    const reduceStockForCommissionItem = useCallback((commissionId: string, itemId: string, quantity: number) => {
+        if (!mainWarehouse || !currentUser) return;
+
+        const item = items.find(i => i.id === itemId);
+        if (!item || !isInventoryItem(item)) return;
+
+        const stockIndex = item.stocks.findIndex(s => s.locationId === mainWarehouse.id);
+        if (stockIndex === -1 || item.stocks[stockIndex]!.quantity < quantity) {
+            toast({
+                title: 'Nicht genügend Bestand',
+                description: `Nicht genügend Bestand von "${item.name}" im Hauptlager vorhanden.`,
+                variant: 'destructive',
+            });
+            return;
+        }
+        
+        // Reduce stock
+        handleQuickStockChange(itemId, mainWarehouse.id, 'out', quantity);
+
+        // Update commission item status
+        const commissionRef = doc(firestore, 'commissions', commissionId);
+        if (commissionsData) {
+            const commission = commissionsData.find(c => c.id === commissionId);
+            if (commission) {
+                const updatedItems = commission.items.map(i => i.id === itemId ? { ...i, status: 'ready' as const } : i);
+                updateDocumentNonBlocking(commissionRef, { items: updatedItems });
+            }
+        }
+        
+        toast({ title: 'Bestand reduziert', description: `${quantity}x ${item.name} vom Hauptlager abgebucht.` });
+
+    }, [mainWarehouse, currentUser, items, handleQuickStockChange, firestore, commissionsData, toast]);
+
+    const increaseStockForCommissionItem = useCallback((commissionId: string, itemId: string, quantity: number) => {
+        if (!mainWarehouse || !currentUser) return;
+        
+        const item = items.find(i => i.id === itemId);
+        if (!item || !isInventoryItem(item)) return;
+
+        // Increase stock
+        handleQuickStockChange(itemId, mainWarehouse.id, 'in', quantity);
+        
+        // Update commission item status
+        const commissionRef = doc(firestore, 'commissions', commissionId);
+        if (commissionsData) {
+            const commission = commissionsData.find(c => c.id === commissionId);
+             if (commission) {
+                const updatedItems = commission.items.map(i => i.id === itemId ? { ...i, status: 'pending' as const } : i);
+                updateDocumentNonBlocking(commissionRef, { items: updatedItems });
+            }
+        }
+
+        toast({ title: 'Bestand zurückgebucht', description: `Vorbereitung für ${quantity}x ${item.name} wurde storniert und der Bestand korrigiert.` });
+
+    }, [mainWarehouse, currentUser, items, handleQuickStockChange, firestore, commissionsData, toast]);
+
 
   const value = {
     dbConnectionStatus,
@@ -1399,7 +1460,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     setOrders,
     locations,
     setLocations,
-    commissions,
     appSettings,
     updateAppSettings,
     currentUser,
@@ -1439,6 +1499,11 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     dashboardLayout: { layout: dashboardLayout, isEditing: currentUser?.isDashboardEditing ?? false },
     setDashboardLayout,
     allDashboardCards,
+    mainWarehouse,
+    addOrUpdateCommission,
+    deleteCommission,
+    reduceStockForCommissionItem,
+    increaseStockForCommissionItem,
   };
 
   return (

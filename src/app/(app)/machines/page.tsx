@@ -722,10 +722,10 @@ export default function MachinesPage() {
             }
         }
         toast({ title: 'Kein Bild gefunden', description: 'Es wurde kein Bild in der Zwischenablage gefunden.' });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error pasting image:', error);
         let description = 'Das Bild konnte nicht eingefügt werden. Versuchen Sie es erneut.';
-        if (error.name === 'NotAllowedError') {
+        if ((error as Error).name === 'NotAllowedError') {
             description = 'Der Zugriff auf die Zwischenablage wurde verweigert. Bitte überprüfen Sie die Website-Berechtigungen in Ihrem Browser.';
         }
         toast({
@@ -750,7 +750,7 @@ export default function MachinesPage() {
     const formData = new FormData(e.currentTarget);
     const now = new Date().toISOString();
 
-    const updatedData: Partial<Machine> = {
+    const updatedData = {
       name: formData.get('name') as string,
       manufacturer: formData.get('manufacturer') as string,
       model: formData.get('model') as string,
@@ -1121,7 +1121,7 @@ export default function MachinesPage() {
           <div className="space-y-4 py-4">
             <Select
               value={rentalTargetType}
-              onValueChange={v => setRentalTargetType(v as any)}
+              onValueChange={v => setRentalTargetType(v as 'user' | 'customer' | 'other')}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Typ auswählen..." />
@@ -1591,7 +1591,7 @@ export default function MachinesPage() {
             </div>
              <div>
               <Label>Reserviert für</Label>
-               <Select value={reservationTargetType} onValueChange={(v) => setReservationTargetType(v as any)}>
+               <Select value={reservationTargetType} onValueChange={(v) => setReservationTargetType(v as 'customer' | 'user' | 'other')}>
                   <SelectTrigger><SelectValue placeholder="Typ auswählen..." /></SelectTrigger>
                   <SelectContent>
                       <SelectItem value="customer"><div className="flex items-center gap-2"><Building className="h-4 w-4" /> Kunde</div></SelectItem>

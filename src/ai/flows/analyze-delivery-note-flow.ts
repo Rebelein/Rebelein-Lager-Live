@@ -136,7 +136,7 @@ ${input.deliveryNoteText}
 --- END DELIVERY NOTE TEXT ---
 `;
         
-        const messages: any[] = [
+        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
             { role: 'system', content: "You are an expert warehouse assistant that ONLY responds with valid JSON." },
             { role: 'user', content: filledPrompt }
         ];
@@ -160,7 +160,7 @@ ${input.deliveryNoteText}
                 console.error("Failed to parse OpenRouter JSON response:", e);
                 throw new Error("Failed to parse AI response from OpenRouter.");
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             throw error;
         }
 
@@ -176,7 +176,7 @@ ${input.deliveryNoteText}
         
         const { output } = await ai.generate({
           prompt: systemPrompt,
-          model: modelToUse as any,
+          model: modelToUse,
           output: {
             schema: AnalyzeDeliveryNoteOutputSchema,
           },

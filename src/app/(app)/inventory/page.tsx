@@ -68,22 +68,14 @@ export default function InventoryPage() {
         setIsClient(true);
         const getCameraPermission = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            await navigator.mediaDevices.getUserMedia({ video: true });
             setHasCameraPermission(true);
-            stream.getTracks().forEach(track => track.stop());
-        } catch (error) {
-            console.error('Error accessing camera:', error);
+        } catch (err) {
             setHasCameraPermission(false);
-            toast({
-            variant: 'destructive',
-            title: 'Kamerazugriff verweigert',
-            description: 'Bitte aktivieren Sie den Kamerazugriff in Ihren Browsereinstellungen.',
-            });
         }
         };
         getCameraPermission();
-    }, [toast]);
-
+    }, []);
 
     const sortedItems = React.useMemo(() => {
         if (!items) return [];
@@ -98,6 +90,13 @@ export default function InventoryPage() {
             return timeA - timeB;
         });
     }, [items]);
+
+    const itemsForActiveLocation = React.useMemo(() => {
+        if (!locations || !items) return [];
+        return sortedItems.filter(item => {
+            return item.stocks.some(s => s.locationId === activeLocationId);
+        });
+    }, [sortedItems, activeLocationId, locations, items]);
 
     const handleOpenCountModal = (item: InventoryItem) => {
         setCurrentItem(item);
@@ -157,6 +156,11 @@ export default function InventoryPage() {
             } else {
                 toast({ title: 'Fehler', description: 'Keine Artikel in diesem Lagerfach gefunden.', variant: 'destructive' });
             }
+        } else if (scannedData.startsWith('commission::')) {
+            const commissionId = scannedData.split('::')[1];
+            // Instead of opening a dialog, redirect with a query param
+            // The commissioning page will handle opening the dialog
+            window.location.href = `/commissioning?commissionId=${commissionId}`;
         } else {
             let item: InventoryItem | undefined;
             if (scannerType === 'qr') {
@@ -248,12 +252,6 @@ export default function InventoryPage() {
     }
 
     const activeLocation = locations.find(l=>l.id === activeLocationId);
-
-    const itemsForActiveLocation = React.useMemo(() => {
-        return sortedItems.filter(item => {
-            return item.stocks.some(s => s.locationId === activeLocationId);
-        });
-    }, [sortedItems, activeLocationId]);
 
     return (
         <div className="flex flex-col gap-6">
@@ -447,7 +445,7 @@ export default function InventoryPage() {
                         {itemsForActiveLocation.map(item => {
                             const latestInventoryDate = isInventoryItem(item) ? getLatestInventoryDate(item.lastInventoriedAt) : new Date(0);
                             const stockInfo = item.stocks.find(s => s.locationId === activeLocationId);
-                             const itemNumberToDisplay = isInventoryItem(item) ? (item.preferredManufacturerItemNumber || item.manufacturerItemNumbers?.[0]?.number || '') : '';
+                             const itemNumberToDisplay = isInventoryItem(item) ? (item.preferredManufacturerItemNumber || item.manufacturerItemNumbers?.[0].number || '') : '';
                                     
                             return (
                              <div key={item.id} className={cn("p-4 border rounded-lg flex gap-4", isInventoryItem(item) ? getInventoryStatusColorClass(item.lastInventoriedAt) : 'border-gray-400')}>

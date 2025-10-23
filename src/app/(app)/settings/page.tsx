@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { navItems } from '@/lib/nav-items';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Trash2, PlusCircle, Pencil, X, Settings2, User, Bot, Link2 } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Pencil, X, Settings2, User, Bot, Link2, PackageSearch } from 'lucide-react';
 import { testAiConnection } from './actions';
 import type { AppSettings, Wholesaler, WholesalerMask } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -31,15 +31,12 @@ if (typeof window !== 'undefined') {
 
 const availableModels = {
     google: [
-        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Leistungsstärkstes Modell)' },
-        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Schnell & Günstig)' },
-        { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Vorgänger)' },
-        { id: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash Image (Bild-Generierung)' },
-        { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite (Sehr schnell)' },
-        { id: 'text-embedding-004', name: 'Text Embedding (für RAG)' },
+        { id: 'gemini-1.5-pro-latest', name: 'Gemini 1.5 Pro (Leistungsstärkstes Modell)' },
+        { id: 'gemini-1.5-flash-latest', name: 'Gemini 1.5 Flash (Schnell & Günstig)' },
+        { id: 'gemini-1.0-pro', name: 'Gemini 1.0 Pro (Vorgänger)' },
     ],
     openrouter: [
-        { id: 'deepseek/deepseek-chat-v3.1:free', name: 'DeepSeek Chat (Empfohlen)' },
+        { id: 'deepseek/deepseek-chat', name: 'DeepSeek Chat (Empfohlen)' },
         { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B Instruct (Free)' },
         { id: 'google/gemini-flash-1.5', name: 'Google Gemini Flash 1.5' },
     ]
@@ -158,7 +155,7 @@ function MaskEditorDialog({
                             </div>
                              <div>
                                 <h4 className="font-semibold">Wichtige Textbausteine</h4>
-                                <p className="text-sm text-muted-foreground">Textbausteine, die für die KI-Analyse zwingend erforderlich sind (z.B. "Kommission:", "Bestell-Nr.").</p>
+                                <p className="text-sm text-muted-foreground">Textbausteine, die für die KI-Analyse zwingend erforderlich sind (z.B. &quot;Kommission:&quot;, &quot;Bestell-Nr.&quot;).</p>
                                 <Textarea 
                                     value={requiredPhrases}
                                     onChange={(e) => setRequiredPhrases(e.target.value)}
@@ -273,6 +270,9 @@ export default function SettingsPage() {
     const [deliveryNoteSelectedModel, setDeliveryNoteSelectedModel] = React.useState('');
     const [isTestingDeliveryNoteConnection, setIsTestingDeliveryNoteConnection] = React.useState(false);
     
+    // State for Commission Settings
+    const [commissionPrinterEmail, setCommissionPrinterEmail] = React.useState('');
+
     const [managingWholesaler, setManagingWholesaler] = React.useState<Wholesaler | null>(null);
     const [isMaskManagementOpen, setIsMaskManagementOpen] = React.useState(false);
 
@@ -292,6 +292,9 @@ export default function SettingsPage() {
             if (provider === 'google') setDeliveryNoteGoogleApiKey(apiKey || '');
             else if (provider === 'openrouter') setDeliveryNoteOpenRouterApiKey(apiKey || '');
         }
+        if (appSettings?.commission) {
+            setCommissionPrinterEmail(appSettings.commission.printerEmail || '');
+        }
     }, [appSettings]);
 
 
@@ -305,6 +308,7 @@ export default function SettingsPage() {
         if (deliveryNoteAiProvider === 'openrouter') deliveryNoteApiKey = deliveryNoteOpenRouterApiKey;
 
         const settings: AppSettings = {
+            ...appSettings,
             ai: {
                 provider: articleAiProvider as 'google' | 'openrouter',
                 model: articleSelectedModel,
@@ -314,6 +318,9 @@ export default function SettingsPage() {
                 provider: deliveryNoteAiProvider as 'google' | 'openrouter',
                 model: deliveryNoteSelectedModel,
                 apiKey: deliveryNoteApiKey,
+            },
+            commission: {
+                printerEmail: commissionPrinterEmail,
             }
         };
         updateAppSettings(settings);
@@ -428,15 +435,15 @@ export default function SettingsPage() {
                             <CardContent className="space-y-4">
                                 <div className="flex items-center justify-between p-3 border rounded-lg">
                                     <Label htmlFor="inventory-border-switch" className="flex-1 pr-4">Inventur-Status-Markierung</Label>
-                                    <Switch id="inventory-border-switch" checked={currentUser.showInventoryStatusBorder ?? true} onCheckedChange={handleToggleBorder} />
+                                    <Switch id="inventory-border-switch" checked={currentUser?.showInventoryStatusBorder ?? true} onCheckedChange={handleToggleBorder} />
                                 </div>
                                 <div className="flex items-center justify-between p-3 border rounded-lg">
                                     <Label htmlFor="nav-sort-switch" className="flex-1 pr-4">Navigation sortierbar machen</Label>
-                                    <Switch id="nav-sort-switch" checked={currentUser.isNavSortable ?? false} onCheckedChange={handleToggleNavSort} />
+                                    <Switch id="nav-sort-switch" checked={currentUser?.isNavSortable ?? false} onCheckedChange={handleToggleNavSort} />
                                 </div>
                                 <div className="flex items-center justify-between p-3 border rounded-lg">
                                     <Label htmlFor="dashboard-edit-switch" className="flex-1 pr-4">Dashboard anpassen</Label>
-                                    <Switch id="dashboard-edit-switch" checked={currentUser.isDashboardEditing ?? false} onCheckedChange={handleToggleDashboardEditing} />
+                                    <Switch id="dashboard-edit-switch" checked={currentUser?.isDashboardEditing ?? false} onCheckedChange={handleToggleDashboardEditing} />
                                 </div>
                             </CardContent>
                         </Card>
@@ -445,7 +452,7 @@ export default function SettingsPage() {
                             <CardContent className="space-y-2">
                                 {navItems.map(item => {
                                     const isDisabled = item.href === '/settings';
-                                    const visibleNavItems = currentUser.visibleNavItems ?? navItems.map(item => item.href);
+                                    const visibleNavItems = currentUser?.visibleNavItems ?? navItems.map(item => item.href);
                                     return (
                                         <div key={item.href} className="flex items-center justify-between p-3 border rounded-lg">
                                             <Label htmlFor={`nav-${item.href}`} className="flex-1 pr-4">{item.label}</Label>
@@ -559,12 +566,11 @@ export default function SettingsPage() {
                                     </div>
                                 )}
                             </CardContent>
-                            <CardFooter className="flex-col items-start gap-4">
+                            <CardFooter>
                                 <Button variant="outline" onClick={() => handleTestConnection('deliveryNote')} disabled={isTestingDeliveryNoteConnection}>
                                     {isTestingDeliveryNoteConnection && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Verbindung testen
                                 </Button>
-                                <Button onClick={handleSaveAiSettings}>Alle KI-Einstellungen speichern</Button>
                             </CardFooter>
                         </Card>
                          <Card>
@@ -584,6 +590,30 @@ export default function SettingsPage() {
                                 ))}
                             </CardContent>
                         </Card>
+                         <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><PackageSearch className="h-5 w-5" /> Kommissionierung</CardTitle>
+                                <CardDescription>Einstellungen für den Kommissionierungs-Workflow.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="printer-email">E-Mail-Adresse für Etikettendrucker</Label>
+                                    <Input 
+                                        id="printer-email" 
+                                        type="email" 
+                                        value={commissionPrinterEmail} 
+                                        onChange={e => setCommissionPrinterEmail(e.target.value)} 
+                                        placeholder="drucker@ihredomain.de"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Geben Sie hier die E-Mail-Adresse Ihres Netzwerkdruckers ein, um Etiketten direkt zu drucken.</p>
+                                </div>
+                            </CardContent>
+                         </Card>
+                         <Card>
+                            <CardFooter>
+                                <Button onClick={handleSaveAiSettings}>Alle Einstellungen speichern</Button>
+                            </CardFooter>
+                         </Card>
                     </div>
                 );
             case 'integrations':

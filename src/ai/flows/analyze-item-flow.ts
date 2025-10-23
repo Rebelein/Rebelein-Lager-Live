@@ -69,9 +69,9 @@ You must identify the following fields. If you cannot find a specific piece of i
             },
         });
         
-        const messages: any[] = [{ role: 'system', content: systemPrompt }];
+        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [{ role: 'system', content: systemPrompt }];
         
-        const content: any[] = [];
+        const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [];
         if (input.url) {
             content.push({ type: 'text', text: `Analyze the content from this URL: ${input.url}` });
         }
@@ -105,8 +105,8 @@ You must identify the following fields. If you cannot find a specific piece of i
                 console.error("Failed to parse OpenRouter JSON response:", e);
                 throw new Error("Failed to parse AI response from OpenRouter.");
             }
-        } catch (error: any) {
-             if (error.message && (error.message.includes('No endpoints found that support image input') || error.status === 404)) {
+        } catch (error: unknown) {
+             if ((error as Error).message && ((error as Error).message.includes('No endpoints found that support image input') || (error as { status?: number }).status === 404)) {
                 throw new Error('IMAGE_NOT_SUPPORTED');
             }
             throw error;
@@ -137,7 +137,7 @@ You must identify the following fields. If you cannot find a specific piece of i
             {text: systemPrompt},
             ...context
           ],
-          model: modelToUse as any,
+          model: modelToUse,
           output: {
             schema: AnalyzeItemOutputSchema,
           },

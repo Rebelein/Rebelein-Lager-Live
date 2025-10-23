@@ -179,11 +179,27 @@
             "name": { "type": "string", "description": "A descriptive name for the commission." },
             "orderNumber": { "type": "string", "description": "The associated order or project number." },
             "notes": { "type": "string", "description": "Optional additional notes." },
-            "status": { "type": "string", "enum": ["active", "completed"], "description": "The current status of the commission." },
+            "status": { "type": "string", "enum": ["draft", "preparing", "ready", "withdrawn"], "description": "The current status of the commission." },
             "createdAt": { "type": "string", "format": "date-time" },
-            "createdBy": { "type": "string", "description": "The name of the user who created it." }
+            "createdBy": { "type": "string", "description": "The name of the user who created it." },
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "string" },
+                        "itemNumber": { "type": "string" },
+                        "source": { "type": "string", "enum": ["main_warehouse", "external_order"] },
+                        "orderId": { "type": "string" },
+                        "quantity": { "type": "number" },
+                        "status": { "type": "string", "enum": ["pending", "ready"] }
+                    },
+                    "required": ["id", "name", "quantity", "source", "status"]
+                }
+            }
         },
-        "required": ["id", "name", "orderNumber", "status", "createdAt", "createdBy"]
+        "required": ["id", "name", "orderNumber", "status", "createdAt", "createdBy", "items"]
     }
   },
   "auth": {
