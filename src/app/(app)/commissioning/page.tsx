@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import type { Commission, CommissionItem, InventoryItem } from '@/lib/types';
-import { PlusCircle, Archive, PackageSearch, ChevronsUpDown, ClipboardList, Warehouse, CheckCircle, Circle, X, MoreHorizontal, Pencil, Trash2, ShoppingCart, Minus, Plus, Undo, Info, Printer, Mail, ScanLine } from 'lucide-react';
+import { PlusCircle, Archive, PackageSearch, ChevronsUpDown, ClipboardList, Warehouse, CheckCircle, Circle, X, MoreHorizontal, Pencil, Trash2, ShoppingCart, Minus, Plus, Undo, Info, Printer, Mail, ScanLine, Save } from 'lucide-react';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { collection, doc } from 'firebase/firestore';
@@ -316,11 +316,21 @@ const mmToPx = (mm: number) => (mm / MM_PER_INCH) * DPI;
 
 function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: Commission | null, onOpenChange: (open: boolean) => void}) {
     const { toast } = useToast();
-    const { appSettings } = useAppContext();
+    const { appSettings, updateAppSettings } = useAppContext();
     const qrCodeRef = React.useRef<HTMLDivElement>(null);
 
     const [labelSize, setLabelSize] = React.useState({ width: 80, height: 40 });
     const [fontSize, setFontSize] = React.useState(70);
+    
+    React.useEffect(() => {
+        if(appSettings?.labelSettings?.commission) {
+            setLabelSize({
+                width: appSettings.labelSettings.commission.width,
+                height: appSettings.labelSettings.commission.height,
+            });
+            setFontSize(appSettings.labelSettings.commission.fontSize);
+        }
+    }, [appSettings, open]);
 
     const generatePdf = React.useCallback(async (): Promise<Blob> => {
         if (!qrCodeRef.current || !commission) throw new Error("Label element not found");
@@ -386,6 +396,21 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
             toast({ title: 'Fehler beim Erstellen des Bildes', variant: 'destructive' });
         }
     }, [commission?.name, toast, commission]);
+    
+    const handleSaveAsDefault = () => {
+        updateAppSettings({
+            ...appSettings,
+            labelSettings: {
+                ...appSettings?.labelSettings,
+                commission: {
+                    width: labelSize.width,
+                    height: labelSize.height,
+                    fontSize,
+                }
+            }
+        });
+        toast({ title: 'Standardeinstellungen gespeichert', description: 'Die aktuellen Einstellungen wurden als Standard für Kommissions-Etiketten gespeichert.' });
+    };
 
     if (!commission) return null;
 
@@ -483,10 +508,13 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
                         </div>
                     </div>
                 </div>
-                <DialogFooter>
-                    <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
-                     <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> Per E-Mail senden</Button>
-                    <Button onClick={handleDownloadPng}><Printer className="mr-2 h-4 w-4"/> Herunterladen (Bild)</Button>
+                <DialogFooter className="justify-between">
+                    <Button variant="outline" onClick={handleSaveAsDefault}><Save className="mr-2 h-4 w-4"/> Als Standard speichern</Button>
+                    <div className="flex gap-2">
+                        <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
+                        <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> Per E-Mail senden</Button>
+                        <Button onClick={handleDownloadPng}><Printer className="mr-2 h-4 w-4"/> Herunterladen (Bild)</Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -495,13 +523,9 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
 
 
 export default function CommissioningPage() {
-  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission } = useAppContext();
+  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading } = useAppContext();
   const { toast } = useToast();
-  const firestore = useFirestore();
-
-  const commissionsQuery = useMemoFirebase(() => collection(firestore, 'commissions'), [firestore]);
-  const { data: commissions, isLoading } = useCollection<Commission>(commissionsQuery);
-
+  
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingCommission, setEditingCommission] = React.useState<Commission | null>(null);
   const [commissionToDelete, setCommissionToDelete] = React.useState<Commission | null>(null);
@@ -578,7 +602,7 @@ export default function CommissioningPage() {
     };
 
   const handleSaveCommission = () => {
-    if (!currentUser || !firestore) {
+    if (!currentUser) {
       toast({ title: 'Fehler', description: 'Benutzer nicht angemeldet oder Datenbankverbindung fehlt.', variant: 'destructive' });
       return;
     }
@@ -603,7 +627,7 @@ export default function CommissioningPage() {
         addOrUpdateCommission(savedCommission);
         toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${savedCommission.name}" wurde gespeichert.` });
     } else {
-        const commissionId = doc(collection(firestore, 'commissions')).id;
+        const commissionId = doc(collection(useFirestore(), 'commissions')).id;
         savedCommission = {
           id: commissionId,
           ...commissionData,
@@ -640,7 +664,6 @@ export default function CommissioningPage() {
   }
   
   const handleWithdraw = (commission: Commission) => {
-    if (!firestore) return;
     addOrUpdateCommission({ ...commission, status: 'withdrawn', withdrawnAt: new Date().toISOString() });
     toast({ title: 'Kommission entnommen', description: `Die Kommission "${commission.name}" wurde als entnommen markiert.` });
   };
@@ -690,7 +713,7 @@ export default function CommissioningPage() {
   };
   
   React.useEffect(() => {
-    if (!isLoading && commissions) {
+    if (!isContextLoading && commissions) {
       const urlParams = new URLSearchParams(window.location.search);
       const commissionId = urlParams.get('commissionId');
       if (commissionId) {
@@ -702,7 +725,7 @@ export default function CommissioningPage() {
         }
       }
     }
-  }, [isLoading, commissions]);
+  }, [isContextLoading, commissions]);
   
   const openScanner = async () => {
     try {
@@ -795,7 +818,7 @@ export default function CommissioningPage() {
             <TabsTrigger value="withdrawn">Entnommen</TabsTrigger>
         </TabsList>
         <TabsContent value="active">
-             {isLoading ? (
+             {isContextLoading ? (
                 <Card className="mt-4">
                     <CardContent className="pt-6 text-center text-muted-foreground">
                         <p>Lade Kommissionen...</p>

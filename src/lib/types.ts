@@ -1,5 +1,17 @@
 
 
+export type LabelSetting = {
+  width: number;
+  height: number;
+  fontSize: number;
+};
+
+export type LabelSettings = {
+  item?: LabelSetting;
+  compartment?: LabelSetting;
+  commission?: LabelSetting;
+};
+
 export type ReorderStatus = {
   status: 'arranged' | 'ordered' | null;
   arrangedAt?: string | null;
@@ -182,7 +194,8 @@ export type AppSettings = {
   };
   commission?: {
     printerEmail?: string;
-  }
+  };
+  labelSettings?: LabelSettings;
 };
 
 
