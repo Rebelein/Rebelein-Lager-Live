@@ -363,33 +363,32 @@ export default function CommissioningPage() {
       return;
     }
     
-    const allItemsReady = newCommissionItems.length > 0 && newCommissionItems.every(i => i.status === 'ready');
-    
-    const commissionData: Omit<Commission, 'id' | 'createdAt' | 'createdBy'> & {isNewlyReady?: boolean} = {
-        name: newCommissionName.trim(),
-        orderNumber: newCommissionOrderNumber.trim(),
-        notes: newCommissionNotes.trim(),
-        status: allItemsReady ? 'ready' : (newCommissionItems.length > 0 ? 'preparing' : 'draft'),
-        items: newCommissionItems,
-        withdrawnAt: null,
-    };
-    
-    if (allItemsReady) {
-        commissionData.isNewlyReady = true;
-    }
+    let commissionData: Commission;
 
     if (editingCommission) {
-        handleUpdateCommission(editingCommission, { ...editingCommission, ...commissionData });
+        commissionData = { 
+            ...editingCommission, 
+            name: newCommissionName.trim(),
+            orderNumber: newCommissionOrderNumber.trim(),
+            notes: newCommissionNotes.trim(),
+            items: newCommissionItems,
+        };
+        handleUpdateCommission(editingCommission, commissionData);
         toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${commissionData.name}" wurde gespeichert.` });
     } else {
-        const newCommission: Commission = {
+        commissionData = {
           id: `commission-${Date.now()}`,
-          ...commissionData,
+          name: newCommissionName.trim(),
+          orderNumber: newCommissionOrderNumber.trim(),
+          notes: newCommissionNotes.trim(),
+          status: 'draft',
+          items: newCommissionItems,
           createdAt: new Date().toISOString(),
           createdBy: currentUser.name,
+          withdrawnAt: null,
         };
-        addOrUpdateCommission(newCommission);
-        toast({ title: 'Kommission erstellt', description: `Die Kommission "${newCommission.name}" wurde angelegt.` });
+        handleUpdateCommission({ ...commissionData, status: 'draft'}, commissionData); // Simulate an update from draft
+        toast({ title: 'Kommission erstellt', description: `Die Kommission "${commissionData.name}" wurde angelegt.` });
     }
     
     setIsFormOpen(false);
@@ -409,7 +408,7 @@ export default function CommissioningPage() {
       const allItemsReady = updatedCommission.items.length > 0 && updatedCommission.items.every(i => i.status === 'ready');
       const newStatus = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
       
-      let commissionToSave = { ...updatedCommission, status: newStatus };
+      let commissionToSave = { ...updatedCommission, status: newStatus, isNewlyReady: updatedCommission.isNewlyReady };
 
       if ((oldStatus === 'draft' || oldStatus === 'preparing') && newStatus === 'ready') {
         commissionToSave.isNewlyReady = true;
