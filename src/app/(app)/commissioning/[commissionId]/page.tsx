@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -97,7 +98,8 @@ function CommissionPreparationDialog({ commission, onOpenChange, onUpdateCommiss
         if (commission.items.length > 0 && allItemsReady && commission.status !== 'ready') {
             onUpdateCommission({ ...commission, status: 'ready', isNewlyReady: true });
         } else if (commission.items.length > 0 && !allItemsReady && commission.status === 'ready') {
-             onUpdateCommission({ ...commission, status: 'preparing' });
+             // Retain the isNewlyReady flag if it was already set
+             onUpdateCommission({ ...commission, status: 'preparing', isNewlyReady: commission.isNewlyReady });
         }
     }, [commission.items, allItemsReady, commission, onUpdateCommission]);
 
