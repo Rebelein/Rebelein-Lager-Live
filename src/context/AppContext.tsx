@@ -124,7 +124,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [locations, setLocationsState] = useState<Location[]>(() => getFromLocalStorage('locations', []));
   const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]); // Removed localStorage init
   const [orders, setOrdersState] = useState<Order[]>(() => getFromLocalStorage('orders', []));
-  const [commissions, setCommissionsState] = useState<Commission[]>(() => getFromLocalStorage('commissions', []));
+  const [commissions, setCommissionsState] = useState<Commission[]>([]);
   const [appSettings, setAppSettingsState] = useState<AppSettings>(() => getFromLocalStorage('appSettings', {}));
 
   // Firebase real-time data hooks
@@ -160,7 +160,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (ordersData) { setOrdersState(ordersData); saveToLocalStorage('orders', ordersData); }
   }, [ordersData]);
    useEffect(() => {
-    if (commissionsData) { setCommissionsState(commissionsData); saveToLocalStorage('commissions', commissionsData); }
+    if (commissionsData) {
+        setCommissionsState(commissionsData);
+    }
   }, [commissionsData]);
   useEffect(() => {
     if (settingsData) { setAppSettingsState(settingsData); saveToLocalStorage('appSettings', settingsData); }
