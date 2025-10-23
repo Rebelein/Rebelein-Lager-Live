@@ -396,10 +396,11 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
     }, [commission?.name, toast, commission]);
     
     const handleSaveAsDefault = () => {
+        if (!appSettings) return;
         updateAppSettings({
             ...appSettings,
             labelSettings: {
-                ...appSettings?.labelSettings,
+                ...appSettings.labelSettings,
                 commission: {
                     width: labelSize.width,
                     height: labelSize.height,
