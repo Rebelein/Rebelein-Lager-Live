@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -75,23 +76,23 @@ export default function DashboardPage() {
 
 
         items.forEach(item => {
-          (item.stocks || []).forEach(stock => {
-            const minStock = (item.minStocks || []).find(ms => ms.locationId === stock.locationId)?.quantity ?? 0;
-            const reorderStatus = isInventoryItem(item) ? (item.reorderStatus || {})[stock.locationId] : null;
-            if (stock.quantity < minStock && !reorderStatus?.status) {
-              const location = locations.find(l => l.id === stock.locationId);
-              lowStockItems.push({ item: item as InventoryItem, locationName: location?.name || 'Unbekannt' });
-            }
-          });
-
           if (isInventoryItem(item)) {
+            (item.stocks || []).forEach(stock => {
+              const minStock = (item.minStocks || []).find(ms => ms.locationId === stock.locationId)?.quantity ?? 0;
+              const reorderStatus = (item.reorderStatus || {})[stock.locationId];
+              if (stock.quantity < minStock && !reorderStatus?.status) {
+                const location = locations.find(l => l.id === stock.locationId);
+                lowStockItems.push({ item: item, locationName: location?.name || 'Unbekannt' });
+              }
+            });
+
             Object.entries(item.reorderStatus || {}).forEach(([locationId, status]) => {
               const location = locations.find(l => l.id === locationId);
               if (status?.status === 'arranged') {
-                  arrangedItems.push({ item: item as InventoryItem, locationName: location?.name || 'Unbekannt', quantity: status.quantity || 0 });
+                  arrangedItems.push({ item: item, locationName: location?.name || 'Unbekannt', quantity: status.quantity || 0 });
               }
               if (status?.status === 'ordered') {
-                  orderedItems.push({ item: item as InventoryItem, locationName: location?.name || 'Unbekannt', quantity: status.quantity || 0 });
+                  orderedItems.push({ item: item, locationName: location?.name || 'Unbekannt', quantity: status.quantity || 0 });
               }
             });
           }
@@ -175,11 +176,16 @@ export default function DashboardPage() {
         }
     };
     
-    const getGridSpan = (size: 'small' | 'default' | 'wide') => {
+    const getGridSpan = (id: string, size: 'small' | 'default' | 'wide') => {
+        const isActivityCard = id.includes('activities');
         switch(size) {
             case 'small': return { col: 'lg:col-span-1', row: 'lg:row-span-1' };
             case 'wide': return { col: 'lg:col-span-2', row: 'lg:row-span-2' };
-            default: return { col: 'lg:col-span-1', row: 'lg:row-span-1' };
+            default: 
+                 if (isActivityCard) {
+                    return { col: 'lg:col-span-1', row: 'lg:row-span-2' };
+                }
+                return { col: 'lg:col-span-1', row: 'lg:row-span-1' };
         }
     }
 
@@ -209,7 +215,7 @@ export default function DashboardPage() {
                         const cardComponent = getCardComponent(cardLayout);
                         if (!cardComponent) return null;
                         
-                        const spans = getGridSpan(cardLayout.size);
+                        const spans = getGridSpan(cardLayout.id, cardLayout.size);
 
                         if (isDesktop) {
                              return <div key={cardLayout.id} className={cn(spans.col, spans.row)}>{cardComponent}</div>;
