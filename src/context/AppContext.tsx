@@ -33,6 +33,7 @@ interface AppContextType {
   setOrders: (orders: Order[]) => void;
   locations: Location[];
   setLocations: (locations: Location[]) => void;
+  commissions: Commission[];
   appSettings: AppSettings;
   updateAppSettings: (settings: AppSettings) => void;
   currentUser: User | null;
@@ -124,7 +125,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [locations, setLocationsState] = useState<Location[]>(() => getFromLocalStorage('locations', []));
   const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]); // Removed localStorage init
   const [orders, setOrdersState] = useState<Order[]>(() => getFromLocalStorage('orders', []));
-  const [commissions, setCommissionsState] = useState<Commission[]>([]);
+  const [commissions, setCommissionsState] = useState<Commission[]>([]); // Removed localStorage init
   const [appSettings, setAppSettingsState] = useState<AppSettings>(() => getFromLocalStorage('appSettings', {}));
 
   // Firebase real-time data hooks
@@ -1390,6 +1391,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     setOrders,
     locations,
     setLocations,
+    commissions,
     appSettings,
     updateAppSettings,
     currentUser,
