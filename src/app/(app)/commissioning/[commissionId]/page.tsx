@@ -389,10 +389,13 @@ export default function CommissioningPage() {
   const handleUpdateCommission = (commission: Commission) => {
     const oldCommission = commissions.find(c => c.id === commission.id);
     const oldStatus = oldCommission?.status;
-    const newStatus = commission.status;
-    let commissionToSave = { ...commission };
+    
+    const allItemsReady = commission.items.length > 0 && commission.items.every(i => i.status === 'ready');
+    const newStatus = allItemsReady ? 'ready' : (commission.items.length > 0 ? 'preparing' : 'draft');
+    
+    let commissionToSave = { ...commission, status: newStatus };
 
-    if (oldStatus && (oldStatus === 'draft' || oldStatus === 'preparing') && newStatus === 'ready') {
+    if ((oldStatus === 'draft' || oldStatus === 'preparing') && newStatus === 'ready') {
       commissionToSave.isNewlyReady = true;
     }
 
@@ -813,5 +816,3 @@ export default function CommissioningPage() {
     </div>
   );
 }
-
-    
