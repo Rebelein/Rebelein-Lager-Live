@@ -43,6 +43,7 @@ import jsPDF from 'jspdf';
 import Webcam from 'react-webcam';
 import jsQR from 'jsqr';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
 
 
 const getStatusVariant = (status: Commission['status']) => {
@@ -1339,3 +1340,5 @@ export default function CommissioningPage() {
     </div>
   );
 }
+
+    
