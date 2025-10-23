@@ -1352,7 +1352,7 @@ export default function CommissioningPage() {
                 audio={false}
                 ref={webcamRef}
                 screenshotFormat="image/jpeg"
-                videoConstraints={{ deviceId: activeDeviceId }}
+                videoConstraints={{ deviceId: activeDeviceId, advanced: [{ autoFocus: 'continuous' } as any] }}
                 className="h-full w-full object-cover"
                 onUserMedia={checkTorchSupport}
               />
@@ -1401,7 +1401,7 @@ export default function CommissioningPage() {
                 <DialogTitle>Kommission gescannt: {scannedCommission?.name}</DialogTitle>
                 <DialogDescription>Wählen Sie eine Aktion aus.</DialogDescription>
             </DialogHeader>
-            <DialogFooter className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
                 <Button variant="outline" size="lg" onClick={() => {
                     setDetailCommission(scannedCommission);
                     setIsActionDialogOpen(false);
@@ -1416,7 +1416,7 @@ export default function CommissioningPage() {
                 }} disabled={scannedCommission?.status !== 'ready' && !(scannedCommission?.status === 'draft' && scannedCommission?.items.length === 0)}>
                   <Archive className="mr-2 h-4 w-4" /> Entnehmen
                 </Button>
-            </DialogFooter>
+            </div>
         </DialogContent>
       </Dialog>
     </div>
