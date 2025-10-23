@@ -334,17 +334,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <SelectGroup>
                   <SelectLabel>Benutzer auswählen</SelectLabel>
                   {users.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      <div className="flex items-center justify-between w-full">
-                        <span className="flex-1">{user.name}</span>
-                        <span className="flex items-center">
-                          <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={(e) => handleSetFavorite(e, user)}
-                            >
-                             <Star className={cn('h-4 w-4 text-muted-foreground', favoriteUser?.id === user.id && 'fill-yellow-400 text-yellow-500')} />
+                    <div key={user.id} className="relative flex items-center pr-2">
+                       <SelectItem value={user.id} className="flex-1 w-full pr-16">
+                        {user.name}
+                       </SelectItem>
+                       <div className="absolute right-1 flex items-center">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-accent" onClick={(e) => handleSetFavorite(e, user)} >
+                             <Star className={cn('h-4 w-4 text-muted-foreground transition-colors', favoriteUser?.id === user.id && 'fill-yellow-400 text-yellow-500')} />
                           </Button>
                            <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -355,9 +351,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               <DropdownMenuItem onSelect={() => handleOpenDeleteConfirm(user)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        </span>
-                      </div>
-                    </SelectItem>
+                       </div>
+                    </div>
                   ))}
                 </SelectGroup>
                 <Separator />
