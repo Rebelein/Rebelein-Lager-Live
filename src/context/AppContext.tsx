@@ -74,6 +74,7 @@ interface AppContextType {
   setDashboardLayout: (layout: DashboardCardLayout[]) => void;
   allDashboardCards: DashboardCardLayout[];
   mainWarehouse: Location | undefined;
+  commissions: Commission[];
   addOrUpdateCommission: (commission: Commission) => void;
   deleteCommission: (commissionId: string) => void;
   reduceStockForCommissionItem: (commissionId: string, itemId: string, quantity: number) => void;
@@ -111,7 +112,11 @@ const saveToLocalStorage = <T,>(key: string, value: T) => {
         if (typeof window === 'undefined') return;
         window.localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
-        console.warn(`Error writing to localStorage key “${key}”:`, error);
+        if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.message.includes('quota'))) {
+            console.error(`Error writing to localStorage key “${key}”: Quota exceeded. Data will not be persisted locally.`);
+        } else {
+            console.warn(`Error writing to localStorage key “${key}”:`, error);
+        }
     }
 };
 
@@ -125,12 +130,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Data states, initialized from localStorage
-  const [users, setUsersState] = useState<User[]>(() => getFromLocalStorage('users', []));
-  const [wholesalers, setWholesalersState] = useState<Wholesaler[]>(() => getFromLocalStorage('wholesalers', []));
-  const [locations, setLocationsState] = useState<Location[]>(() => getFromLocalStorage('locations', []));
-  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>(() => getFromLocalStorage('items', []));
-  const [orders, setOrdersState] = useState<Order[]>(() => getFromLocalStorage('orders', []));
-  const [appSettings, setAppSettingsState] = useState<AppSettings>(() => getFromLocalStorage('appSettings', {}));
+  const [users, setUsersState] = useState<User[]>([]);
+  const [wholesalers, setWholesalersState] = useState<Wholesaler[]>([]);
+  const [locations, setLocationsState] = useState<Location[]>([]);
+  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]);
+  const [orders, setOrdersState] = useState<Order[]>([]);
+  const [appSettings, setAppSettingsState] = useState<AppSettings>({});
+  const [commissions, setCommissionsState] = useState<Commission[]>([]);
+
 
   // Firebase real-time data hooks
   const { data: usersData, error: usersError } = useCollection<User>(useMemoFirebase(() => collection(firestore, 'users'), [firestore]));
@@ -158,9 +165,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
      if (articlesData && machinesData) {
         const combinedItems = [...articlesData, ...machinesData];
         setItemsState(combinedItems);
-        saveToLocalStorage('items', combinedItems);
-    }
+     }
   }, [articlesData, machinesData]);
+   useEffect(() => {
+    if(commissionsData) {
+        setCommissionsState(commissionsData);
+    }
+  }, [commissionsData]);
   useEffect(() => {
     if (ordersData) { setOrdersState(ordersData); saveToLocalStorage('orders', ordersData); }
   }, [ordersData]);
@@ -201,7 +212,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   
   const [dashboardLayout, setDashboardLayoutState] = useState<DashboardCardLayout[]>(allDashboardCards);
   
-  const isUserSelectionRequired = !isLoading && !currentUser;
+  // New state to manage initial auth check
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const isUserSelectionRequired = isAuthReady && !currentUser && !isLoading;
+
 
   const customToast = useCallback((props: Parameters<typeof toast>[0]) => {
      if (props.variant === 'destructive' && dbConnectionStatus !== 'connected') {
@@ -262,25 +276,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   useEffect(() => {
-    if (users.length > 0 && !currentUser) {
-      try {
-        const favoriteUserId = localStorage.getItem('favoriteUserId');
-        const user = users.find(u => u.id === favoriteUserId);
-        if (user) {
-          setFavoriteUserInternal(user);
-          setActiveUser(user);
+    if (users.length > 0 && !isAuthReady) {
+        try {
+            const favoriteUserId = localStorage.getItem('favoriteUserId');
+            const user = users.find(u => u.id === favoriteUserId);
+            if (user) {
+                setFavoriteUserInternal(user);
+                setActiveUser(user);
+            }
+        } catch (error) {
+            console.error("Could not read favorite user ID from localStorage:", error);
+        } finally {
+            setIsAuthReady(true);
         }
-      } catch (error) {
-        console.error("Could not read favorite user ID from localStorage:", error);
-      }
+    } else if (users.length > 0) {
+        setIsAuthReady(true);
     }
-  }, [users, currentUser]);
+  }, [users, isAuthReady]);
 
   
   const updateAppSettings = useCallback((settings: AppSettings) => {
     if (!firestore || dbConnectionStatus !== 'connected') return;
     const settingsRef = doc(firestore, 'app_settings', 'global');
-    //mongodb
     setDocumentNonBlocking(settingsRef, settings, { merge: true });
   }, [firestore, dbConnectionStatus]);
 
@@ -420,7 +437,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback((newItem: InventoryItem) => {
     if (!firestore || dbConnectionStatus !== 'connected') return;
     const itemRef = doc(firestore, 'articles', newItem.id);
-    //mongodb
     setDocumentNonBlocking(itemRef, newItem, { merge: true });
   }, [firestore, dbConnectionStatus]);
 
@@ -434,7 +450,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const collectionName = isMachineItem ? 'machines' : 'articles';
         const itemRef = doc(firestore, collectionName, itemId);
 
-        //mongodb
         updateDocumentNonBlocking(itemRef, data);
     }, [firestore, items, dbConnectionStatus]);
 
@@ -442,7 +457,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!firestore || dbConnectionStatus !== 'connected') return;
       newUsers.forEach(user => {
           const userRef = doc(firestore, 'users', user.id);
-          //mongodb
           setDocumentNonBlocking(userRef, user, { merge: true });
       });
   }, [firestore, dbConnectionStatus]);
@@ -454,7 +468,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       name,
     };
     const userRef = doc(firestore, 'users', newUser.id);
-    //mongodb
     setDocumentNonBlocking(userRef, newUser, { merge: true });
     setCurrentUser(newUser); // Set new user as active
   }, [firestore, setCurrentUser, dbConnectionStatus]);
@@ -464,7 +477,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updatedUser = { ...currentUser, ...settings };
     setActiveUser(updatedUser);
     const userRef = doc(firestore, 'users', currentUser.id);
-    //mongodb
     updateDocumentNonBlocking(userRef, settings);
   }, [currentUser, firestore, dbConnectionStatus]);
 
@@ -472,7 +484,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!firestore || dbConnectionStatus !== 'connected') return;
       newWholesalers.forEach(wholesaler => {
           const wholesalerRef = doc(firestore, 'wholesalers', wholesaler.id);
-          //mongodb
           setDocumentNonBlocking(wholesalerRef, wholesaler, { merge: true });
       });
   }, [firestore, dbConnectionStatus]);
@@ -481,7 +492,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (!firestore || dbConnectionStatus !== 'connected') return;
         newOrders.forEach(order => {
             const orderRef = doc(firestore, 'orders', order.id);
-            //mongodb
             setDocumentNonBlocking(orderRef, order, { merge: true });
         });
     }, [firestore, dbConnectionStatus]);
@@ -490,7 +500,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (!firestore || dbConnectionStatus !== 'connected') return;
         newLocations.forEach(location => {
             const locationRef = doc(firestore, 'locations', location.id);
-            //mongodb
             setDocumentNonBlocking(locationRef, location, { merge: true });
         });
     }, [firestore, dbConnectionStatus]);
@@ -555,7 +564,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // This condition is for flagging the need for a new label, but the actual update is done on printing/dismissal
         }
         
-        //mongodb
         updateDocumentNonBlocking(itemRef, updatedData);
     });
   }, [currentUser, firestore, dbConnectionStatus]);
@@ -599,7 +607,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     const orderRef = doc(firestore, 'orders', orderId);
-    //mongodb
     setDocumentNonBlocking(orderRef, newOrder, { merge: true });
     updateItemsToOrdered(itemsToOrder, newOrder, false, locationId);
     return newOrder;
@@ -638,7 +645,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         
         const updatedOrder = { ...order, items: newItems };
-        //mongodb
         updateDocumentNonBlocking(orderRef, updatedOrder);
         updateItemsToOrdered(itemsToAdd, updatedOrder, false, locationId);
     }, [firestore, orders, updateItemsToOrdered, dbConnectionStatus]);
@@ -654,7 +660,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             date: new Date().toISOString(),
             initiatedBy: { userId: currentUser.id, userName: currentUser.name },
         };
-        //mongodb
         updateDocumentNonBlocking(orderRef, updatedOrderData);
         
         const confirmedOrder = { ...order, ...updatedOrderData } as Order;
@@ -702,7 +707,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         newOrderStatus = 'partially-commissioned';
     }
 
-    //mongodb
     updateDocumentNonBlocking(orderRef, { items: updatedOrderItems, status: newOrderStatus });
 
     // If not commissioning, book to stock
@@ -736,7 +740,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             delete updatedReorderStatus[orderItem.locationId];
         }
 
-        //mongodb
         updateDocumentNonBlocking(itemRef, { stocks: updatedStocks, changelog: [...(itemToUpdate.changelog || []), logEntry], reorderStatus: updatedReorderStatus });
     }
 }, [currentUser, firestore, orders, items, locations, dbConnectionStatus]);
@@ -765,7 +768,6 @@ const loadCommissionedItem = useCallback((orderId: string, itemId: string) => {
     const allItemsReceived = updatedOrderItems.every(item => item.status === 'received');
     const newOrderStatus = allItemsReceived ? 'received' : (updatedOrderItems.some(i => i.status === 'commissioned' || i.status === 'pending') ? order.status : 'partially-received');
 
-    //mongodb
     updateDocumentNonBlocking(orderRef, { items: updatedOrderItems, status: newOrderStatus });
     
     const currentStockInfo = itemToUpdate.stocks.find(s => s.locationId === orderItem.locationId);
@@ -795,7 +797,6 @@ const loadCommissionedItem = useCallback((orderId: string, itemId: string) => {
         changelog: [...(itemToUpdate.changelog || []), logEntry],
         reorderStatus: newReorderStatus
     };
-    //mongodb
     updateDocumentNonBlocking(itemRef, updatedItemData);
 
 }, [currentUser, firestore, orders, items, locations, dbConnectionStatus]);
@@ -815,10 +816,8 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     const updatedItems = order.items.filter(item => item.itemId !== itemId);
 
     if (updatedItems.length === 0) {
-        //mongodb
         deleteDocumentNonBlocking(orderRef);
     } else {
-        //mongodb
         updateDocumentNonBlocking(orderRef, { items: updatedItems });
     }
 
@@ -830,7 +829,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
 
             if(reorderStatusForLocation){
                  delete newReorderStatus[locationIdToRemove];
-                 //mongodb
                 updateDocumentNonBlocking(itemRef, { reorderStatus: newReorderStatus });
             }
         }
@@ -861,7 +859,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
             reorderStatus: newReorderStatus,
             changelog: [...(itemToUpdate.changelog || []), newLogEntry],
         };
-        //mongodb
         updateDocumentNonBlocking(itemRef, updatedData);
     }, [currentUser, firestore, items, locations, dbConnectionStatus]);
 
@@ -895,7 +892,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
                 changelog: [...(itemToUpdate.changelog || []), newLogEntry],
             };
 
-            //mongodb
             updateDocumentNonBlocking(itemRef, updatedData);
         });
     }, [currentUser, firestore, items, locations, dbConnectionStatus]);
@@ -915,7 +911,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     delete newLastInventoriedAt[locationId];
 
     if (newStocks.length === 0) {
-      //mongodb
       deleteDocumentNonBlocking(itemRef);
     } else {
       const updatedData = {
@@ -924,7 +919,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
           reorderStatus: newReorderStatus,
           lastInventoriedAt: newLastInventoriedAt,
       };
-      //mongodb
       updateDocumentNonBlocking(itemRef, updatedData);
     }
   }, [firestore, items, dbConnectionStatus]);
@@ -955,7 +949,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
       lastInventoriedAt: { ...itemTemplate.lastInventoriedAt, [locationId]: now },
       changelog: [...itemTemplate.changelog, logEntry],
     };
-    //mongodb
     updateDocumentNonBlocking(itemRef, updatedData);
   }, [firestore, items, currentUser, dbConnectionStatus]);
 
@@ -1009,7 +1002,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
       changelog: [...item.changelog, logEntry],
     };
 
-    //mongodb
     updateDocumentNonBlocking(itemRef, updatedItemData);
   }, [currentUser, firestore, items, locations, dbConnectionStatus]);
 
@@ -1070,7 +1062,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
         };
 
         const itemRef = doc(firestore, 'articles', newItem.id);
-        //mongodb
         setDocumentNonBlocking(itemRef, newItem, { merge: false });
         successfulImports++;
       } catch (e) {
@@ -1222,7 +1213,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
       updatedData.changelog = [...(updatedData.changelog || []), ...additionalLogEntries];
     }
     
-    //mongodb
     updateDocumentNonBlocking(itemRef, updatedData);
     
   }, [currentUser, firestore, items, customToast, dbConnectionStatus]);
@@ -1500,6 +1490,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     setDashboardLayout,
     allDashboardCards,
     mainWarehouse,
+    commissions,
     addOrUpdateCommission,
     deleteCommission,
     reduceStockForCommissionItem,
