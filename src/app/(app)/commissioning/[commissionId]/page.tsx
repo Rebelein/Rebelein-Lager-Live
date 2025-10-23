@@ -63,9 +63,18 @@ const getStatusText = (status: Commission['status']) => {
 }
 
 // *** Commission Detail/Preparation Dialog ***
-function CommissionPreparationDialog({ commission, onOpenChange, onUpdateCommission }: { commission: Commission, onOpenChange: (open: boolean) => void, onUpdateCommission: (commission: Commission) => void }) {
+function CommissionPreparationDialog({
+    commission: initialCommission,
+    onOpenChange,
+    onUpdateCommission,
+}: {
+    commission: Commission;
+    onOpenChange: (open: boolean) => void;
+    onUpdateCommission: (oldCommission: Commission, updatedCommission: Commission) => void;
+}) {
     const { reduceStockForCommissionItem, increaseStockForCommissionItem } = useAppContext();
     const { toast } = useToast();
+    const [commission, setCommission] = React.useState(initialCommission);
 
     const handleToggleItem = (item: CommissionItem) => {
         const isCurrentlyReady = item.status === 'ready';
@@ -74,8 +83,12 @@ function CommissionPreparationDialog({ commission, onOpenChange, onUpdateCommiss
         const updatedItems: CommissionItem[] = commission.items.map(i => 
             i.id === item.id ? { ...i, status: newStatus } : i
         );
-        onUpdateCommission({ ...commission, items: updatedItems });
+        
+        const updatedCommission = { ...commission, items: updatedItems };
+        onUpdateCommission(commission, updatedCommission); // Pass old and new state
+        setCommission(updatedCommission); // Update local state for immediate UI feedback
 
+        // Handle stock changes
         if (item.source === 'main_warehouse') {
             if (isCurrentlyReady) {
                 // Un-checking the item
@@ -103,7 +116,9 @@ function CommissionPreparationDialog({ commission, onOpenChange, onUpdateCommiss
         }
 
         const updatedItems = commission.items.filter(i => i.id !== itemId);
-        onUpdateCommission({ ...commission, items: updatedItems });
+        const updatedCommission = { ...commission, items: updatedItems };
+        onUpdateCommission(commission, updatedCommission);
+        setCommission(updatedCommission);
         toast({ title: 'Artikel entfernt', description: 'Der Artikel wurde aus der Kommission entfernt.', variant: 'destructive'});
     };
 
@@ -272,7 +287,7 @@ function CommissionDetailDialog({ commission, onOpenChange }: { commission: Comm
 }
 
 export default function CommissioningPage() {
-  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission: appAddOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading } = useAppContext();
+  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading } = useAppContext();
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -350,18 +365,21 @@ export default function CommissioningPage() {
     
     const allItemsReady = newCommissionItems.length > 0 && newCommissionItems.every(i => i.status === 'ready');
     
-    const commissionData: Omit<Commission, 'id' | 'createdAt' | 'createdBy'> = {
+    const commissionData: Omit<Commission, 'id' | 'createdAt' | 'createdBy'> & {isNewlyReady?: boolean} = {
         name: newCommissionName.trim(),
         orderNumber: newCommissionOrderNumber.trim(),
         notes: newCommissionNotes.trim(),
         status: allItemsReady ? 'ready' : (newCommissionItems.length > 0 ? 'preparing' : 'draft'),
         items: newCommissionItems,
         withdrawnAt: null,
-        isNewlyReady: allItemsReady,
     };
+    
+    if (allItemsReady) {
+        commissionData.isNewlyReady = true;
+    }
 
     if (editingCommission) {
-        handleUpdateCommission({ ...editingCommission, ...commissionData });
+        handleUpdateCommission(editingCommission, { ...editingCommission, ...commissionData });
         toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${commissionData.name}" wurde gespeichert.` });
     } else {
         const newCommission: Commission = {
@@ -370,7 +388,7 @@ export default function CommissioningPage() {
           createdAt: new Date().toISOString(),
           createdBy: currentUser.name,
         };
-        handleUpdateCommission(newCommission);
+        addOrUpdateCommission(newCommission);
         toast({ title: 'Kommission erstellt', description: `Die Kommission "${newCommission.name}" wurde angelegt.` });
     }
     
@@ -386,31 +404,25 @@ export default function CommissioningPage() {
     setIsFormOpen(true);
   };
 
-  const handleUpdateCommission = (commission: Commission) => {
-    const oldCommission = commissions.find(c => c.id === commission.id);
-    const oldStatus = oldCommission?.status;
-    
-    const allItemsReady = commission.items.length > 0 && commission.items.every(i => i.status === 'ready');
-    const newStatus = allItemsReady ? 'ready' : (commission.items.length > 0 ? 'preparing' : 'draft');
-    
-    let commissionToSave = { ...commission, status: newStatus };
+  const handleUpdateCommission = (oldCommission: Commission, updatedCommission: Commission) => {
+      const oldStatus = oldCommission.status;
+      const allItemsReady = updatedCommission.items.length > 0 && updatedCommission.items.every(i => i.status === 'ready');
+      const newStatus = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
+      
+      let commissionToSave = { ...updatedCommission, status: newStatus };
 
-    if ((oldStatus === 'draft' || oldStatus === 'preparing') && newStatus === 'ready') {
-      commissionToSave.isNewlyReady = true;
-    }
+      if ((oldStatus === 'draft' || oldStatus === 'preparing') && newStatus === 'ready') {
+        commissionToSave.isNewlyReady = true;
+      }
 
-    appAddOrUpdateCommission(commissionToSave);
+      addOrUpdateCommission(commissionToSave);
 
-    if (preparingCommission && preparingCommission.id === commission.id) {
-      setPreparingCommission(commissionToSave);
-    }
-    if (detailCommission && detailCommission.id === commission.id) {
-      setDetailCommission(commissionToSave);
-    }
+      // No need to update local state like preparingCommission/detailCommission
+      // because they will get updated via the onSnapshot listener from useCollection
   }
   
   const handleWithdraw = (commission: Commission) => {
-    appAddOrUpdateCommission({ ...commission, status: 'withdrawn', withdrawnAt: new Date().toISOString() });
+    addOrUpdateCommission({ ...commission, status: 'withdrawn', withdrawnAt: new Date().toISOString() });
     toast({ title: 'Kommission entnommen', description: `Die Kommission "${commission.name}" wurde als entnommen markiert.` });
   };
   
@@ -429,7 +441,7 @@ export default function CommissioningPage() {
   }, [commissions]);
   
   const handleReactivate = (commission: Commission) => {
-      appAddOrUpdateCommission({ ...commission, status: 'preparing', withdrawnAt: null });
+      addOrUpdateCommission({ ...commission, status: 'preparing', withdrawnAt: null });
       toast({ title: "Kommission reaktiviert", description: `"${commission.name}" ist wieder aktiv.` });
   };
 
