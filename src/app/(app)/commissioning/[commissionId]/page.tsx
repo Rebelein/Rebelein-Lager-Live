@@ -74,69 +74,74 @@ function CommissionPreparationDialog({
 }) {
     const { reduceStockForCommissionItem, increaseStockForCommissionItem } = useAppContext();
     const { toast } = useToast();
-    const [commission, setCommission] = React.useState(initialCommission);
+    const [localItems, setLocalItems] = React.useState<CommissionItem[]>(() => JSON.parse(JSON.stringify(initialCommission.items)));
 
-    const handleToggleItem = (item: CommissionItem) => {
-        const isCurrentlyReady = item.status === 'ready';
-        const newStatus = isCurrentlyReady ? 'pending' : 'ready';
-        
-        const updatedItems: CommissionItem[] = commission.items.map(i => 
-            i.id === item.id ? { ...i, status: newStatus } : i
+    const handleToggleItem = (itemToToggle: CommissionItem) => {
+        setLocalItems(currentItems =>
+            currentItems.map(item =>
+                item.id === itemToToggle.id
+                    ? { ...item, status: item.status === 'ready' ? 'pending' : 'ready' }
+                    : item
+            )
         );
-        
-        const updatedCommission = { ...commission, items: updatedItems };
-        onUpdateCommission(initialCommission, updatedCommission); // Pass old and new state
-        setCommission(updatedCommission); // Update local state for immediate UI feedback
+    };
 
-        // Handle stock changes
-        if (item.source === 'main_warehouse') {
-            if (isCurrentlyReady) {
-                // Un-checking the item
-                increaseStockForCommissionItem(commission.id, item.id, item.quantity);
+    const handleFinalizePreparation = () => {
+        const originalItems = initialCommission.items;
+
+        originalItems.forEach(originalItem => {
+            const updatedItem = localItems.find(li => li.id === originalItem.id);
+            if (!updatedItem) return; // Should not happen
+
+            const wasReady = originalItem.status === 'ready';
+            const isReady = updatedItem.status === 'ready';
+
+            if (originalItem.source === 'main_warehouse') {
+                if (isReady && !wasReady) {
+                    // Item was newly checked
+                    reduceStockForCommissionItem(initialCommission.id, originalItem.id, originalItem.quantity);
+                } else if (!isReady && wasReady) {
+                    // Item was unchecked
+                    increaseStockForCommissionItem(initialCommission.id, originalItem.id, originalItem.quantity);
+                }
             } else {
-                // Checking the item
-                reduceStockForCommissionItem(commission.id, item.id, item.quantity);
+                 if (isReady && !wasReady) {
+                    toast({ title: "Position bereitgestellt", description: `"${originalItem.name}" wurde als bereitgestellt markiert.` })
+                } else if (!isReady && wasReady) {
+                    toast({title: "Position zurückgesetzt", description: `"${originalItem.name}" wurde wieder auf 'ausstehend' gesetzt.`})
+                }
             }
-        } else {
-             if (isCurrentlyReady) {
-                toast({title: "Position zurückgesetzt", description: `"${item.name}" wurde wieder auf 'ausstehend' gesetzt.`})
-            } else {
-                toast({title: "Position bereitgestellt", description: `"${item.name}" wurde als bereitgestellt markiert.`})
-            }
-        }
-    }
+        });
+        
+        const updatedCommission = { ...initialCommission, items: localItems };
+        onUpdateCommission(initialCommission, updatedCommission);
+        onOpenChange(false);
+    };
 
 
     const handleRemoveItem = (itemId: string) => {
-        const itemToRemove = commission.items.find(i => i.id === itemId);
-        if (!itemToRemove) return;
-
-        if (itemToRemove.status === 'ready' && itemToRemove.source === 'main_warehouse') {
-            increaseStockForCommissionItem(commission.id, itemId, itemToRemove.quantity);
-        }
-
-        const updatedItems = commission.items.filter(i => i.id !== itemId);
-        const updatedCommission = { ...commission, items: updatedItems };
-        onUpdateCommission(initialCommission, updatedCommission);
-        setCommission(updatedCommission);
-        toast({ title: 'Artikel entfernt', description: 'Der Artikel wurde aus der Kommission entfernt.', variant: 'destructive'});
+         const itemToRemove = localItems.find(i => i.id === itemId);
+         if (!itemToRemove) return;
+         setLocalItems(currentItems => currentItems.filter(i => i.id !== itemId));
+         toast({ title: 'Artikel entfernt', description: 'Der Artikel wurde aus der Vorbereitung entfernt. Klicken Sie auf "Bereitstellen", um zu speichern.', variant: 'destructive'});
     };
-
+    
+    const allItemsReady = localItems.length > 0 && localItems.every(i => i.status === 'ready');
 
     return (
         <Dialog open={true} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-xl h-[70vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Kommission vorbereiten: {commission.name}</DialogTitle>
-                    <DialogDescription>Auftrags-Nr: {commission.orderNumber}. Haken Sie die Artikel ab, um sie zu kommissionieren und den Bestand zu reduzieren.</DialogDescription>
+                    <DialogTitle>Kommission vorbereiten: {initialCommission.name}</DialogTitle>
+                    <DialogDescription>Auftrags-Nr: {initialCommission.orderNumber}. Haken Sie die Artikel ab, um sie zu kommissionieren und den Bestand zu reduzieren.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-1 min-h-0">
                     <ScrollArea className="border rounded-lg h-full">
                         <div className="p-4 space-y-3">
-                            {commission.items.length === 0 && (
+                            {localItems.length === 0 && (
                                 <p className="text-sm text-muted-foreground text-center py-10">Noch keine Artikel hinzugefügt.</p>
                             )}
-                            {commission.items.map(item => (
+                            {localItems.map(item => (
                                 <div key={item.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 group">
                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleItem(item)}>
                                         {item.status === 'ready' ? <CheckCircle className="h-5 w-5 text-primary" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
@@ -160,7 +165,11 @@ function CommissionPreparationDialog({
                     </ScrollArea>
                 </div>
                 <DialogFooter>
-                    <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
+                    {allItemsReady ? (
+                        <Button onClick={handleFinalizePreparation}>Jetzt bereitstellen</Button>
+                    ) : (
+                         <Button variant="secondary" onClick={() => onOpenChange(false)}>Schließen</Button>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -412,7 +421,9 @@ export default function CommissioningPage() {
       let commissionToSave = { ...updatedCommission, status: newStatus };
 
       // Check for the specific status transition to trigger the glow effect
-      if ((oldCommission.status === 'draft' || oldCommission.status === 'preparing') && newStatus === 'ready') {
+      const statusChangedToReady = (oldCommission.status === 'draft' || oldCommission.status === 'preparing') && newStatus === 'ready';
+
+      if (statusChangedToReady) {
         commissionToSave.isNewlyReady = true;
       }
 
