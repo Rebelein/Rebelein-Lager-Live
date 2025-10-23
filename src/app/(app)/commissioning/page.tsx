@@ -12,7 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import type { Commission } from '@/lib/types';
 import { PlusCircle, Archive, PackageSearch } from 'lucide-react';
-import { useCollection } from '@/firebase/firestore/use-collection';
 import { useMemoFirebase } from '@/firebase/provider';
 import { collection, doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
@@ -21,12 +20,9 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 export default function CommissioningPage() {
-  const { currentUser } = useAppContext();
+  const { currentUser, commissions, isLoading } = useAppContext();
   const { toast } = useToast();
   const firestore = useFirestore();
-
-  const commissionsQuery = useMemoFirebase(() => collection(firestore, 'commissions'), [firestore]);
-  const { data: commissions, isLoading } = useCollection<Commission>(commissionsQuery);
 
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [newCommissionName, setNewCommissionName] = React.useState('');
