@@ -356,14 +356,17 @@ export default function CommissioningPage() {
       toast({ title: 'Fehler', description: 'Name und Auftragsnummer sind Pflichtfelder.', variant: 'destructive' });
       return;
     }
-
-    const commissionData = {
+    
+    const allItemsReady = newCommissionItems.length > 0 && newCommissionItems.every(i => i.status === 'ready');
+    
+    const commissionData: Omit<Commission, 'id' | 'createdAt' | 'createdBy'> = {
         name: newCommissionName.trim(),
         orderNumber: newCommissionOrderNumber.trim(),
         notes: newCommissionNotes.trim(),
-        status: newCommissionItems.length > 0 ? 'preparing' as const : 'draft' as const,
+        status: allItemsReady ? 'ready' : (newCommissionItems.length > 0 ? 'preparing' : 'draft'),
         items: newCommissionItems,
         withdrawnAt: null,
+        isNewlyReady: allItemsReady,
     };
 
     if (editingCommission) {
