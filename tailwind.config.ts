@@ -81,6 +81,18 @@ export default {
           '0%, 100%': { boxShadow: '0 0 8px hsl(var(--primary) / 0)' },
           '50%': { boxShadow: '0 0 20px 8px hsl(var(--primary) / 0.4)' },
         },
+        "glow-red": {
+            '0%, 100%': { boxShadow: '0 0 8px hsl(var(--destructive) / 0)' },
+            '50%': { boxShadow: '0 0 20px 8px hsl(var(--destructive) / 0.4)' },
+        },
+        "glow-yellow": {
+            '0%, 100%': { boxShadow: '0 0 8px hsl(var(--chart-4) / 0)' },
+            '50%': { boxShadow: '0 0 20px 8px hsl(var(--chart-4) / 0.4)' },
+        },
+        "glow-orange": {
+            '0%, 100%': { boxShadow: '0 0 8px hsl(var(--chart-5) / 0)' },
+            '50%': { boxShadow: '0 0 20px 8px hsl(var(--chart-5) / 0.4)' },
+        },
         "flash": {
           '0%, 100%': { backgroundColor: 'transparent' },
           '25%, 75%': { backgroundColor: 'hsl(var(--primary) / 0.1)' },
@@ -90,11 +102,12 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "glow-green": "glow-green 2.5s ease-in-out infinite",
+        "glow-red": "glow-red 2.5s ease-in-out infinite",
+        "glow-yellow": "glow-yellow 2.5s ease-in-out infinite",
+        "glow-orange": "glow-orange 2.5s ease-in-out infinite",
         "flash": "flash 1.5s ease-in-out",
       },
     },
   },
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;
-
-    

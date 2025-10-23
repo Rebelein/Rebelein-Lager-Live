@@ -10,7 +10,7 @@ import { de } from 'date-fns/locale';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch } from 'lucide-react';
+import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2 } from 'lucide-react';
 import { getChangeLogActionText, isInventoryItem } from '@/lib/utils';
 import {
   Collapsible,
@@ -381,6 +381,29 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
     const { commissions } = useAppContext();
     const router = useRouter();
 
+    const [recentlyReady, setRecentlyReady] = React.useState<Set<string>>(new Set());
+    const prevCommissionsRef = React.useRef(commissions);
+
+    React.useEffect(() => {
+        const prevMap = new Map(prevCommissionsRef.current.map(c => [c.id, c.status]));
+        const newReady = new Set(recentlyReady);
+        let changed = false;
+
+        for (const commission of commissions) {
+            const prevStatus = prevMap.get(commission.id);
+            if (prevStatus && (prevStatus === 'draft' || prevStatus === 'preparing') && commission.status === 'ready') {
+                newReady.add(commission.id);
+                changed = true;
+            }
+        }
+        
+        if (changed) {
+            setRecentlyReady(newReady);
+        }
+
+        prevCommissionsRef.current = commissions;
+    }, [commissions, recentlyReady]);
+    
     const draftCommissions = React.useMemo(() => {
         return (commissions || []).filter(c => c.status === 'draft' || c.status === 'preparing');
     }, [commissions]);
@@ -389,37 +412,50 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
         return (commissions || []).filter(c => c.status === 'ready');
     }, [commissions]);
 
-    const handleCardClick = () => {
-        router.push('/commissioning');
+    const handleAcknowledge = (e: React.MouseEvent, commissionId: string) => {
+        e.stopPropagation();
+        const newReady = new Set(recentlyReady);
+        newReady.delete(commissionId);
+        setRecentlyReady(newReady);
     };
 
     return (
         <DraggableCardWrapper id={id} currentSize={size} onSizeChange={onSizeChange}>
-            <Card className="h-full flex flex-col cursor-pointer hover:bg-muted/50" onClick={handleCardClick}>
+            <Card className="h-full flex flex-col">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><PackageSearch className="h-5 w-5 text-primary" /> Kommissionen</CardTitle>
                 </CardHeader>
-                <CardContent className="flex-grow grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                <CardContent className="flex-grow grid grid-cols-2 gap-4 overflow-hidden">
+                    <div className="space-y-2 flex flex-col">
                         <h4 className="font-semibold text-center text-sm border-b pb-2">Entwurf ({draftCommissions.length})</h4>
-                        <div className="space-y-2 pt-2 text-sm overflow-y-auto max-h-48">
+                        <div className="space-y-2 pt-2 text-sm overflow-y-auto flex-grow">
                             {draftCommissions.length > 0 ? draftCommissions.slice(0, 10).map(c => (
-                                <div key={c.id} className="p-2 border rounded-md">
+                                <div key={c.id} className="p-2 border rounded-md cursor-pointer hover:bg-muted" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
                                     <p className="font-medium truncate">{c.name}</p>
                                     <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
                                 </div>
                             )) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
                         </div>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex flex-col">
                         <h4 className="font-semibold text-center text-sm border-b pb-2">Bereitgestellt ({readyCommissions.length})</h4>
-                        <div className="space-y-2 pt-2 text-sm overflow-y-auto max-h-48">
-                            {readyCommissions.length > 0 ? readyCommissions.slice(0, 10).map(c => (
-                                <div key={c.id} className="p-2 border rounded-md">
-                                    <p className="font-medium truncate">{c.name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
+                        <div className="space-y-2 pt-2 text-sm overflow-y-auto flex-grow">
+                            {readyCommissions.length > 0 ? readyCommissions.slice(0, 10).map(c => {
+                                const isNew = recentlyReady.has(c.id);
+                                return (
+                                <div key={c.id} className={cn("p-0.5 rounded-lg", isNew && "bg-green-500 animate-glow-green")}>
+                                  <div className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
+                                      <p className="font-medium truncate">{c.name}</p>
+                                      <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
+                                      {isNew && (
+                                          <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-7 w-7 text-green-600" onClick={(e) => handleAcknowledge(e, c.id)}>
+                                            <CheckCircle2 className="h-5 w-5" />
+                                          </Button>
+                                      )}
+                                  </div>
                                 </div>
-                            )) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
+                                )
+                            }) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
                         </div>
                     </div>
                 </CardContent>
