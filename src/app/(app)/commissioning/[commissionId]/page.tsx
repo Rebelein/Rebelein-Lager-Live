@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -91,25 +92,6 @@ function CommissionPreparationDialog({ commission, onOpenChange, onUpdateCommiss
             }
         }
     }
-    
-    const allItemsReady = commission.items.every(i => i.status === 'ready');
-    
-    React.useEffect(() => {
-        const oldStatus = commission.status;
-        let newStatus: Commission['status'] | null = null;
-    
-        if (commission.items.length > 0) {
-            if (allItemsReady && oldStatus !== 'ready') {
-                newStatus = 'ready';
-            } else if (!allItemsReady && oldStatus === 'ready') {
-                newStatus = 'preparing';
-            }
-        }
-    
-        if (newStatus && newStatus !== oldStatus) {
-            onUpdateCommission({ ...commission, status: newStatus });
-        }
-    }, [allItemsReady, commission, onUpdateCommission]);
 
 
     const handleRemoveItem = (itemId: string) => {
@@ -410,7 +392,7 @@ export default function CommissioningPage() {
     const newStatus = commission.status;
     let commissionToSave = { ...commission };
 
-    if (oldStatus !== 'ready' && newStatus === 'ready') {
+    if (oldStatus && (oldStatus === 'draft' || oldStatus === 'preparing') && newStatus === 'ready') {
       commissionToSave.isNewlyReady = true;
     }
 
@@ -425,7 +407,7 @@ export default function CommissioningPage() {
   }
   
   const handleWithdraw = (commission: Commission) => {
-    addOrUpdateCommission({ ...commission, status: 'withdrawn', withdrawnAt: new Date().toISOString() });
+    appAddOrUpdateCommission({ ...commission, status: 'withdrawn', withdrawnAt: new Date().toISOString() });
     toast({ title: 'Kommission entnommen', description: `Die Kommission "${commission.name}" wurde als entnommen markiert.` });
   };
   
@@ -444,7 +426,7 @@ export default function CommissioningPage() {
   }, [commissions]);
   
   const handleReactivate = (commission: Commission) => {
-      addOrUpdateCommission({ ...commission, status: 'preparing', withdrawnAt: null });
+      appAddOrUpdateCommission({ ...commission, status: 'preparing', withdrawnAt: null });
       toast({ title: "Kommission reaktiviert", description: `"${commission.name}" ist wieder aktiv.` });
   };
 

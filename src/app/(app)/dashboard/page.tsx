@@ -17,7 +17,7 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { InventoryItem, DashboardCardLayout, ChangeLogEntry } from '@/lib/types';
+import type { InventoryItem, DashboardCardLayout, ChangeLogEntry, Commission } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { DndContext, PointerSensor, useSensor, useSensors, DragEndEvent, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, arrayMove } from '@dnd-kit/sortable';
@@ -389,11 +389,10 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
         return (commissions || []).filter(c => c.status === 'ready');
     }, [commissions]);
 
-    const handleAcknowledge = (e: React.MouseEvent, commissionId: string) => {
+    const handleAcknowledge = (e: React.MouseEvent, commissionToUpdate: Commission) => {
         e.stopPropagation();
-        const commission = commissions.find(c => c.id === commissionId);
-        if (commission) {
-            addOrUpdateCommission({ ...commission, isNewlyReady: false });
+        if (commissionToUpdate) {
+            addOrUpdateCommission({ ...commissionToUpdate, isNewlyReady: false });
         }
     };
 
@@ -426,7 +425,7 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
                                       <p className="font-medium truncate">{c.name}</p>
                                       <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
                                       {isNew && (
-                                          <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-7 w-7 text-green-600" onClick={(e) => handleAcknowledge(e, c.id)}>
+                                          <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-7 w-7 text-green-600" onClick={(e) => handleAcknowledge(e, c)}>
                                             <CheckCircle2 className="h-5 w-5" />
                                           </Button>
                                       )}
