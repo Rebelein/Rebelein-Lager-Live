@@ -265,6 +265,7 @@ export type CommissionItem = {
     source: 'main_warehouse' | 'external_order';
     quantity: number;
     status: 'pending' | 'ready';
+    transactionNumber?: string; // New field for wholesaler transaction number
 };
 
 export type Commission = {
