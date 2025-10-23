@@ -122,7 +122,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsersState] = useState<User[]>(() => getFromLocalStorage('users', []));
   const [wholesalers, setWholesalersState] = useState<Wholesaler[]>(() => getFromLocalStorage('wholesalers', []));
   const [locations, setLocationsState] = useState<Location[]>(() => getFromLocalStorage('locations', []));
-  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>(() => getFromLocalStorage('items', []));
+  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]); // Removed localStorage init
   const [orders, setOrdersState] = useState<Order[]>(() => getFromLocalStorage('orders', []));
   const [commissions, setCommissionsState] = useState<Commission[]>(() => getFromLocalStorage('commissions', []));
   const [appSettings, setAppSettingsState] = useState<AppSettings>(() => getFromLocalStorage('appSettings', {}));
@@ -153,7 +153,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
      if (articlesData && machinesData) {
         const combinedItems = [...articlesData, ...machinesData];
         setItemsState(combinedItems);
-        saveToLocalStorage('items', combinedItems);
+        // Removed saving to localStorage
     }
   }, [articlesData, machinesData]);
   useEffect(() => {
