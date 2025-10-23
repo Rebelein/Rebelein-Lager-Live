@@ -278,22 +278,24 @@ export default function SettingsPage() {
 
 
     React.useEffect(() => {
-        if (appSettings?.ai) {
-            const { provider, model, apiKey } = appSettings.ai;
-            setArticleAiProvider(provider || 'google');
-            setArticleSelectedModel(model || '');
-            if (provider === 'google') setArticleGoogleApiKey(apiKey || '');
-            else if (provider === 'openrouter') setArticleOpenRouterApiKey(apiKey || '');
-        }
-        if (appSettings?.deliveryNoteAi) {
-            const { provider, model, apiKey } = appSettings.deliveryNoteAi;
-            setDeliveryNoteAiProvider(provider || 'google');
-            setDeliveryNoteSelectedModel(model || '');
-            if (provider === 'google') setDeliveryNoteGoogleApiKey(apiKey || '');
-            else if (provider === 'openrouter') setDeliveryNoteOpenRouterApiKey(apiKey || '');
-        }
-        if (appSettings?.commission) {
-            setCommissionPrinterEmail(appSettings.commission.printerEmail || '');
+        if (appSettings) {
+            if (appSettings.ai) {
+                const { provider, model, apiKey } = appSettings.ai;
+                setArticleAiProvider(provider || 'google');
+                setArticleSelectedModel(model || '');
+                if (provider === 'google') setArticleGoogleApiKey(apiKey || '');
+                else if (provider === 'openrouter') setArticleOpenRouterApiKey(apiKey || '');
+            }
+            if (appSettings.deliveryNoteAi) {
+                const { provider, model, apiKey } = appSettings.deliveryNoteAi;
+                setDeliveryNoteAiProvider(provider || 'google');
+                setDeliveryNoteSelectedModel(model || '');
+                if (provider === 'google') setDeliveryNoteGoogleApiKey(apiKey || '');
+                else if (provider === 'openrouter') setDeliveryNoteOpenRouterApiKey(apiKey || '');
+            }
+            if (appSettings.commission) {
+                setCommissionPrinterEmail(appSettings.commission.printerEmail || '');
+            }
         }
     }, [appSettings]);
 
@@ -487,7 +489,7 @@ export default function SettingsPage() {
                                     <div className="space-y-2">
                                         <Label htmlFor="article-ai-model">Modell</Label>
                                         {articleAiProvider === 'openrouter' ? (
-                                            <Input id="article-ai-model" value={articleSelectedModel} onChange={e => setArticleSelectedModel(e.target.value)} placeholder="z.B. deepseek/deepseek-chat-v3.1:free" />
+                                            <Input id="article-ai-model" value={articleSelectedModel || ''} onChange={e => setArticleSelectedModel(e.target.value)} placeholder="z.B. deepseek/deepseek-chat-v3.1:free" />
                                         ) : (
                                             <Select value={articleSelectedModel} onValueChange={setArticleSelectedModel} disabled={!articleAiProvider}>
                                                 <SelectTrigger id="article-ai-model"><SelectValue placeholder="Modell auswählen..." /></SelectTrigger>
@@ -503,13 +505,13 @@ export default function SettingsPage() {
                                 {articleAiProvider === 'google' && (
                                     <div className="space-y-2">
                                         <Label htmlFor="article-google-api-key">Google Gemini API Key</Label>
-                                        <Input id="article-google-api-key" type="password" value={articleGoogleApiKey} onChange={e => setArticleGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
+                                        <Input id="article-google-api-key" type="password" value={articleGoogleApiKey || ''} onChange={e => setArticleGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
                                     </div>
                                 )}
                                 {articleAiProvider === 'openrouter' && (
                                     <div className="space-y-2">
                                         <Label htmlFor="article-openrouter-api-key">OpenRouter API Key</Label>
-                                        <Input id="article-openrouter-api-key" type="password" value={articleOpenRouterApiKey} onChange={e => setArticleOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
+                                        <Input id="article-openrouter-api-key" type="password" value={articleOpenRouterApiKey || ''} onChange={e => setArticleOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
                                     </div>
                                 )}
                             </CardContent>
@@ -540,7 +542,7 @@ export default function SettingsPage() {
                                     <div className="space-y-2">
                                         <Label htmlFor="delivery-ai-model">Modell</Label>
                                         {deliveryNoteAiProvider === 'openrouter' ? (
-                                            <Input id="delivery-ai-model" value={deliveryNoteSelectedModel} onChange={e => setDeliveryNoteSelectedModel(e.target.value)} placeholder="z.B. google/gemini-flash-1.5" />
+                                            <Input id="delivery-ai-model" value={deliveryNoteSelectedModel || ''} onChange={e => setDeliveryNoteSelectedModel(e.target.value)} placeholder="z.B. google/gemini-flash-1.5" />
                                         ) : (
                                             <Select value={deliveryNoteSelectedModel} onValueChange={setDeliveryNoteSelectedModel} disabled={!deliveryNoteAiProvider}>
                                                 <SelectTrigger id="delivery-ai-model"><SelectValue placeholder="Modell auswählen..." /></SelectTrigger>
@@ -556,13 +558,13 @@ export default function SettingsPage() {
                                 {deliveryNoteAiProvider === 'google' && (
                                     <div className="space-y-2">
                                         <Label htmlFor="delivery-google-api-key">Google Gemini API Key</Label>
-                                        <Input id="delivery-google-api-key" type="password" value={deliveryNoteGoogleApiKey} onChange={e => setDeliveryNoteGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
+                                        <Input id="delivery-google-api-key" type="password" value={deliveryNoteGoogleApiKey || ''} onChange={e => setDeliveryNoteGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
                                     </div>
                                 )}
                                 {deliveryNoteAiProvider === 'openrouter' && (
                                     <div className="space-y-2">
                                         <Label htmlFor="delivery-openrouter-api-key">OpenRouter API Key</Label>
-                                        <Input id="delivery-openrouter-api-key" type="password" value={deliveryNoteOpenRouterApiKey} onChange={e => setDeliveryNoteOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
+                                        <Input id="delivery-openrouter-api-key" type="password" value={deliveryNoteOpenRouterApiKey || ''} onChange={e => setDeliveryNoteOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
                                     </div>
                                 )}
                             </CardContent>
@@ -601,7 +603,7 @@ export default function SettingsPage() {
                                     <Input 
                                         id="printer-email" 
                                         type="email" 
-                                        value={commissionPrinterEmail} 
+                                        value={commissionPrinterEmail || ''} 
                                         onChange={e => setCommissionPrinterEmail(e.target.value)} 
                                         placeholder="drucker@ihredomain.de"
                                     />
