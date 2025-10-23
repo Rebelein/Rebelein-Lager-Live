@@ -133,7 +133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsersState] = useState<User[]>([]);
   const [wholesalers, setWholesalersState] = useState<Wholesaler[]>([]);
   const [locations, setLocationsState] = useState<Location[]>([]);
-  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]);
+  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]); // This one is fine now.
   const [orders, setOrdersState] = useState<Order[]>([]);
   const [appSettings, setAppSettingsState] = useState<AppSettings>({});
   const [commissions, setCommissionsState] = useState<Commission[]>([]);
@@ -153,13 +153,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Sync Firestore data to state and localStorage
   useEffect(() => {
-    if (usersData) { setUsersState(usersData); saveToLocalStorage('users', usersData); }
+    if (usersData) { setUsersState(usersData); }
   }, [usersData]);
   useEffect(() => {
-    if (wholesalersData) { setWholesalersState(wholesalersData); saveToLocalStorage('wholesalers', wholesalersData); }
+    if (wholesalersData) { setWholesalersState(wholesalersData); }
   }, [wholesalersData]);
   useEffect(() => {
-    if (locationsData) { setLocationsState(locationsData); saveToLocalStorage('locations', locationsData); }
+    if (locationsData) { setLocationsState(locationsData); }
   }, [locationsData]);
   useEffect(() => {
      if (articlesData && machinesData) {
@@ -173,7 +173,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [commissionsData]);
   useEffect(() => {
-    if (ordersData) { setOrdersState(ordersData); saveToLocalStorage('orders', ordersData); }
+    if (ordersData) { setOrdersState(ordersData); }
   }, [ordersData]);
   useEffect(() => {
     if (settingsData) { setAppSettingsState(settingsData); saveToLocalStorage('appSettings', settingsData); }
