@@ -1301,8 +1301,8 @@ export default function CommissioningPage() {
               <>
                 <div className="absolute inset-0 rounded-lg border-[20px] border-black/20"></div>
                 <div className={cn(
-                    "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2/3 border-2 border-dashed border-destructive opacity-75",
-                    scannerType === 'qr' ? 'h-2/3' : 'h-1/3'
+                    "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-destructive opacity-75",
+                    scannerType === 'qr' ? 'h-2/3 w-2/3' : 'h-1/3 w-4/5'
                 )}></div>
               </>
             )}
@@ -1340,5 +1340,3 @@ export default function CommissioningPage() {
     </div>
   );
 }
-
-    
