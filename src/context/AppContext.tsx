@@ -123,20 +123,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsersState] = useState<User[]>(() => getFromLocalStorage('users', []));
   const [wholesalers, setWholesalersState] = useState<Wholesaler[]>(() => getFromLocalStorage('wholesalers', []));
   const [locations, setLocationsState] = useState<Location[]>(() => getFromLocalStorage('locations', []));
-  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]); // Removed localStorage init
+  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]); // No localStorage init
   const [orders, setOrdersState] = useState<Order[]>(() => getFromLocalStorage('orders', []));
-  const [commissions, setCommissionsState] = useState<Commission[]>([]); // Removed localStorage init
+  const [commissions, setCommissionsState] = useState<Commission[]>([]); // No localStorage init
   const [appSettings, setAppSettingsState] = useState<AppSettings>(() => getFromLocalStorage('appSettings', {}));
 
   // Firebase real-time data hooks
-  const { data: usersData, error: usersError } = useCollection<User>(useMemoFirebase(() => collection(firestore, 'users'), [firestore]));
-  const { data: wholesalersData, error: wholesalersError } = useCollection<Wholesaler>(useMemoFirebase(() => collection(firestore, 'wholesalers'), [firestore]));
-  const { data: locationsData, error: locationsError } = useCollection<Location>(useMemoFirebase(() => collection(firestore, 'locations'), [firestore]));
-  const { data: articlesData, error: articlesError } = useCollection<InventoryItem>(useMemoFirebase(() => collection(firestore, 'articles'), [firestore]));
-  const { data: machinesData, error: machinesError } = useCollection<Machine>(useMemoFirebase(() => collection(firestore, 'machines'), [firestore]));
-  const { data: commissionsData, error: commissionsError } = useCollection<Commission>(useMemoFirebase(() => collection(firestore, 'commissions'), [firestore]));
-  const { data: ordersData, error: ordersError } = useCollection<Order>(useMemoFirebase(() => collection(firestore, 'orders'), [firestore]));
-  const { data: settingsData, error: settingsError } = useDoc<AppSettings>(useMemoFirebase(() => doc(firestore, 'app_settings', 'global'), [firestore]));
+  const usersCollectionRef = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const wholesalersCollectionRef = useMemoFirebase(() => collection(firestore, 'wholesalers'), [firestore]);
+  const locationsCollectionRef = useMemoFirebase(() => collection(firestore, 'locations'), [firestore]);
+  const articlesCollectionRef = useMemoFirebase(() => collection(firestore, 'articles'), [firestore]);
+  const machinesCollectionRef = useMemoFirebase(() => collection(firestore, 'machines'), [firestore]);
+  const commissionsCollectionRef = useMemoFirebase(() => collection(firestore, 'commissions'), [firestore]);
+  const ordersCollectionRef = useMemoFirebase(() => collection(firestore, 'orders'), [firestore]);
+  const settingsDocRef = useMemoFirebase(() => doc(firestore, 'app_settings', 'global'), [firestore]);
+
+  const { data: usersData, error: usersError } = useCollection<User>(usersCollectionRef);
+  const { data: wholesalersData, error: wholesalersError } = useCollection<Wholesaler>(wholesalersCollectionRef);
+  const { data: locationsData, error: locationsError } = useCollection<Location>(locationsCollectionRef);
+  const { data: articlesData, error: articlesError } = useCollection<InventoryItem>(articlesCollectionRef);
+  const { data: machinesData, error: machinesError } = useCollection<Machine>(machinesCollectionRef);
+  const { data: commissionsData, error: commissionsError } = useCollection<Commission>(commissionsCollectionRef);
+  const { data: ordersData, error: ordersError } = useCollection<Order>(ordersCollectionRef);
+  const { data: settingsData, error: settingsError } = useDoc<AppSettings>(settingsDocRef);
   
   const anyError = usersError || wholesalersError || locationsError || articlesError || machinesError || ordersError || settingsError || commissionsError;
 
@@ -154,7 +163,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
      if (articlesData && machinesData) {
         const combinedItems = [...articlesData, ...machinesData];
         setItemsState(combinedItems);
-        // Removed saving to localStorage
     }
   }, [articlesData, machinesData]);
   useEffect(() => {
