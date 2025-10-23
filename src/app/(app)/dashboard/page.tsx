@@ -378,31 +378,8 @@ const MachinesCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
 }
 
 const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 'default' | 'wide', onSizeChange: (size: 'small' | 'default' | 'wide') => void }) => {
-    const { commissions } = useAppContext();
+    const { commissions, addOrUpdateCommission } = useAppContext();
     const router = useRouter();
-
-    const [recentlyReady, setRecentlyReady] = React.useState<Set<string>>(new Set());
-    const prevCommissionsRef = React.useRef(commissions);
-
-    React.useEffect(() => {
-        const prevMap = new Map(prevCommissionsRef.current.map(c => [c.id, c.status]));
-        const newReady = new Set(recentlyReady);
-        let changed = false;
-
-        for (const commission of commissions) {
-            const prevStatus = prevMap.get(commission.id);
-            if (prevStatus && (prevStatus === 'draft' || prevStatus === 'preparing') && commission.status === 'ready') {
-                newReady.add(commission.id);
-                changed = true;
-            }
-        }
-        
-        if (changed) {
-            setRecentlyReady(newReady);
-        }
-
-        prevCommissionsRef.current = commissions;
-    }, [commissions, recentlyReady]);
     
     const draftCommissions = React.useMemo(() => {
         return (commissions || []).filter(c => c.status === 'draft' || c.status === 'preparing');
@@ -414,9 +391,10 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
 
     const handleAcknowledge = (e: React.MouseEvent, commissionId: string) => {
         e.stopPropagation();
-        const newReady = new Set(recentlyReady);
-        newReady.delete(commissionId);
-        setRecentlyReady(newReady);
+        const commission = commissions.find(c => c.id === commissionId);
+        if (commission) {
+            addOrUpdateCommission({ ...commission, isNewlyReady: false });
+        }
     };
 
     return (
@@ -441,7 +419,7 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
                         <h4 className="font-semibold text-center text-sm border-b pb-2">Bereitgestellt ({readyCommissions.length})</h4>
                         <div className="space-y-2 pt-2 text-sm overflow-y-auto flex-grow">
                             {readyCommissions.length > 0 ? readyCommissions.slice(0, 10).map(c => {
-                                const isNew = recentlyReady.has(c.id);
+                                const isNew = c.isNewlyReady;
                                 return (
                                 <div key={c.id} className={cn("p-0.5 rounded-lg", isNew && "bg-green-500 animate-glow-green")}>
                                   <div className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>

@@ -278,4 +278,5 @@ export type Commission = {
   createdBy: string;
   withdrawnAt?: string | null;
   items: CommissionItem[];
+  isNewlyReady?: boolean;
 };

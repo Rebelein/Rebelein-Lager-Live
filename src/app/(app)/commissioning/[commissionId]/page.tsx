@@ -11,10 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import type { Commission, CommissionItem, InventoryItem } from '@/lib/types';
 import { PlusCircle, Archive, PackageSearch, ChevronsUpDown, ClipboardList, Warehouse, CheckCircle, Circle, X, MoreHorizontal, Pencil, Trash2, ShoppingCart, Minus, Plus, Undo, Info } from 'lucide-react';
-import { useCollection } from '@/firebase/firestore/use-collection';
-import { useMemoFirebase } from '@/firebase/provider';
-import { collection, doc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -37,7 +33,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
 
 
 const getStatusVariant = (status: Commission['status']) => {
@@ -100,7 +95,7 @@ function CommissionPreparationDialog({ commission, onOpenChange, onUpdateCommiss
     
     React.useEffect(() => {
         if (commission.items.length > 0 && allItemsReady && commission.status !== 'ready') {
-            onUpdateCommission({ ...commission, status: 'ready' });
+            onUpdateCommission({ ...commission, status: 'ready', isNewlyReady: true });
         } else if (commission.items.length > 0 && !allItemsReady && commission.status === 'ready') {
              onUpdateCommission({ ...commission, status: 'preparing' });
         }
@@ -284,12 +279,8 @@ function CommissionDetailDialog({ commission, onOpenChange }: { commission: Comm
 }
 
 export default function CommissioningPage() {
-  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission } = useAppContext();
+  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading } = useAppContext();
   const { toast } = useToast();
-  const firestore = useFirestore();
-
-  const commissionsQuery = useMemoFirebase(() => collection(firestore, 'commissions'), [firestore]);
-  const { data: commissions, isLoading } = useCollection<Commission>(commissionsQuery);
 
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingCommission, setEditingCommission] = React.useState<Commission | null>(null);
@@ -355,7 +346,7 @@ export default function CommissioningPage() {
     };
 
   const handleSaveCommission = () => {
-    if (!currentUser || !firestore) {
+    if (!currentUser) {
       toast({ title: 'Fehler', description: 'Benutzer nicht angemeldet oder Datenbankverbindung fehlt.', variant: 'destructive' });
       return;
     }
@@ -377,9 +368,8 @@ export default function CommissioningPage() {
         addOrUpdateCommission({ ...editingCommission, ...commissionData });
         toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${commissionData.name}" wurde gespeichert.` });
     } else {
-        const commissionId = doc(collection(firestore, 'commissions')).id;
         const newCommission: Commission = {
-          id: commissionId,
+          id: `commission-${Date.now()}`,
           ...commissionData,
           createdAt: new Date().toISOString(),
           createdBy: currentUser.name,
@@ -411,7 +401,6 @@ export default function CommissioningPage() {
   }
   
   const handleWithdraw = (commission: Commission) => {
-    if (!firestore) return;
     addOrUpdateCommission({ ...commission, status: 'withdrawn', withdrawnAt: new Date().toISOString() });
     toast({ title: 'Kommission entnommen', description: `Die Kommission "${commission.name}" wurde als entnommen markiert.` });
   };
@@ -479,7 +468,7 @@ export default function CommissioningPage() {
             <TabsTrigger value="withdrawn">Entnommen</TabsTrigger>
         </TabsList>
         <TabsContent value="active">
-             {isLoading ? (
+             {isContextLoading ? (
                 <Card className="mt-4">
                     <CardContent className="pt-6 text-center text-muted-foreground">
                         <p>Lade Kommissionen...</p>

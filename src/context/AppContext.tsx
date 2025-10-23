@@ -1379,20 +1379,10 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
         
         // Reduce stock
         handleQuickStockChange(itemId, mainWarehouse.id, 'out', quantity);
-
-        // Update commission item status
-        const commissionRef = doc(firestore, 'commissions', commissionId);
-        if (commissionsData) {
-            const commission = commissionsData.find(c => c.id === commissionId);
-            if (commission) {
-                const updatedItems = commission.items.map(i => i.id === itemId ? { ...i, status: 'ready' as const } : i);
-                updateDocumentNonBlocking(commissionRef, { items: updatedItems });
-            }
-        }
         
         toast({ title: 'Bestand reduziert', description: `${quantity}x ${item.name} vom Hauptlager abgebucht.` });
 
-    }, [mainWarehouse, currentUser, items, handleQuickStockChange, firestore, commissionsData, toast]);
+    }, [mainWarehouse, currentUser, items, handleQuickStockChange, toast]);
 
     const increaseStockForCommissionItem = useCallback((commissionId: string, itemId: string, quantity: number) => {
         if (!mainWarehouse || !currentUser) return;
@@ -1402,20 +1392,10 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
 
         // Increase stock
         handleQuickStockChange(itemId, mainWarehouse.id, 'in', quantity);
-        
-        // Update commission item status
-        const commissionRef = doc(firestore, 'commissions', commissionId);
-        if (commissionsData) {
-            const commission = commissionsData.find(c => c.id === commissionId);
-             if (commission) {
-                const updatedItems = commission.items.map(i => i.id === itemId ? { ...i, status: 'pending' as const } : i);
-                updateDocumentNonBlocking(commissionRef, { items: updatedItems });
-            }
-        }
 
         toast({ title: 'Bestand zurückgebucht', description: `Vorbereitung für ${quantity}x ${item.name} wurde storniert und der Bestand korrigiert.` });
 
-    }, [mainWarehouse, currentUser, items, handleQuickStockChange, firestore, commissionsData, toast]);
+    }, [mainWarehouse, currentUser, items, handleQuickStockChange, toast]);
 
 
   const value = {
