@@ -129,11 +129,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [dbConnectionStatus, setDbConnectionStatus] = useState<DbConnectionStatus>('connecting');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Data states, initialized from localStorage
+  // Data states
   const [users, setUsersState] = useState<User[]>([]);
   const [wholesalers, setWholesalersState] = useState<Wholesaler[]>([]);
   const [locations, setLocationsState] = useState<Location[]>([]);
-  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]); // This one is fine now.
+  const [items, setItemsState] = useState<(InventoryItem | Machine)[]>([]);
   const [orders, setOrdersState] = useState<Order[]>([]);
   const [appSettings, setAppSettingsState] = useState<AppSettings>({});
   const [commissions, setCommissionsState] = useState<Commission[]>([]);
@@ -151,33 +151,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   
   const anyError = usersError || wholesalersError || locationsError || articlesError || machinesError || ordersError || settingsError || commissionsError;
 
-  // Sync Firestore data to state and localStorage
-  useEffect(() => {
-    if (usersData) { setUsersState(usersData); }
-  }, [usersData]);
-  useEffect(() => {
-    if (wholesalersData) { setWholesalersState(wholesalersData); }
-  }, [wholesalersData]);
-  useEffect(() => {
-    if (locationsData) { setLocationsState(locationsData); }
-  }, [locationsData]);
-  useEffect(() => {
-     if (articlesData && machinesData) {
-        const combinedItems = [...articlesData, ...machinesData];
-        setItemsState(combinedItems);
-     }
-  }, [articlesData, machinesData]);
-   useEffect(() => {
-    if(commissionsData) {
-        setCommissionsState(commissionsData);
-    }
-  }, [commissionsData]);
-  useEffect(() => {
-    if (ordersData) { setOrdersState(ordersData); }
-  }, [ordersData]);
-  useEffect(() => {
-    if (settingsData) { setAppSettingsState(settingsData); saveToLocalStorage('appSettings', settingsData); }
-  }, [settingsData]);
+  // Sync Firestore data to state
+  useEffect(() => { if (usersData) setUsersState(usersData); }, [usersData]);
+  useEffect(() => { if (wholesalersData) setWholesalersState(wholesalersData); }, [wholesalersData]);
+  useEffect(() => { if (locationsData) setLocationsState(locationsData); }, [locationsData]);
+  useEffect(() => { if (articlesData && machinesData) setItemsState([...articlesData, ...machinesData]); }, [articlesData, machinesData]);
+  useEffect(() => { if (commissionsData) setCommissionsState(commissionsData); }, [commissionsData]);
+  useEffect(() => { if (ordersData) setOrdersState(ordersData); }, [ordersData]);
+  useEffect(() => { if (settingsData) setAppSettingsState(settingsData); }, [settingsData]);
   
   useEffect(() => {
     if (anyError) {
@@ -206,8 +187,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(() => {
-    const stored = getFromLocalStorage<string[]>('dismissedNotifications', []);
-    return new Set(stored);
+    return getFromLocalStorage<Set<string>>('dismissedNotifications', new Set());
   });
   
   const [dashboardLayout, setDashboardLayoutState] = useState<DashboardCardLayout[]>(allDashboardCards);
@@ -279,10 +259,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (users.length > 0 && !isAuthReady) {
         try {
             const favoriteUserId = localStorage.getItem('favoriteUserId');
-            const user = users.find(u => u.id === favoriteUserId);
-            if (user) {
-                setFavoriteUserInternal(user);
-                setActiveUser(user);
+            if (favoriteUserId) {
+                const favId = JSON.parse(favoriteUserId);
+                const user = users.find(u => u.id === favId);
+                if (user) {
+                    setFavoriteUserInternal(user);
+                    setActiveUser(user);
+                }
             }
         } catch (error) {
             console.error("Could not read favorite user ID from localStorage:", error);
