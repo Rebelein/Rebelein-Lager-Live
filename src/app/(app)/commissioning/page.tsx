@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import type { Commission, CommissionItem, InventoryItem } from '@/lib/types';
-import { PlusCircle, Archive, PackageSearch, ChevronsUpDown, ClipboardList, Warehouse, CheckCircle, Circle, X, MoreHorizontal, Pencil, Trash2, ShoppingCart, Minus, Plus, Undo, Info, Printer, Mail, ScanLine, Save, RefreshCw, Zap, ZapOff, Camera } from 'lucide-react';
+import { PlusCircle, Archive, PackageSearch, ChevronsUpDown, ClipboardList, Warehouse, CheckCircle, Circle, X, MoreHorizontal, Pencil, Trash2, ShoppingCart, Minus, Plus, Undo, Info, Printer, Mail, ScanLine, Save, RefreshCw, Zap, ZapOff, Camera, ArrowUpDown, ArrowDown, ArrowUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,7 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -521,6 +521,7 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
     );
 }
 
+type SortKey = 'name' | 'orderNumber' | 'createdAt' | 'status';
 
 export default function CommissioningPage() {
   const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading } = useAppContext();
@@ -560,6 +561,8 @@ export default function CommissioningPage() {
   const [activeDeviceId, setActiveDeviceId] = React.useState<string | undefined>(undefined);
   const [torchSupported, setTorchSupported] = React.useState(false);
   const [torchOn, setTorchOn] = React.useState(false);
+
+  const [sortConfig, setSortConfig] = React.useState<{ key: SortKey, direction: 'asc' | 'desc' }>({ key: 'createdAt', direction: 'desc' });
 
 
   const mainWarehouseItems = React.useMemo(() => {
@@ -689,12 +692,38 @@ export default function CommissioningPage() {
     setCommissionToDelete(null);
   };
 
+  const handleRequestSort = (key: SortKey) => {
+    setSortConfig(prev => {
+        if (prev.key === key) {
+            return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+        }
+        return { key, direction: 'asc' };
+    });
+  };
+
   const activeCommissions = React.useMemo(() => {
-    return (commissions || []).filter(c => c.status !== 'withdrawn').sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [commissions]);
+    if (!commissions) return [];
+    return [...commissions]
+      .filter(c => c.status !== 'withdrawn')
+      .sort((a, b) => {
+          const { key, direction } = sortConfig;
+          const dir = direction === 'asc' ? 1 : -1;
+          
+          switch(key) {
+              case 'name': return a.name.localeCompare(b.name) * dir;
+              case 'orderNumber': return a.orderNumber.localeCompare(b.orderNumber) * dir;
+              case 'status': return getStatusText(a.status).localeCompare(getStatusText(b.status)) * dir;
+              case 'createdAt':
+              default: return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir * -1; // Default to desc
+          }
+      });
+  }, [commissions, sortConfig]);
 
   const withdrawnCommissions = React.useMemo(() => {
-    return (commissions || []).filter(c => c.status === 'withdrawn').sort((a, b) => new Date(b.withdrawnAt || b.createdAt).getTime() - new Date(a.withdrawnAt || a.createdAt).getTime());
+    if (!commissions) return [];
+    return [...commissions]
+        .filter(c => c.status === 'withdrawn')
+        .sort((a,b) => (new Date(b.withdrawnAt || b.createdAt).getTime() - new Date(a.withdrawnAt || a.createdAt).getTime()));
   }, [commissions]);
   
   const handleReactivate = (commission: Commission) => {
@@ -908,6 +937,23 @@ export default function CommissioningPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h1 className="text-lg font-semibold md:text-2xl">Kommissionierung</h1>
         <div className="flex items-center gap-2">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 gap-1">
+                        <ArrowUpDown className="h-4 w-4" /> Sortieren
+                        {sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4 text-muted-foreground" /> : <ArrowDown className="h-4 w-4 text-muted-foreground" />}
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Sortieren nach</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup value={sortConfig.key} onValueChange={(value) => handleRequestSort(value as SortKey)}>
+                        <DropdownMenuRadioItem value="createdAt">Erstelldatum</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="name">Name</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="orderNumber">Auftrags-Nr.</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="status">Status</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+            </DropdownMenu>
             <Button size="sm" variant="outline" className="h-8 gap-1" onClick={openScanner}>
                 <ScanLine className="h-4 w-4" />
                 <span>Scannen</span>
@@ -921,7 +967,7 @@ export default function CommissioningPage() {
       
        <Tabs defaultValue="active" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="active">Aktiv</TabsTrigger>
+            <TabsTrigger value="active">Aktiv ({activeCommissions.length})</TabsTrigger>
             <TabsTrigger value="withdrawn">Entnommen</TabsTrigger>
         </TabsList>
         <TabsContent value="active">
