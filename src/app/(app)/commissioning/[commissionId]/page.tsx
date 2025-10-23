@@ -95,13 +95,22 @@ function CommissionPreparationDialog({ commission, onOpenChange, onUpdateCommiss
     const allItemsReady = commission.items.every(i => i.status === 'ready');
     
     React.useEffect(() => {
-        if (commission.items.length > 0 && allItemsReady && commission.status !== 'ready') {
-            onUpdateCommission({ ...commission, status: 'ready', isNewlyReady: true });
-        } else if (commission.items.length > 0 && !allItemsReady && commission.status === 'ready') {
-             // Retain the isNewlyReady flag if it was already set
-             onUpdateCommission({ ...commission, status: 'preparing', isNewlyReady: commission.isNewlyReady });
+        const oldStatus = commission.status;
+        let newStatus: Commission['status'] | null = null;
+    
+        if (commission.items.length > 0) {
+            if (allItemsReady && oldStatus !== 'ready') {
+                newStatus = 'ready';
+            } else if (!allItemsReady && oldStatus === 'ready') {
+                newStatus = 'preparing';
+            }
         }
-    }, [commission.items, allItemsReady, commission, onUpdateCommission]);
+    
+        if (newStatus && newStatus !== oldStatus) {
+            onUpdateCommission({ ...commission, status: newStatus });
+        }
+    }, [allItemsReady, commission, onUpdateCommission]);
+
 
     const handleRemoveItem = (itemId: string) => {
         const itemToRemove = commission.items.find(i => i.id === itemId);
@@ -281,7 +290,7 @@ function CommissionDetailDialog({ commission, onOpenChange }: { commission: Comm
 }
 
 export default function CommissioningPage() {
-  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading } = useAppContext();
+  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission: appAddOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading } = useAppContext();
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -370,7 +379,7 @@ export default function CommissioningPage() {
     };
 
     if (editingCommission) {
-        addOrUpdateCommission({ ...editingCommission, ...commissionData });
+        handleUpdateCommission({ ...editingCommission, ...commissionData });
         toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${commissionData.name}" wurde gespeichert.` });
     } else {
         const newCommission: Commission = {
@@ -379,7 +388,7 @@ export default function CommissioningPage() {
           createdAt: new Date().toISOString(),
           createdBy: currentUser.name,
         };
-        addOrUpdateCommission(newCommission);
+        handleUpdateCommission(newCommission);
         toast({ title: 'Kommission erstellt', description: `Die Kommission "${newCommission.name}" wurde angelegt.` });
     }
     
@@ -396,13 +405,23 @@ export default function CommissioningPage() {
   };
 
   const handleUpdateCommission = (commission: Commission) => {
-      addOrUpdateCommission(commission);
-      if (preparingCommission && preparingCommission.id === commission.id) {
-        setPreparingCommission(commission);
-      }
-      if (detailCommission && detailCommission.id === commission.id) {
-        setDetailCommission(commission);
-      }
+    const oldCommission = commissions.find(c => c.id === commission.id);
+    const oldStatus = oldCommission?.status;
+    const newStatus = commission.status;
+    let commissionToSave = { ...commission };
+
+    if (oldStatus !== 'ready' && newStatus === 'ready') {
+      commissionToSave.isNewlyReady = true;
+    }
+
+    appAddOrUpdateCommission(commissionToSave);
+
+    if (preparingCommission && preparingCommission.id === commission.id) {
+      setPreparingCommission(commissionToSave);
+    }
+    if (detailCommission && detailCommission.id === commission.id) {
+      setDetailCommission(commissionToSave);
+    }
   }
   
   const handleWithdraw = (commission: Commission) => {
@@ -812,3 +831,5 @@ export default function CommissioningPage() {
     </div>
   );
 }
+
+    
