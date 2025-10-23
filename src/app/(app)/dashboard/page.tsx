@@ -389,11 +389,9 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
         return (commissions || []).filter(c => c.status === 'ready');
     }, [commissions]);
 
-    const handleAcknowledge = (e: React.MouseEvent, commissionToUpdate: Commission) => {
+    const handleToggleGlow = (e: React.MouseEvent, commission: Commission) => {
         e.stopPropagation();
-        if (commissionToUpdate) {
-            addOrUpdateCommission({ ...commissionToUpdate, isNewlyReady: false });
-        }
+        addOrUpdateCommission({ ...commission, isNewlyReady: !commission.isNewlyReady });
     };
 
     return (
@@ -424,11 +422,9 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
                                   <div className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
                                       <p className="font-medium truncate">{c.name}</p>
                                       <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
-                                      {isNew && (
-                                          <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-7 w-7 text-green-600" onClick={(e) => handleAcknowledge(e, c)}>
-                                            <CheckCircle2 className="h-5 w-5" />
-                                          </Button>
-                                      )}
+                                       <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-7 w-7 text-muted-foreground hover:text-green-600" onClick={(e) => handleToggleGlow(e, c)}>
+                                            <CheckCircle2 className={cn("h-5 w-5", isNew && "text-green-600")} />
+                                        </Button>
                                   </div>
                                 </div>
                                 )
@@ -592,5 +588,7 @@ const TurnoverCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
     </DraggableCardWrapper>
     )
 }
+
+    
 
     
