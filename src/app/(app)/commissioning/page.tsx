@@ -74,7 +74,7 @@ const getStatusText = (status: Commission['status']) => {
 
 // *** Commission Detail/Preparation Dialog ***
 function CommissionPreparationDialog({
-    commission: initialCommission,
+    commission,
     onOpenChange,
     onUpdateCommission,
 }: {
@@ -84,7 +84,7 @@ function CommissionPreparationDialog({
 }) {
     const { reduceStockForCommissionItem, increaseStockForCommissionItem } = useAppContext();
     const { toast } = useToast();
-    const [localItems, setLocalItems] = React.useState<CommissionItem[]>(() => JSON.parse(JSON.stringify(initialCommission.items)));
+    const [localItems, setLocalItems] = React.useState<CommissionItem[]>(() => JSON.parse(JSON.stringify(commission.items)));
 
     const handleToggleItem = (itemToToggle: CommissionItem) => {
         setLocalItems(currentItems =>
@@ -97,22 +97,21 @@ function CommissionPreparationDialog({
     };
 
     const handleFinalizePreparation = () => {
-        const originalItems = initialCommission.items;
+        
+        const updatedCommission = { ...commission, items: localItems };
 
-        originalItems.forEach(originalItem => {
-            const updatedItem = localItems.find(li => li.id === originalItem.id);
-            if (!updatedItem) return; // Should not happen
+        localItems.forEach(updatedItem => {
+            const originalItem = commission.items.find(oi => oi.id === updatedItem.id);
+            if(!originalItem) return;
 
             const wasReady = originalItem.status === 'ready';
             const isReady = updatedItem.status === 'ready';
-
+            
             if (originalItem.source === 'main_warehouse') {
-                if (isReady && !wasReady) {
-                    // Item was newly checked
-                    reduceStockForCommissionItem(initialCommission.id, originalItem.id, originalItem.quantity);
+                 if (isReady && !wasReady) {
+                    reduceStockForCommissionItem(commission.id, originalItem.id, originalItem.quantity);
                 } else if (!isReady && wasReady) {
-                    // Item was unchecked
-                    increaseStockForCommissionItem(initialCommission.id, originalItem.id, originalItem.quantity);
+                    increaseStockForCommissionItem(commission.id, originalItem.id, originalItem.quantity);
                 }
             } else {
                  if (isReady && !wasReady) {
@@ -122,12 +121,10 @@ function CommissionPreparationDialog({
                 }
             }
         });
-        
-        const updatedCommission = { ...initialCommission, items: localItems };
-        onUpdateCommission(initialCommission, updatedCommission);
+
+        onUpdateCommission(commission, updatedCommission);
         onOpenChange(false);
     };
-
 
     const handleRemoveItem = (itemId: string) => {
          const itemToRemove = localItems.find(i => i.id === itemId);
@@ -142,8 +139,8 @@ function CommissionPreparationDialog({
         <Dialog open={true} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-xl h-[70vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Kommission vorbereiten: {initialCommission.name}</DialogTitle>
-                    <DialogDescription>Auftrags-Nr: {initialCommission.orderNumber}. Haken Sie die Artikel ab, um sie zu kommissionieren und den Bestand zu reduzieren.</DialogDescription>
+                    <DialogTitle>Kommission vorbereiten: {commission.name}</DialogTitle>
+                    <DialogDescription>Auftrags-Nr: {commission.orderNumber}. Haken Sie die Artikel ab, um sie zu kommissionieren und den Bestand zu reduzieren.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-1 min-h-0">
                     <ScrollArea className="border rounded-lg h-full">
@@ -637,23 +634,14 @@ export default function CommissioningPage() {
     let commissionData: Commission;
 
     if (editingCommission) {
-        const allItemsReady = newCommissionItems.length > 0 && newCommissionItems.every(i => i.status === 'ready');
-        
-        commissionData = { 
-            ...editingCommission, 
-            name: newCommissionName.trim(),
-            orderNumber: newCommissionOrderNumber.trim(),
-            notes: newCommissionNotes.trim(),
-            items: newCommissionItems,
-            status: allItemsReady ? 'ready' : (newCommissionItems.length > 0 ? 'preparing' : 'draft'),
-        };
-
-        if ((editingCommission.status === 'draft' || editingCommission.status === 'preparing') && commissionData.status === 'ready') {
-            commissionData.isNewlyReady = true;
-        }
-
-        addOrUpdateCommission(commissionData);
-        toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${commissionData.name}" wurde gespeichert.` });
+        handleUpdateCommission(editingCommission, {
+          ...editingCommission,
+          name: newCommissionName.trim(),
+          orderNumber: newCommissionOrderNumber.trim(),
+          notes: newCommissionNotes.trim(),
+          items: newCommissionItems
+        })
+        toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${newCommissionName.trim()}" wurde gespeichert.` });
     } else {
         commissionData = {
           id: `commission-${Date.now()}`,
@@ -692,10 +680,10 @@ export default function CommissioningPage() {
       
       let commissionToSave = { ...updatedCommission, status: newStatus };
 
-      // Check for the specific status transition to trigger the glow effect
-      const statusChangedToReady = (oldCommission.status === 'draft' || oldCommission.status === 'preparing') && newStatus === 'ready';
+      const wasPreparing = oldCommission.status === 'draft' || oldCommission.status === 'preparing';
+      const isNowReady = newStatus === 'ready';
 
-      if (statusChangedToReady) {
+      if (wasPreparing && isNowReady) {
         commissionToSave.isNewlyReady = true;
       }
 
@@ -896,31 +884,30 @@ export default function CommissioningPage() {
 
         let codeFound = false;
 
-        // Always try QR first, as it's more reliable for internal codes
-        const qrCode = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-        if (qrCode && qrCode.data && lastScannedId.current !== qrCode.data) {
-            lastScannedId.current = qrCode.data;
-            codeFound = true;
-            handleScan(qrCode.data);
-            setTimeout(() => { lastScannedId.current = null; }, 3000);
-            return;
-        }
-
-        // If no QR found and barcode mode is selected, try BarcodeDetector
-        if (!codeFound && scannerType === 'barcode' && 'BarcodeDetector' in window) {
+        // Respect the user's choice of scanner type
+        if (scannerType === 'qr') {
+            const qrCode = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+            if (qrCode && qrCode.data && lastScannedId.current !== qrCode.data) {
+                lastScannedId.current = qrCode.data;
+                codeFound = true;
+                handleScan(qrCode.data);
+            }
+        } else if (scannerType === 'barcode' && 'BarcodeDetector' in window) {
             try {
                 // @ts-ignore
-                const barcodeDetector = new window.BarcodeDetector({ formats: ['ean_13', 'code_128', 'qr_code'] });
+                const barcodeDetector = new window.BarcodeDetector({ formats: ['ean_13', 'code_128'] });
                 const barcodes = await barcodeDetector.detect(imageData);
                 if (barcodes.length > 0 && barcodes[0] && lastScannedId.current !== barcodes[0].rawValue) {
                     lastScannedId.current = barcodes[0].rawValue;
                     codeFound = true;
                     handleScan(barcodes[0].rawValue);
-                    setTimeout(() => { lastScannedId.current = null; }, 3000);
                 }
             } catch (e) { console.warn('BarcodeDetector API not available or failed.', e); }
         }
 
+        if (codeFound) {
+            setTimeout(() => { lastScannedId.current = null; }, 3000);
+        }
     }, [handleScan, scannerType]);
 
     React.useEffect(() => {
