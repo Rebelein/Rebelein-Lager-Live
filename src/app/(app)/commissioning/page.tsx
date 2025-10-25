@@ -781,17 +781,17 @@ export default function CommissioningPage() {
   }, [isContextLoading, commissions]);
 
   const handleDevices = React.useCallback(
-        (mediaDevices: MediaDeviceInfo[]) => {
-            const videoDevices = mediaDevices.filter(({ kind }) => kind === 'videoinput');
-            setDevices(videoDevices);
-            if (!activeDeviceId && videoDevices.length > 0) {
-                // Prefer back camera
-                const backCamera = videoDevices.find(device => device.label.toLowerCase().includes('back'));
-                setActiveDeviceId(backCamera ? backCamera.deviceId : videoDevices[0]?.deviceId);
-            }
-        },
-        [activeDeviceId]
-    );
+    (mediaDevices: MediaDeviceInfo[]) => {
+        const videoDevices = mediaDevices.filter(({ kind }) => kind === 'videoinput');
+        setDevices(videoDevices);
+        const backCamera = videoDevices.find(device => device.label.toLowerCase().includes('back'));
+        const newDeviceId = backCamera ? backCamera.deviceId : videoDevices[0]?.deviceId;
+        if (newDeviceId) {
+            setActiveDeviceId(newDeviceId);
+        }
+    },
+    []
+);
 
    const checkTorchSupport = React.useCallback(async () => {
         if (webcamRef.current?.stream) {
@@ -820,19 +820,20 @@ export default function CommissioningPage() {
   
   const openScanner = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      setHasCameraPermission(true);
-      navigator.mediaDevices.enumerateDevices().then(handleDevices);
-      stream.getTracks().forEach(track => track.stop());
-      setIsScannerOpen(true);
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        setHasCameraPermission(true);
+        const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+        handleDevices(mediaDevices);
+        stream.getTracks().forEach(track => track.stop());
+        setIsScannerOpen(true);
     } catch (error) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-      toast({
-        variant: 'destructive',
-        title: 'Kamerazugriff verweigert',
-        description: 'Bitte aktivieren Sie den Kamerazugriff in Ihren Browsereinstellungen.',
-      });
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+            variant: 'destructive',
+            title: 'Kamerazugriff verweigert',
+            description: 'Bitte aktivieren Sie den Kamerazugriff in Ihren Browsereinstellungen.',
+        });
     }
   };
 
@@ -895,7 +896,7 @@ export default function CommissioningPage() {
         } else if (scannerType === 'barcode' && 'BarcodeDetector' in window) {
             try {
                 // @ts-ignore
-                const barcodeDetector = new window.BarcodeDetector({ formats: ['ean_13', 'code_128'] });
+                const barcodeDetector = new window.BarcodeDetector({ formats: ['code_128', 'ean_13'] });
                 const barcodes = await barcodeDetector.detect(imageData);
                 if (barcodes.length > 0 && barcodes[0] && lastScannedId.current !== barcodes[0].rawValue) {
                     lastScannedId.current = barcodes[0].rawValue;
