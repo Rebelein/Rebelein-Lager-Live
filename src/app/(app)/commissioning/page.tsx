@@ -896,8 +896,18 @@ export default function CommissioningPage() {
 
         let codeFound = false;
 
-        // Try Barcode scan first if selected
-        if (scannerType === 'barcode' && 'BarcodeDetector' in window) {
+        // Always try QR first, as it's more reliable for internal codes
+        const qrCode = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+        if (qrCode && qrCode.data && lastScannedId.current !== qrCode.data) {
+            lastScannedId.current = qrCode.data;
+            codeFound = true;
+            handleScan(qrCode.data);
+            setTimeout(() => { lastScannedId.current = null; }, 3000);
+            return;
+        }
+
+        // If no QR found and barcode mode is selected, try BarcodeDetector
+        if (!codeFound && scannerType === 'barcode' && 'BarcodeDetector' in window) {
             try {
                 // @ts-ignore
                 const barcodeDetector = new window.BarcodeDetector({ formats: ['ean_13', 'code_128', 'qr_code'] });
@@ -911,15 +921,6 @@ export default function CommissioningPage() {
             } catch (e) { console.warn('BarcodeDetector API not available or failed.', e); }
         }
 
-        // Fallback or primary QR scan
-        if (!codeFound) {
-            const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-            if (code && code.data && lastScannedId.current !== code.data) {
-                lastScannedId.current = code.data;
-                handleScan(code.data);
-                setTimeout(() => { lastScannedId.current = null; }, 3000);
-            }
-        }
     }, [handleScan, scannerType]);
 
     React.useEffect(() => {
