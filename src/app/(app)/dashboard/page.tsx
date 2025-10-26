@@ -310,10 +310,9 @@ const MachinesCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
     const machines = React.useMemo(() => items.filter(item => item.itemType === 'machine'), [items]);
     const rentedMachines = React.useMemo(() => machines.filter(m => m.rentalStatus === 'rented'), [machines]);
     const repairMachines = React.useMemo(() => machines.filter(m => m.rentalStatus === 'in_repair'), [machines]);
-    const reservedMachines = React.useMemo(() => machines.filter(m => m.reservations && m.reservations.length > 0 && new Date(m.reservations[0]!.startDate) >= new Date()).sort((a,b) => new Date(a.reservations![0]!.startDate).getTime() - new Date(b.reservations![0]!.startDate).getTime()), [machines]);
 
     const DesktopView = () => (
-        <div className="grid grid-cols-3 gap-4 h-full">
+        <div className="grid grid-cols-2 gap-4 h-full">
             <div className="space-y-2">
                 <h4 className="font-semibold text-center text-sm border-b pb-2">Verliehen ({rentedMachines.length})</h4>
                 <div className="space-y-2 pt-2 text-sm">
@@ -321,18 +320,6 @@ const MachinesCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
                         <div key={m.id} className="p-2 border rounded-md">
                             <p className="font-medium truncate">{m.name}</p>
                             <p className="text-xs text-muted-foreground truncate flex items-center gap-1"><User className="h-3 w-3"/> {m.rentedBy?.name}</p>
-                        </div>
-                    )) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
-                </div>
-            </div>
-             <div className="space-y-2">
-                <h4 className="font-semibold text-center text-sm border-b pb-2">Reserviert ({reservedMachines.length})</h4>
-                 <div className="space-y-2 pt-2 text-sm">
-                    {reservedMachines.length > 0 ? reservedMachines.map(m => (
-                        <div key={m.id} className="p-2 border rounded-md">
-                            <p className="font-medium truncate">{m.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">für {m.reservations![0]!.reservedFor}</p>
-                            {size === 'wide' && <p className="text-xs text-muted-foreground">{format(new Date(m.reservations![0]!.startDate), 'dd.MM')} - {format(new Date(m.reservations![0]!.endDate), 'dd.MM')}</p>}
                         </div>
                     )) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
                 </div>
@@ -352,13 +339,11 @@ const MachinesCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
 
     const MobileView = () => (
          <Tabs defaultValue="rented" className="flex flex-col flex-grow">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="rented">Verliehen ({rentedMachines.length})</TabsTrigger>
-                <TabsTrigger value="reserved">Reserviert ({reservedMachines.length})</TabsTrigger>
                 <TabsTrigger value="repair">Reparatur ({repairMachines.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="rented" className="mt-4 flex-grow">{rentedMachines.length > 0 ? <div className="space-y-4">{rentedMachines.map(machine => (<div key={machine.id} className="flex items-center gap-4 p-2 rounded-lg border"><Wrench className="h-5 w-5 text-primary" /><div className="flex-1"><p className="font-semibold">{machine.name}</p><p className="text-sm text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> {machine.rentedBy?.name}</p></div></div>))}</div> : <p className="text-center text-muted-foreground py-8">Aktuell sind keine Maschinen verliehen.</p>}</TabsContent>
-            <TabsContent value="reserved" className="mt-4 flex-grow">{reservedMachines.length > 0 ? <div className="space-y-4">{reservedMachines.map(machine => (<div key={machine.id} className="flex items-center gap-4 p-2 rounded-lg border"><Calendar className="h-5 w-5 text-primary" /><div className="flex-1"><p className="font-semibold">{machine.name}</p><p className="text-sm text-muted-foreground">für {machine.reservations![0]!.reservedFor}</p></div><div className="text-sm text-right"><p>{format(new Date(machine.reservations![0]!.startDate), 'dd.MM.yy')} - {format(new Date(machine.reservations![0]!.endDate), 'dd.MM.yy')}</p></div></div>))}</div> : <p className="text-center text-muted-foreground py-8">Keine anstehenden Reservierungen.</p>}</TabsContent>
             <TabsContent value="repair" className="mt-4 flex-grow">{repairMachines.length > 0 ? <div className="space-y-4">{repairMachines.map(machine => (<div key={machine.id} className="flex items-center gap-4 p-2 rounded-lg border border-destructive/50 bg-destructive/10"><Wrench className="h-5 w-5 text-destructive" /><div className="flex-1"><p className="font-semibold text-destructive">{machine.name}</p></div></div>))}</div> : <p className="text-center text-muted-foreground py-8">Keine Maschinen in Reparatur.</p>}</TabsContent>
         </Tabs>
     );
@@ -588,7 +573,3 @@ const TurnoverCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
     </DraggableCardWrapper>
     )
 }
-
-    
-
-    

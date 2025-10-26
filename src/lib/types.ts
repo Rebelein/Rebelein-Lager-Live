@@ -25,7 +25,7 @@ export type Stock = {
   quantity: number;
 }
 
-export type RentalStatus = 'available' | 'rented' | 'in_repair' | 'reserved';
+export type RentalStatus = 'available' | 'rented' | 'in_repair';
 
 export type RentedBy = {
   type: 'user' | 'customer' | 'other';
@@ -35,20 +35,11 @@ export type RentedBy = {
 
 export type RentalHistoryEntry = {
     id: string;
-    type: 'rented' | 'returned' | 'created' | 'updated' | 'repaired' | 'reserved' | 'reservation_cancelled';
+    type: 'rented' | 'returned' | 'created' | 'updated' | 'repaired';
     date: string;
     userId: string;
     userName: string;
     details: string;
-}
-
-export type Reservation = {
-  id: string;
-  startDate: string;
-  endDate: string;
-  reservedFor: string;
-  userId: string;
-  userName: string;
 }
 
 export type ManufacturerItemNumber = {
@@ -93,7 +84,6 @@ export type Machine = {
   yearOfConstruction?: number;
   lastRepair?: string;
   nextInspection?: string;
-  reservations?: Reservation[];
   // Diese Felder sind für Maschinen nicht relevant, aber für die Kompatibilität mit einigen UI-Komponenten nützlich
   stocks: [];
   minStocks: [];

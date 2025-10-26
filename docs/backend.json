@@ -103,7 +103,7 @@
         },
         "rentalStatus": {
           "type": "string",
-          "enum": ["available", "rented", "in_repair", "reserved"],
+          "enum": ["available", "rented", "in_repair"],
           "description": "The current rental status of the machine."
         },
         "rentedBy": {
@@ -116,13 +116,6 @@
             "type": "object"
           },
           "description": "A log of all rental and return events."
-        },
-        "reservations": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "A list of future reservations for the machine."
         },
         "itemType": {
           "type": "string",
