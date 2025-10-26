@@ -85,6 +85,7 @@ function CommissionPreparationDialog({
     const { reduceStockForCommissionItem, increaseStockForCommissionItem } = useAppContext();
     const { toast } = useToast();
     const [localItems, setLocalItems] = React.useState<CommissionItem[]>(() => JSON.parse(JSON.stringify(commission.items)));
+    const originalCommissionRef = React.useRef(commission);
 
     const handleToggleItem = (itemToToggle: CommissionItem) => {
         setLocalItems(currentItems =>
@@ -97,11 +98,10 @@ function CommissionPreparationDialog({
     };
 
     const handleFinalizePreparation = () => {
-        
-        const updatedCommission = { ...commission, items: localItems };
+        const updatedCommission = { ...originalCommissionRef.current, items: localItems };
 
         localItems.forEach(updatedItem => {
-            const originalItem = commission.items.find(oi => oi.id === updatedItem.id);
+            const originalItem = originalCommissionRef.current.items.find(oi => oi.id === updatedItem.id);
             if(!originalItem) return;
 
             const wasReady = originalItem.status === 'ready';
@@ -109,9 +109,9 @@ function CommissionPreparationDialog({
             
             if (originalItem.source === 'main_warehouse') {
                  if (isReady && !wasReady) {
-                    reduceStockForCommissionItem(commission.id, originalItem.id, originalItem.quantity);
+                    reduceStockForCommissionItem(originalCommissionRef.current.id, originalItem.id, originalItem.quantity);
                 } else if (!isReady && wasReady) {
-                    increaseStockForCommissionItem(commission.id, originalItem.id, originalItem.quantity);
+                    increaseStockForCommissionItem(originalCommissionRef.current.id, originalItem.id, originalItem.quantity);
                 }
             } else {
                  if (isReady && !wasReady) {
@@ -122,7 +122,7 @@ function CommissionPreparationDialog({
             }
         });
 
-        onUpdateCommission(commission, updatedCommission);
+        onUpdateCommission(originalCommissionRef.current, updatedCommission);
         onOpenChange(false);
     };
 
@@ -896,7 +896,7 @@ export default function CommissioningPage() {
         } else if (scannerType === 'barcode' && 'BarcodeDetector' in window) {
             try {
                 // @ts-ignore
-                const barcodeDetector = new window.BarcodeDetector({ formats: ['code_128', 'ean_13'] });
+                const barcodeDetector = new window.BarcodeDetector({ formats: ['code_128', 'ean_13', 'code_39'] });
                 const barcodes = await barcodeDetector.detect(imageData);
                 if (barcodes.length > 0 && barcodes[0] && lastScannedId.current !== barcodes[0].rawValue) {
                     lastScannedId.current = barcodes[0].rawValue;
