@@ -82,6 +82,7 @@ import { useFirestore } from '@/firebase';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 import { useSearchParams } from 'next/navigation';
+import { Slider } from '@/components/ui/slider';
 
 
 const getStatusBadgeVariant = (status: RentalStatus) => {
