@@ -35,7 +35,6 @@ import {
   RentedBy,
   RentalStatus,
   RentalHistoryEntry,
-  Reservation,
   Machine,
 } from '@/lib/types';
 import {
@@ -56,7 +55,6 @@ import {
   Pencil,
   ClipboardPaste,
   CheckCircle,
-  CalendarX2,
   Trash2,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -65,21 +63,9 @@ import { Badge } from '@/components/ui/badge';
 import Webcam from 'react-webcam';
 import jsQR from 'jsqr';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  format,
-  startOfDay,
-  endOfDay,
-} from 'date-fns';
-import { de } from 'date-fns/locale';
 import { Separator } from '@/components/ui/separator';
 import QRCode from 'react-qr-code';
 import { toPng } from 'html-to-image';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -92,8 +78,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Slider } from '@/components/ui/slider';
-import { DateRange } from 'react-day-picker';
 import { useFirestore } from '@/firebase';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
@@ -108,8 +92,6 @@ const getStatusBadgeVariant = (status: RentalStatus) => {
       return 'bg-yellow-500 hover:bg-yellow-600';
     case 'in_repair':
       return 'bg-red-500 hover:bg-red-500';
-    case 'reserved':
-      return 'bg-blue-500 hover:bg-blue-600';
     default:
       return 'secondary';
   }
@@ -123,8 +105,6 @@ const getStatusText = (status: RentalStatus) => {
       return 'Verliehen';
     case 'in_repair':
       return 'In Reparatur';
-    case 'reserved':
-      return 'Reserviert';
     default:
       return 'Unbekannt';
   }
@@ -136,24 +116,16 @@ const MachineCard = ({
   setIsRentalModalOpen,
   setIsReturnModalOpen,
   handleOpenForm,
-  setIsReservationOpen,
   setIsQrCodeOpen,
   handleSetMachineStatus,
-  setIsReservationConflictOpen,
-  setConflictingReservation,
-  handleCancelReservation,
 }: {
   machine: Machine;
   setCurrentItem: (item: Machine | null) => void;
   setIsRentalModalOpen: (isOpen: boolean) => void;
   setIsReturnModalOpen: (isOpen: boolean) => void;
   handleOpenForm: (item: Machine | null) => void;
-  setIsReservationOpen: (isOpen: boolean) => void;
   setIsQrCodeOpen: (isOpen: boolean) => void;
   handleSetMachineStatus: (machine: Machine, status: RentalStatus) => void;
-  setIsReservationConflictOpen: (isOpen: boolean) => void;
-  setConflictingReservation: (reservation: Reservation | null) => void;
-  handleCancelReservation: (reservationId: string) => void;
 }) => {
    const { openDetailView } = useAppContext();
    const isOutOfService = machine.rentalStatus === 'in_repair';
@@ -165,17 +137,10 @@ const MachineCard = ({
     if (machine.rentalStatus === 'rented') {
       setIsReturnModalOpen(true);
     } else {
-       const upcomingReservation = machine.reservations?.find(r => new Date(r.startDate) >= startOfDay(new Date()));
-       if(machine.rentalStatus === 'reserved' && upcomingReservation){
-           setConflictingReservation(upcomingReservation);
-           setIsReservationConflictOpen(true);
-       } else {
-           setIsRentalModalOpen(true);
-       }
+       setIsRentalModalOpen(true);
     }
   };
   
-    const upcomingReservation = machine.reservations?.filter(r => new Date(r.endDate) >= startOfDay(new Date())).sort((a,b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())[0];
 
   return (
       <Card className={cn("transition-shadow hover:shadow-md flex flex-col", isOutOfService && "opacity-50")}>
@@ -228,18 +193,7 @@ const MachineCard = ({
                             <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Reparatur abschließen
                           </DropdownMenuItem>
                         ) : (
-                        <>
-                          {upcomingReservation && machine.rentalStatus === 'reserved' ? (
-                            <DropdownMenuItem onSelect={() => handleCancelReservation(upcomingReservation.id)} className="text-destructive">
-                              <CalendarX2 className="mr-2 h-4 w-4" /> Reservierung aufheben
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onSelect={() => { setCurrentItem(machine); setIsReservationOpen(true); }}>
-                              <Calendar className="mr-2 h-4 w-4"/> Reservieren
-                            </DropdownMenuItem>
-                          )}
                           <DropdownMenuItem onSelect={() => handleSetMachineStatus(machine, 'in_repair')} className="text-destructive"><Wrench className="mr-2 h-4 w-4"/> Zur Reparatur melden</DropdownMenuItem>
-                        </>
                         )}
                          <DropdownMenuItem onSelect={() => { setCurrentItem(machine); setIsQrCodeOpen(true); }}>
                           <Printer className="mr-2 h-4 w-4"/> Etikett drucken
@@ -249,14 +203,6 @@ const MachineCard = ({
                 </DropdownMenu>
             </div>
         </div>
-        {upcomingReservation && machine.rentalStatus !== 'rented' && (
-             <div className="border-t px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300">
-                <p className="text-xs font-semibold flex items-center gap-2">
-                    <Calendar className="h-3 w-3" />
-                    Reserviert für {upcomingReservation.reservedFor} ({format(new Date(upcomingReservation.startDate), 'dd.MM')} - {format(new Date(upcomingReservation.endDate), 'dd.MM')})
-                </p>
-            </div>
-        )}
     </Card>
   );
 };
@@ -309,14 +255,8 @@ export default function MachinesPage() {
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
   const [isQrCodeOpen, setIsQrCodeOpen] = React.useState(false);
-  const [isReservationOpen, setIsReservationOpen] = React.useState(false);
-  
-  const [isReservationConflictOpen, setIsReservationConflictOpen] =
-    React.useState(false);
   
   const [currentItem, setCurrentItem] = React.useState<Machine | null>(null);
-  const [conflictingReservation, setConflictingReservation] =
-    React.useState<Reservation | null>(null);
 
   const [hasCameraPermission, setHasCameraPermission] = React.useState<
     boolean | null
@@ -331,20 +271,11 @@ export default function MachinesPage() {
   const [customerName, setCustomerName] = React.useState('');
   const [otherName, setOtherName] = React.useState('');
   
-  const [reservationTargetType, setReservationTargetType] = React.useState<'user' | 'customer' | 'other'>('customer');
-  const [reservationSelectedUserId, setReservationSelectedUserId] = React.useState('');
-  const [reservationCustomerName, setReservationCustomerName] = React.useState('');
-  const [reservationOtherName, setReservationOtherName] = React.useState('');
-
   const [returnCondition, setReturnCondition] = React.useState<'ok' | 'damaged'>(
     'ok'
   );
   const [returnNotes, setReturnNotes] = React.useState('');
   const [needsConsumables, setNeedsConsumables] = React.useState(false);
-
-  const [reservationDate, setReservationDate] = React.useState<
-    DateRange | undefined
-  >();
 
   const [itemImage, setItemImage] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -353,9 +284,6 @@ export default function MachinesPage() {
   const [labelSize, setLabelSize] = React.useState({ width: 60, height: 30 });
   const [labelText, setLabelText] = React.useState({ name: '' });
   const [fontSize, setFontSize] = React.useState(70);
-
-  const isDesktop = useMediaQuery("(min-width: 768px)");
-  const numberOfMonths = isDesktop ? 2 : 1;
 
   const machines = React.useMemo(() => {
     return items.filter((item): item is Machine => item.itemType === 'machine');
@@ -395,11 +323,10 @@ export default function MachinesPage() {
   }, [isQrCodeOpen, currentItem]);
 
     React.useEffect(() => {
-    if ((isRentalModalOpen || isReservationOpen) && currentUser) {
+    if (isRentalModalOpen && currentUser) {
       setSelectedUserId(currentUser.id);
-      setReservationSelectedUserId(currentUser.id);
     }
-    }, [isRentalModalOpen, isReservationOpen, currentUser]);
+    }, [isRentalModalOpen, currentUser]);
 
 
   const filterMachines = (machineList: Machine[]) => {
@@ -425,8 +352,7 @@ export default function MachinesPage() {
       machines.filter(
         m =>
           m.rentalStatus === 'available' ||
-          m.rentalStatus === 'in_repair' ||
-          m.rentalStatus === 'reserved'
+          m.rentalStatus === 'in_repair'
       )
     );
   }, [machines, searchTerm]);
@@ -469,17 +395,9 @@ export default function MachinesPage() {
       if (machine.rentalStatus === 'rented') {
         setIsReturnModalOpen(true);
       } else if (
-        machine.rentalStatus === 'available' ||
-        machine.rentalStatus === 'reserved'
+        machine.rentalStatus === 'available'
       ) {
-         const upcomingReservation = machine.reservations?.find(r => new Date(r.startDate) >= startOfDay(new Date()));
-        if (machine.rentalStatus === 'reserved' && upcomingReservation) {
-          setConflictingReservation(upcomingReservation);
-          setIsReservationConflictOpen(true);
-        } else {
-          setIsRentalModalOpen(true);
-        }
-
+        setIsRentalModalOpen(true);
         if (users.length > 0) setSelectedUserId(users[0]!.id);
       } else {
         toast({
@@ -593,7 +511,6 @@ export default function MachinesPage() {
       description: `${currentItem.name} wurde an ${rentedBy.name} verliehen.`,
     });
     setIsRentalModalOpen(false);
-    setIsReservationConflictOpen(false);
     setCurrentItem(null);
   };
 
@@ -601,13 +518,10 @@ export default function MachinesPage() {
     if (!currentItem || !currentUser) return;
 
     const now = new Date().toISOString();
-    let newStatus: RentalStatus;
+    let newStatus: RentalStatus = 'available';
     
     if (returnCondition === 'damaged') {
         newStatus = 'in_repair';
-    } else {
-        const hasFutureReservations = (currentItem.reservations || []).some(r => new Date(r.endDate) >= startOfDay(new Date()));
-        newStatus = hasFutureReservations ? 'reserved' : 'available';
     }
 
     const historyDetails =
@@ -807,7 +721,6 @@ export default function MachinesPage() {
         itemType: 'machine',
         rentalStatus: 'available',
         rentalHistory: [newHistoryEntry],
-        reservations: [],
         mainLocation: '',
         subLocation: '',
         stocks: [],
@@ -862,105 +775,8 @@ export default function MachinesPage() {
         openDetailView(updatedItem);
     }
   };
-
-  const handleConfirmReservation = () => {
-    if (!currentItem || !currentUser || !reservationDate?.from) {
-      toast({
-        variant: 'destructive',
-        title: 'Fehler',
-        description: 'Bitte füllen Sie alle Felder aus.',
-      });
-      return;
-    }
-    
-    let reservedForName = '';
-    if (reservationTargetType === 'user') {
-        const user = users.find(u => u.id === reservationSelectedUserId);
-        if (!user) return;
-        reservedForName = user.name;
-    } else if (reservationTargetType === 'customer') {
-        if (!reservationCustomerName.trim()) return;
-        reservedForName = reservationCustomerName.trim();
-    } else {
-        if (!reservationOtherName.trim()) return;
-        reservedForName = reservationOtherName.trim();
-    }
-
-    const now = new Date().toISOString();
-    const newReservation: Reservation = {
-      id: `${now}-${Math.random()}`,
-      startDate: startOfDay(reservationDate.from).toISOString(),
-      endDate: endOfDay(reservationDate.to || reservationDate.from).toISOString(),
-      reservedFor: reservedForName,
-      userId: currentUser.id,
-      userName: currentUser.name,
-    };
-    
-    const newHistoryEntry: RentalHistoryEntry = {
-      id: `${now}-${Math.random()}`,
-      date: now,
-      type: 'reserved',
-      userId: currentUser.id,
-      userName: currentUser.name,
-      details: `Reserviert für ${newReservation.reservedFor} von ${format(
-        new Date(newReservation.startDate),
-        'dd.MM.yy'
-      )} bis ${format(new Date(newReservation.endDate), 'dd.MM.yy')}`,
-    };
-    
-    const newRentalStatus: RentalStatus = currentItem.rentalStatus === 'available' ? 'reserved' : (currentItem.rentalStatus || 'available');
-
-    const existingReservations = currentItem.reservations || [];
-
-    updateItem(currentItem.id, {
-      reservations: [...existingReservations, newReservation],
-      rentalHistory: [...(currentItem.rentalHistory || []), newHistoryEntry],
-      rentalStatus: newRentalStatus,
-    });
-
-    toast({ title: 'Maschine reserviert' });
-    setIsReservationOpen(false);
-    setReservationDate(undefined);
-    setReservationCustomerName('');
-    setReservationOtherName('');
-  };
-
-  const handleCancelReservation = (reservationId: string) => {
-    if (!currentItem || !currentUser) return;
-
-    const reservation = currentItem.reservations?.find(
-      r => r.id === reservationId
-    );
-    if (!reservation) return;
-
-    const now = new Date().toISOString();
-    const newHistoryEntry: RentalHistoryEntry = {
-      id: `${now}-${Math.random()}`,
-      date: now,
-      type: 'reservation_cancelled',
-      userId: currentUser.id,
-      userName: currentUser.name,
-      details: `Reservierung für ${
-        reservation.reservedFor
-      } vom ${format(new Date(reservation.startDate), 'dd.MM.yy')} storniert.`,
-    };
-
-    const updatedReservations =
-      currentItem.reservations?.filter(r => r.id !== reservationId) || [];
-    
-    const hasOtherReservations = updatedReservations.some(r => new Date(r.endDate) >= startOfDay(new Date()));
-    const newRentalStatus = (currentItem.rentalStatus === 'reserved' && !hasOtherReservations) ? 'available' : currentItem.rentalStatus;
-
-
-    updateItem(currentItem.id, {
-      reservations: updatedReservations,
-      rentalHistory: [...(currentItem.rentalHistory || []), newHistoryEntry],
-      rentalStatus: newRentalStatus,
-    });
-    toast({ title: 'Reservierung storniert', variant: 'destructive' });
-  };
   
-    const labelWidthPx = mmToPx(labelSize.width);
+  const labelWidthPx = mmToPx(labelSize.width);
   const labelHeightPx = mmToPx(labelSize.height);
 
 
@@ -1024,12 +840,8 @@ export default function MachinesPage() {
                     setIsRentalModalOpen={setIsRentalModalOpen}
                     setIsReturnModalOpen={setIsReturnModalOpen}
                     handleOpenForm={handleOpenForm}
-                    setIsReservationOpen={setIsReservationOpen}
                     setIsQrCodeOpen={setIsQrCodeOpen}
                     handleSetMachineStatus={handleSetMachineStatus}
-                    setIsReservationConflictOpen={setIsReservationConflictOpen}
-                    setConflictingReservation={setConflictingReservation}
-                    handleCancelReservation={handleCancelReservation}
                     />
                 ))
                 ) : (
@@ -1047,7 +859,7 @@ export default function MachinesPage() {
                 Verfügbare Maschinen & Werkstatt ({availableMachines.length})
             </CardTitle>
             <CardDescription>
-                Diese Maschinen sind im Lager verfügbar, reserviert oder zur
+                Diese Maschinen sind im Lager verfügbar oder zur
                 Reparatur.
             </CardDescription>
             </CardHeader>
@@ -1062,12 +874,8 @@ export default function MachinesPage() {
                     setIsRentalModalOpen={setIsRentalModalOpen}
                     setIsReturnModalOpen={setIsReturnModalOpen}
                     handleOpenForm={handleOpenForm}
-                    setIsReservationOpen={setIsReservationOpen}
                     setIsQrCodeOpen={setIsQrCodeOpen}
                     handleSetMachineStatus={handleSetMachineStatus}
-                    setIsReservationConflictOpen={setIsReservationConflictOpen}
-                    setConflictingReservation={setConflictingReservation}
-                    handleCancelReservation={handleCancelReservation}
                     />
                 ))
                 ) : (
@@ -1557,130 +1365,6 @@ export default function MachinesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Dialog open={isReservationOpen} onOpenChange={setIsReservationOpen}>
-        <DialogContent className="sm:max-w-[425px] md:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              Maschine reservieren: {currentItem?.name}
-            </DialogTitle>
-             <DialogDescription>
-              Wählen Sie einen Zeitraum und für wen die Reservierung ist.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Zeitraum</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="date"
-                    variant={'outline'}
-                    className={cn(
-                      'w-full justify-start text-left font-normal',
-                      !reservationDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {reservationDate?.from ? (
-                      reservationDate.to ? (
-                        <>
-                          {format(reservationDate.from, 'PPP', { locale: de })} -{' '}
-                          {format(reservationDate.to, 'PPP', { locale: de })}
-                        </>
-                      ) : (
-                        format(reservationDate.from, 'PPP', { locale: de })
-                      )
-                    ) : (
-                      <span>Datum wählen</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    initialFocus
-                    mode="range"
-                    locale={de}
-                    selected={reservationDate}
-                    onSelect={setReservationDate}
-                    numberOfMonths={numberOfMonths}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-             <div>
-              <Label>Reserviert für</Label>
-               <Select value={reservationTargetType} onValueChange={(v) => setReservationTargetType(v as 'customer' | 'user' | 'other')}>
-                  <SelectTrigger><SelectValue placeholder="Typ auswählen..." /></SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="customer"><div className="flex items-center gap-2"><Building className="h-4 w-4" /> Kunde</div></SelectItem>
-                      <SelectItem value="user"><div className="flex items-center gap-2"><Users className="h-4 w-4" /> Mitarbeiter</div></SelectItem>
-                      <SelectItem value="other"><div className="flex items-center gap-2"><Wrench className="h-4 w-4" /> Sonstige</div></SelectItem>
-                  </SelectContent>
-              </Select>
-            </div>
-            {reservationTargetType === 'user' && (
-              <div>
-                <Label htmlFor="reservation-user-select">Mitarbeiter</Label>
-                <Select value={reservationSelectedUserId} onValueChange={setReservationSelectedUserId}>
-                  <SelectTrigger id="reservation-user-select"><SelectValue placeholder="Mitarbeiter auswählen..." /></SelectTrigger>
-                  <SelectContent>
-                    {users.map(user => (<SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {reservationTargetType === 'customer' && (
-                <div>
-                    <Label htmlFor="reservation-customer-name">Kundenname</Label>
-                    <Input id="reservation-customer-name" value={reservationCustomerName} onChange={e => setReservationCustomerName(e.target.value)} placeholder="Name des Kunden" />
-                </div>
-            )}
-            {reservationTargetType === 'other' && (
-                <div>
-                    <Label htmlFor="reservation-other-name">Grund</Label>
-                    <Input id="reservation-other-name" value={reservationOtherName} onChange={e => setReservationOtherName(e.target.value)} placeholder="z.B. Baustelle XY" />
-                </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setIsReservationOpen(false)}
-            >
-              Abbrechen
-            </Button>
-            <Button onClick={handleConfirmReservation}>
-              Reservierung speichern
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog
-        open={isReservationConflictOpen}
-        onOpenChange={setIsReservationConflictOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-6 w-6 text-yellow-500" />
-              Reservierungskonflikt
-            </AlertDialogTitle>
-            {conflictingReservation && (
-              <AlertDialogDescription>
-                Diese Maschine ist für &quot;{conflictingReservation.reservedFor}&quot; vom {format(new Date(conflictingReservation.startDate), 'dd.MM.yyyy')} bis {format(new Date(conflictingReservation.endDate), 'dd.MM.yyyy')} reserviert. Möchten Sie die Maschine trotzdem ausleihen?
-              </AlertDialogDescription>
-            )}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmRental}>
-              Trotzdem ausleihen
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
