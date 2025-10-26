@@ -97,6 +97,7 @@ import { DateRange } from 'react-day-picker';
 import { useFirestore } from '@/firebase';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
+import { useSearchParams } from 'next/navigation';
 
 
 const getStatusBadgeVariant = (status: RentalStatus) => {
@@ -299,6 +300,7 @@ export default function MachinesPage() {
   } = useAppContext();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isScannerOpen, setIsScannerOpen] = React.useState(false);
@@ -358,6 +360,23 @@ export default function MachinesPage() {
   const machines = React.useMemo(() => {
     return items.filter((item): item is Machine => item.itemType === 'machine');
   }, [items]);
+  
+    React.useEffect(() => {
+    const action = searchParams.get('action');
+    const machineId = searchParams.get('machineId');
+
+    if (action && machineId) {
+      const machine = machines.find(m => m.id === machineId);
+      if (machine) {
+        setCurrentItem(machine);
+        if (action === 'rent') {
+          setIsRentalModalOpen(true);
+        } else if (action === 'return') {
+          setIsReturnModalOpen(true);
+        }
+      }
+    }
+  }, [searchParams, machines]);
   
   const handleOpenForm = (item: Machine | null) => {
     setCurrentItem(item);
@@ -784,7 +803,7 @@ export default function MachinesPage() {
         details: 'Maschine im System angelegt.',
       };
       const newItem: Machine = {
-        id: `${now}-${Math.random()}`,
+        id: `machine-${Date.now()}`,
         itemType: 'machine',
         rentalStatus: 'available',
         rentalHistory: [newHistoryEntry],
@@ -1521,7 +1540,7 @@ export default function MachinesPage() {
                             </p>
                             <div className="flex-grow flex items-center justify-center">
                                 <QRCode
-                                    value={currentItem.id}
+                                    value={`machine::${currentItem.id}`}
                                     size={Math.min(labelHeightPx * 0.6, labelWidthPx * 0.6)}
                                 />
                             </div>

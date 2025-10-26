@@ -5,7 +5,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Settings, PanelLeft, Building, Printer, ClipboardCheck, ShoppingCart, BarChartHorizontal, Package, History, Warehouse, FileDown, LineChart, Wrench, ScrollText, type LucideIcon, Star, PlusCircle, MoreVertical, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { Settings, PanelLeft, Building, Printer, ClipboardCheck, ShoppingCart, BarChartHorizontal, Package, History, Warehouse, FileDown, LineChart, Wrench, ScrollText, type LucideIcon, Star, PlusCircle, MoreVertical, Pencil, Trash2, GripVertical, ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@/components/ui/sheet';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -42,6 +42,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { navItems, type NavItem } from '@/lib/nav-items';
+import { GlobalScanner } from './global-scanner';
 
 
 function UserFormDialog({ user, onSave, onOpenChange, open }: { user: User | null; onSave: (name: string) => void; onOpenChange: (open: boolean) => void; open: boolean }) {
@@ -150,6 +151,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
   const [userToEdit, setUserToEdit] = React.useState<User | null>(null);
   const { toast } = useToast();
+  
+  const [isGlobalScannerOpen, setIsGlobalScannerOpen] = React.useState(false);
+
 
   React.useEffect(() => {
     setIsClient(true);
@@ -323,11 +327,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </nav>
             </SheetContent>
           </Sheet>
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-2 md:gap-4">
             <SyncStatus status={dbConnectionStatus} />
             <NotificationBell />
+            <Button variant="default" size="sm" className="h-9 gap-2" onClick={() => setIsGlobalScannerOpen(true)}>
+                <ScanLine className="h-4 w-4"/>
+                <span className="hidden md:inline">Quick-Scan</span>
+            </Button>
              <Select onValueChange={handleUserChange} value={currentUser?.id || ''}>
-              <SelectTrigger className="w-[220px]">
+              <SelectTrigger className="w-[180px] h-9 hidden md:flex">
                 <SelectValue placeholder="Benutzer wählen..." />
               </SelectTrigger>
               <SelectContent>
@@ -383,6 +391,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <TooltipProvider>
       {mainContent}
       <UserFormDialog user={userToEdit} onSave={handleSaveUser} open={isFormOpen} onOpenChange={setIsFormOpen} />
+       <GlobalScanner open={isGlobalScannerOpen} onOpenChange={setIsGlobalScannerOpen} />
       
        <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <DialogContent>
