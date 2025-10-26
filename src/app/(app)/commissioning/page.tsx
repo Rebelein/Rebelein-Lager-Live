@@ -676,9 +676,9 @@ export default function CommissioningPage() {
 
   const handleUpdateCommission = (oldCommission: Commission, updatedCommission: Commission) => {
       const allItemsReady = updatedCommission.items.length > 0 && updatedCommission.items.every(i => i.status === 'ready');
-      const newStatus = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
+      const newStatus: 'draft' | 'preparing' | 'ready' | 'withdrawn' = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
       
-      let commissionToSave = { ...updatedCommission, status: newStatus };
+      const commissionToSave = { ...updatedCommission, status: newStatus };
 
       const wasPreparing = oldCommission.status === 'draft' || oldCommission.status === 'preparing';
       const isNowReady = newStatus === 'ready';
@@ -801,8 +801,8 @@ export default function CommissioningPage() {
                     setTorchSupported(false);
                     return;
                 }
-                const capabilities = track.getCapabilities();
-                setTorchSupported(!!((capabilities as any).torch));
+                const capabilities = track.getCapabilities() as MediaTrackCapabilities & { torch?: boolean };
+                setTorchSupported(!!capabilities.torch);
             } catch (e) {
                 console.error("Error checking torch support:", e);
                 setTorchSupported(false);
@@ -895,7 +895,7 @@ export default function CommissioningPage() {
             }
         } else if (scannerType === 'barcode' && 'BarcodeDetector' in window) {
             try {
-                // @ts-ignore
+                // @ts-expect-error BarcodeDetector is not in global types
                 const barcodeDetector = new window.BarcodeDetector({ formats: ['code_128', 'ean_13', 'code_39'] });
                 const barcodes = await barcodeDetector.detect(imageData);
                 if (barcodes.length > 0 && barcodes[0] && lastScannedId.current !== barcodes[0].rawValue) {
@@ -931,7 +931,7 @@ export default function CommissioningPage() {
                 const track = webcamRef.current.stream.getVideoTracks()[0];
                 if (!track) return;
                 await track.applyConstraints({
-                    advanced: [{ torch: !torchOn } as any]
+                    advanced: [{ torch: !torchOn } as MediaTrackConstraintSet]
                 });
                 setTorchOn(!torchOn);
             } catch (e) {
@@ -1408,7 +1408,7 @@ export default function CommissioningPage() {
                 audio={false}
                 ref={webcamRef}
                 screenshotFormat="image/jpeg"
-                videoConstraints={{ deviceId: activeDeviceId, advanced: [{ autoFocus: 'continuous' } as any] }}
+                videoConstraints={{ deviceId: activeDeviceId, advanced: [{ autoFocus: 'continuous' } as MediaTrackConstraintSet] }}
                 className="h-full w-full object-cover"
                 onUserMedia={checkTorchSupport}
               />

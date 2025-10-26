@@ -84,6 +84,7 @@ export type Machine = {
   yearOfConstruction?: number;
   lastRepair?: string;
   nextInspection?: string;
+  reservations?: unknown[]; // Placeholder for reservations
   // Diese Felder sind für Maschinen nicht relevant, aber für die Kompatibilität mit einigen UI-Komponenten nützlich
   stocks: [];
   minStocks: [];

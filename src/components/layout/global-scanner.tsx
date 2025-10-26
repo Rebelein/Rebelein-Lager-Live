@@ -22,7 +22,8 @@ interface GlobalScannerProps {
 }
 
 export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
-  const { items, commissions, activeCommissions, toast } = useAppContext();
+  const { items, commissions } = useAppContext();
+  const toast = useToast();
   const router = useRouter();
 
   const [scannerType, setScannerType] = React.useState<'qr' | 'barcode'>('qr');
@@ -86,8 +87,8 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
             try {
                 const track = webcamRef.current.stream.getVideoTracks()[0];
                 if (track) {
-                    const capabilities = track.getCapabilities();
-                    setTorchSupported(!!(capabilities as any).torch);
+                    const capabilities = track.getCapabilities() as MediaTrackCapabilities & { torch?: boolean };
+                    setTorchSupported(!!capabilities.torch);
                 }
             } catch (e) { console.error("Error checking torch support:", e); setTorchSupported(false); }
         }
@@ -129,7 +130,7 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
     } else {
       // Assume it's a delivery note barcode
       let found = false;
-      for (const commission of activeCommissions) {
+      for (const commission of commissions) {
         for (const item of commission.items) {
           if (item.source === 'external_order' && item.transactionNumber && data.includes(item.transactionNumber)) {
             setScannedItem(commission);
@@ -141,11 +142,11 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
         if (found) break;
       }
       if (!found) {
-        toast({ title: 'Kein passender Eintrag gefunden', description: 'Der Code konnte keinem Artikel, keiner Maschine oder Kommission zugeordnet werden.', variant: 'destructive' });
+        toast.toast({ title: 'Kein passender Eintrag gefunden', description: 'Der Code konnte keinem Artikel, keiner Maschine oder Kommission zugeordnet werden.', variant: 'destructive' });
         resetScannerState();
       }
     }
-  }, [items, commissions, activeCommissions, onOpenChange, toast]);
+  }, [items, commissions, onOpenChange, toast]);
 
     const captureCode = React.useCallback(() => {
         if (!webcamRef.current) return;
@@ -176,7 +177,7 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
             // If no QR, or QR is not internal, check for barcode if enabled
             if (!codeFound && scannerType === 'barcode' && 'BarcodeDetector' in window) {
                 try {
-                    // @ts-ignore
+                    // @ts-expect-error BarcodeDetector is not in global types
                     const barcodeDetector = new window.BarcodeDetector({ formats: ['code_128', 'ean_13', 'code_39'] });
                     const barcodes = await barcodeDetector.detect(imageData);
                     if (barcodes.length > 0 && barcodes[0] && lastScannedId.current !== barcodes[0].rawValue) {
@@ -212,7 +213,7 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
     if (webcamRef.current?.stream && torchSupported) {
         try {
             const track = webcamRef.current.stream.getVideoTracks()[0];
-            if (track) await track.applyConstraints({ advanced: [{ torch: !torchOn } as any] });
+            if (track) await track.applyConstraints({ advanced: [{ torch: !torchOn } as MediaTrackConstraintSet] });
             setTorchOn(!torchOn);
         } catch (e) { console.error("Failed to toggle torch:", e); }
     }

@@ -416,9 +416,9 @@ export default function CommissioningPage() {
 
   const handleUpdateCommission = (oldCommission: Commission, updatedCommission: Commission) => {
       const allItemsReady = updatedCommission.items.length > 0 && updatedCommission.items.every(i => i.status === 'ready');
-      const newStatus = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
+      const newStatus: 'draft' | 'preparing' | 'ready' | 'withdrawn' = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
       
-      let commissionToSave = { ...updatedCommission, status: newStatus };
+      const commissionToSave = { ...updatedCommission, status: newStatus };
 
       // Check for the specific status transition to trigger the glow effect
       const statusChangedToReady = (oldCommission.status === 'draft' || oldCommission.status === 'preparing') && newStatus === 'ready';
