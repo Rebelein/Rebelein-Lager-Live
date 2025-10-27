@@ -17,6 +17,12 @@ export const viewport: Viewport = {
   themeColor: "#181E2C",
 };
 
+declare global {
+  interface Window {
+    workbox: any;
+  }
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{

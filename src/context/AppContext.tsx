@@ -111,9 +111,7 @@ const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
 const saveToLocalStorage = <T,>(key: string, value: T) => {
     try {
         if (typeof window === 'undefined') return;
-        // If value is a Set, convert it to an array for JSON serialization
-        const valueToStore = value instanceof Set ? Array.from(value) : value;
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        window.localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
         if (error instanceof DOMException && (error.name === 'QuotaExceededError' || error.message.includes('quota'))) {
             console.error(`Error writing to localStorage key “${key}”: Quota exceeded. Data will not be persisted locally.`);
@@ -190,9 +188,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(() => {
-    // Correctly initialize from localStorage by converting the stored array back to a Set.
-    const storedIds = getFromLocalStorage<string[]>('dismissedNotifications', []);
-    return new Set(storedIds);
+    // Correctly initialize from localStorage
+    const saved = getFromLocalStorage<string[]>('dismissedNotifications', []);
+    return new Set(saved);
   });
   
   const [dashboardLayout, setDashboardLayoutState] = useState<DashboardCardLayout[]>(allDashboardCards);
@@ -411,7 +409,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const dismissNotification = useCallback((notificationId: string) => {
     setDismissedNotificationIds(prev => {
         const newDismissed = new Set(prev).add(notificationId);
-        saveToLocalStorage('dismissedNotifications', newDismissed);
+        saveToLocalStorage('dismissedNotifications', Array.from(newDismissed));
         return newDismissed;
     });
   }, []);
@@ -419,7 +417,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const dismissAllNotifications = useCallback(() => {
     const allIds = new Set(notifications.map(n => n.id));
     setDismissedNotificationIds(allIds);
-    saveToLocalStorage('dismissedNotifications', allIds);
+    saveToLocalStorage('dismissedNotifications', Array.from(allIds));
   }, [notifications]);
 
   const addItem = useCallback((newItem: InventoryItem) => {

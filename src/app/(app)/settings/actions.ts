@@ -1,6 +1,6 @@
+
 'use server';
 
-// WICHTIG: Die zentrale 'ai' Instanz aus genkit.ts importieren
 import { config } from 'dotenv';
 config();
 import { ai } from '@/ai/genkit'; 
@@ -37,21 +37,11 @@ export async function testAiConnection(params: TestConnectionParams): Promise<{ 
             });
 
         } else { // Für 'google'
+            const modelToUse = params.model;
             
-            // KORREKTUR: Die manuelle Initialisierung von genkit wird entfernt.
-            // Wir verwenden jetzt die zentrale 'ai' Instanz.
-            
-            let modelToUse = params.model;
-
-            // KORREKTUR: Wir fügen den 'googleai/' Präfix hinzu, genau wie im analyze-item-flow.
-            if (params.provider === 'google' && !modelToUse.startsWith('googleai/')) {
-                modelToUse = `googleai/${modelToUse}`;
-            }
-
             await ai.generate({
-                model: modelToUse,
+                model: `googleai/${modelToUse}`,
                 prompt: 'Hallo',
-                // KORREKTUR: Wir übergeben den API-Schlüssel über das 'config'-Objekt.
                 config: {
                     apiKey: params.apiKey,
                 },
@@ -65,12 +55,20 @@ export async function testAiConnection(params: TestConnectionParams): Promise<{ 
     } catch (error: unknown) {
         console.error("Test connection failed:", error);
         let errorMessage = (error as Error).message || 'Ein unbekannter Fehler ist aufgetreten.';
-        if ((error as { code?: string }).code) { // Handle specific API errors
-            errorMessage = `Fehler: ${(error as { code?: string }).code} - ${(error as Error).message}`;
+        
+        if (errorMessage.includes('404')) {
+          errorMessage = `Modell '${params.model}' nicht gefunden. Überprüfen Sie den Modellnamen. Fehler: 404 - Not Found.`
+        } else if ((error as { code?: string }).code) {
+             errorMessage = `Fehler: ${(error as { code?: string }).code} - ${(error as Error).message}`;
         }
+        
         if (errorMessage.includes("API key not valid")) {
             errorMessage = "Der API-Schlüssel ist ungültig oder hat nicht die nötigen Berechtigungen."
         }
+        if (errorMessage.includes("API key is required")) {
+             errorMessage = "Der API-Schlüssel ist ungültig oder hat nicht die nötigen Berechtigungen."
+        }
+        
         return { success: false, error: errorMessage };
     }
 }

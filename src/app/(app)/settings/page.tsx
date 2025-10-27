@@ -31,13 +31,14 @@ if (typeof window !== 'undefined') {
 
 const availableModels = {
     google: [
-        { id: 'gemini-1.5-pro-latest', name: 'Gemini 1.5 Pro (Leistungsstärkstes Modell)' },
-        { id: 'gemini-1.5-flash-latest', name: 'Gemini 1.5 Flash (Schnell & Günstig)' },
-        { id: 'gemini-1.0-pro', name: 'Gemini 1.0 Pro (Vorgänger)' },
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Bilder & Text)' },
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Schnell & Text)' },
+        { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Sehr schnell & Text)' },
     ],
     openrouter: [
         { id: 'deepseek/deepseek-chat', name: 'DeepSeek Chat (Empfohlen)' },
         { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B Instruct (Free)' },
+        { id: 'google/gemini-pro-1.5', name: 'Google Gemini Pro 1.5' },
         { id: 'google/gemini-flash-1.5', name: 'Google Gemini Flash 1.5' },
     ]
 }
@@ -489,7 +490,7 @@ export default function SettingsPage() {
                                     <div className="space-y-2">
                                         <Label htmlFor="article-ai-model">Modell</Label>
                                         {articleAiProvider === 'openrouter' ? (
-                                            <Input id="article-ai-model" value={articleSelectedModel || ''} onChange={e => setArticleSelectedModel(e.target.value)} placeholder="z.B. deepseek/deepseek-chat-v3.1:free" />
+                                            <Input id="article-ai-model" value={articleSelectedModel || ''} onChange={e => setArticleSelectedModel(e.target.value)} placeholder="z.B. google/gemini-pro-1.5" />
                                         ) : (
                                             <Select value={articleSelectedModel} onValueChange={setArticleSelectedModel} disabled={!articleAiProvider}>
                                                 <SelectTrigger id="article-ai-model"><SelectValue placeholder="Modell auswählen..." /></SelectTrigger>
@@ -712,5 +713,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
