@@ -803,6 +803,18 @@ export default function InventoryListPage() {
   const sortedItems = React.useMemo(() => {
     const sortableItems = [...items.filter((item): item is InventoryItem => item.itemType === 'item')];
 
+    const naturalSort = (a: string, b: string) => {
+        const aNum = parseInt(a.replace(/[^0-9]/g, ''), 10);
+        const bNum = parseInt(b.replace(/[^0-9]/g, ''), 10);
+        
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+            if (aNum !== bNum) {
+                return aNum - bNum;
+            }
+        }
+        return a.localeCompare(b);
+    };
+
     if (itemSortConfig.current) {
       sortableItems.sort((a, b) => {
         if (!itemSortConfig.current) return 0;
@@ -813,7 +825,7 @@ export default function InventoryListPage() {
             case 'name':
                 return a.name.localeCompare(b.name) * dir;
             case 'subLocation':
-                return (a.subLocation || '').localeCompare(b.subLocation || '') * dir;
+                 return naturalSort(a.subLocation || '', b.subLocation || '') * dir;
             case 'stocks':
                 const stockA = a.stocks.find(s => s.locationId === activeLocationId)?.quantity ?? 0;
                 const stockB = b.stocks.find(s => s.locationId === activeLocationId)?.quantity ?? 0;
