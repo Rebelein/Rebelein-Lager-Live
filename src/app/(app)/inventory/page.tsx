@@ -445,7 +445,7 @@ export default function InventoryPage() {
                         {itemsForActiveLocation.map(item => {
                             const latestInventoryDate = isInventoryItem(item) ? getLatestInventoryDate(item.lastInventoriedAt) : new Date(0);
                             const stockInfo = item.stocks.find(s => s.locationId === activeLocationId);
-                             const itemNumberToDisplay = isInventoryItem(item) ? (item.preferredManufacturerItemNumber || item.manufacturerItemNumbers?.[0].number || '') : '';
+                             const itemNumberToDisplay = isInventoryItem(item) ? (item.preferredManufacturerItemNumber || item.manufacturerItemNumbers?.[0]?.number || '') : '';
                                     
                             return (
                              <div key={item.id} className={cn("p-4 border rounded-lg flex gap-4", isInventoryItem(item) ? getInventoryStatusColorClass(item.lastInventoriedAt) : 'border-gray-400')}>
