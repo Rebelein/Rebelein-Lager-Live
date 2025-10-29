@@ -355,14 +355,53 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
         const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
-            format: 'a4'
+            format: 'a6' // DIN A6 format
         });
 
-        // A4 size in mm is 297 x 210
+        // A6 size in mm is 105 x 148
         const xOffset = 10;
-        const yOffset = 10;
+        let yOffset = 10;
 
         pdf.addImage(dataUrl, 'PNG', xOffset, yOffset, labelSize.width, labelSize.height);
+        yOffset += labelSize.height + 15; // Move below the label image
+
+        // Add text content below the image
+        const itemsFromWarehouse = commission.items.filter(item => item.source === 'main_warehouse');
+        const itemsFromOrders = commission.items.filter(item => item.source === 'external_order');
+
+        pdf.setFont('PT Sans', 'bold');
+        pdf.setFontSize(12);
+
+        if (itemsFromWarehouse.length > 0) {
+            pdf.text('Benötigtes Material aus Lager:', xOffset, yOffset);
+            yOffset += 7;
+            pdf.setFont('PT Sans', 'normal');
+            pdf.setFontSize(10);
+            itemsFromWarehouse.forEach(item => {
+                if (yOffset > 138) { // Check if new page is needed
+                    pdf.addPage();
+                    yOffset = 10;
+                }
+                pdf.text(`- ${item.quantity}x ${item.name}`, xOffset, yOffset);
+                yOffset += 5;
+            });
+            yOffset += 5; // Extra space
+        }
+        
+        if (itemsFromOrders.length > 0) {
+            pdf.setFont('PT Sans', 'bold');
+            pdf.setFontSize(12);
+            if (yOffset > 138) { pdf.addPage(); yOffset = 10; }
+            pdf.text('Erwartete externe Bestellungen:', xOffset, yOffset);
+            yOffset += 7;
+            pdf.setFont('PT Sans', 'normal');
+            pdf.setFontSize(10);
+            itemsFromOrders.forEach(item => {
+                 if (yOffset > 138) { pdf.addPage(); yOffset = 10; }
+                pdf.text(`- ${item.name} (${item.transactionNumber || 'N/A'})`, xOffset, yOffset);
+                yOffset += 5;
+            });
+        }
         
         return pdf.output('blob');
     }, [commission, labelSize]);
@@ -429,17 +468,34 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
         try {
             const pdfBlob = await generatePdf();
             
-            const url = URL.createObjectURL(pdfBlob);
-            const link = document.createElement('a');
-            link.download = `kommission-${commission.name.replace(/\s+/g, '-')}.pdf`;
-            link.href = url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            const subject = encodeURIComponent(`Kommission: ${commission.name} - ${commission.orderNumber}`);
-            window.location.href = `mailto:${printerEmail}?subject=${subject}`;
+            const reader = new FileReader();
+            reader.readAsDataURL(pdfBlob); 
+            reader.onloadend = function() {
+                const base64data = reader.result;
+                const mailtoLink = `mailto:${printerEmail}?subject=${encodeURIComponent(`Kommission: ${commission.name}`)}&body=${encodeURIComponent(`Anhang: Kommission-${commission.name.replace(/\s+/g, '-')}.pdf`)}`;
+                
+                const a = document.createElement('a');
+                a.href = mailtoLink;
+                // You can't directly attach a file this way due to security reasons.
+                // The user has to attach the file manually. Let's provide the download for them.
+                
+                const url = URL.createObjectURL(pdfBlob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = `Kommission-${commission.name}.pdf`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(url);
+                
+                toast({
+                    title: 'PDF heruntergeladen',
+                    description: 'Das PDF wurde heruntergeladen. Bitte hängen Sie es manuell an die E-Mail an.',
+                });
+                
+                // Open mail client
+                window.location.href = mailtoLink;
+            }
 
         } catch (err) {
             console.error(err);
