@@ -1,6 +1,5 @@
 
 
-
 export type LabelSetting = {
   width: number;
   height: number;
@@ -105,6 +104,7 @@ export type User = {
     navItemOrder?: string[];
     isNavSortable?: boolean;
     isDashboardEditing?: boolean;
+    isScannerMode?: boolean;
 };
 
 export type Location = {
@@ -272,4 +272,3 @@ export type Commission = {
   items: CommissionItem[];
   isNewlyReady?: boolean;
 };
-

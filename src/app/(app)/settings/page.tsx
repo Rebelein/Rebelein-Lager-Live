@@ -1,4 +1,5 @@
 
+
 'use client';
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -11,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { navItems } from '@/lib/nav-items';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Trash2, PlusCircle, Pencil, X, Settings2, User, Bot, Link2, PackageSearch } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Pencil, X, Settings2, User, Bot, Link2, PackageSearch, Smartphone } from 'lucide-react';
 import { testAiConnection } from './actions';
 import type { AppSettings, Wholesaler, WholesalerMask } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -398,6 +399,17 @@ export default function SettingsPage() {
         }
     };
 
+    const handleToggleScannerMode = (checked: boolean) => {
+        if (currentUser) {
+            updateUserSettings({ isScannerMode: checked });
+            toast({
+                title: "Scanner-Modus geändert",
+                description: `Der reine Scanner-Modus wurde ${checked ? 'aktiviert' : 'deaktiviert'}.`
+            })
+        }
+    };
+
+
     const handleToggleNavItem = (href: string, checked: boolean) => {
         if (currentUser) {
             const currentVisibleItems = currentUser.visibleNavItems ?? navItems.map(item => item.href);
@@ -447,6 +459,13 @@ export default function SettingsPage() {
                                 <div className="flex items-center justify-between p-3 border rounded-lg">
                                     <Label htmlFor="dashboard-edit-switch" className="flex-1 pr-4">Dashboard anpassen</Label>
                                     <Switch id="dashboard-edit-switch" checked={currentUser?.isDashboardEditing ?? false} onCheckedChange={handleToggleDashboardEditing} />
+                                </div>
+                                <div className="flex items-center justify-between p-3 border rounded-lg">
+                                    <div className='flex items-center gap-2'>
+                                        <Smartphone className="h-5 w-5 text-muted-foreground" />
+                                        <Label htmlFor="scanner-mode-switch" className="flex-1 pr-4">Reiner Scanner-Modus</Label>
+                                    </div>
+                                    <Switch id="scanner-mode-switch" checked={currentUser?.isScannerMode ?? false} onCheckedChange={handleToggleScannerMode} />
                                 </div>
                             </CardContent>
                         </Card>

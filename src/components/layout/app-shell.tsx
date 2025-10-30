@@ -219,6 +219,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const visibleNavItems = React.useMemo(() => {
+    if (currentUser?.isScannerMode) {
+        return navItems.filter(item => item.href === '/settings');
+    }
+
     const allItems = navItems.map(item => item.href);
     const visibleHrefs = new Set(currentUser?.visibleNavItems ?? allItems);
     
@@ -295,7 +299,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         id={item.href} 
                         item={item} 
                         active={isLinkActive(item.href)} 
-                        isNavSortable={isNavSortable} 
+                        isNavSortable={isNavSortable && !currentUser?.isScannerMode} 
                         isExpanded={isSidebarExpanded || isSidebarPinned}
                     />
                     ))}
@@ -334,7 +338,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={visibleNavItems.map(i => i.href)} strategy={verticalListSortingStrategy}>
                         {visibleNavItems.map((item) => (
-                            <SortableNavLink key={item.href} id={item.href} item={item} active={isLinkActive(item.href)} isNavSortable={isNavSortable} onClick={() => setIsSheetOpen(false)} />
+                            <SortableNavLink key={item.href} id={item.href} item={item} active={isLinkActive(item.href)} isNavSortable={isNavSortable && !currentUser?.isScannerMode} onClick={() => setIsSheetOpen(false)} />
                         ))}
                     </SortableContext>
                 </DndContext>

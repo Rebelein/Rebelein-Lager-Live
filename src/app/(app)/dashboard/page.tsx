@@ -10,7 +10,7 @@ import { de } from 'date-fns/locale';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2, ScanLine, ClipboardCheck } from 'lucide-react';
 import { getChangeLogActionText, isInventoryItem } from '@/lib/utils';
 import {
   Collapsible,
@@ -60,6 +60,34 @@ const getCardTitle = (id: string) => {
         default: return 'Unbekannte Kachel';
     }
 }
+
+const ScannerModeDashboard = () => {
+    const router = useRouter();
+
+    const handleScanClick = (page: string) => {
+        router.push(page);
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full gap-8 p-4">
+            <h1 className="text-3xl font-bold text-center">Scanner-Modus</h1>
+            <div className="grid w-full max-w-md gap-6">
+                <Button className="h-24 text-xl" onClick={() => handleScanClick('/inventory-list?scanner=true')}>
+                    <Package className="mr-4 h-8 w-8" />
+                    Lagerbestand
+                </Button>
+                <Button className="h-24 text-xl" onClick={() => handleScanClick('/commissioning?scanner=true')}>
+                    <PackageSearch className="mr-4 h-8 w-8" />
+                    Kommission
+                </Button>
+                <Button className="h-24 text-xl" onClick={() => handleScanClick('/inventory')}>
+                    <ClipboardCheck className="mr-4 h-8 w-8" />
+                    Inventur
+                </Button>
+            </div>
+        </div>
+    );
+};
 
 
 export default function DashboardPage() {
@@ -153,6 +181,10 @@ export default function DashboardPage() {
         );
         setDashboardLayout(newLayout);
     };
+
+    if (currentUser?.isScannerMode) {
+        return <ScannerModeDashboard />;
+    }
 
 
     const getCardComponent = (cardLayout: DashboardCardLayout) => {
