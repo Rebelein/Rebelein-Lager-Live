@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import Image from 'next/image';
-import { PlusCircle, Search, File, MoreHorizontal, PackageMinus, PackagePlus, Pencil, Trash2, ArrowUpDown, QrCode, History, Building, Link as LinkIcon, Clipboard, GripVertical, ShoppingCart, Archive, Truck, XCircle, FileClock, Plus, Minus, Info, ImagePlus, X, Package, AlertCircle, RefreshCw, Camera, ScanLine, Upload, ChevronsUpDown, Printer, Sparkles, Wrench, CircleHelp, ClipboardPaste, Star, Warehouse, SlidersHorizontal, Pin, PinOff, Link2, Settings2, ArrowUp, ArrowDown, CheckCircle, CheckCircle2, Check, Radio } from 'lucide-react';
+import { PlusCircle, Search, File, MoreHorizontal, PackageMinus, PackagePlus, Pencil, Trash2, ArrowUpDown, QrCode, History, Building, Link as LinkIcon, Clipboard, GripVertical, ShoppingCart, Archive, Truck, XCircle, FileClock, Plus, Minus, Info, ImagePlus, X, Package, AlertCircle, RefreshCw, Camera, ScanLine, Upload, ChevronsUpDown, Printer, Sparkles, Wrench, CircleHelp, ClipboardPaste, Star, Warehouse, SlidersHorizontal, Pin, PinOff, Link2, Settings2, ArrowUp, ArrowDown, CheckCircle, CheckCircle2, Check, Radio, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -492,7 +492,7 @@ const ItemCard = ({ item, activeLocationId, isCompactView }: { item: InventoryIt
 };
 
 export default function InventoryListPage() {
-  const { items, addItem, currentUser, wholesalers, locations, removeItemFromLocation, addItemToLocation, transferStock, bulkImportItems, handleQuickStockChange, updateItem, appSettings, updateUserSettings, openDetailView, isDetailViewOpen, setIsDetailViewOpen, currentItem: itemInDetail, detailViewTab } = useAppContext();
+  const { items, addItem, currentUser, wholesalers, locations, removeItemFromLocation, addItemToLocation, transferStock, bulkImportItems, handleQuickStockChange, updateItem, appSettings, updateAppSettings, updateUserSettings, openDetailView, isDetailViewOpen, setIsDetailViewOpen, currentItem: itemInDetail, detailViewTab } = useAppContext();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('all');
   
@@ -723,9 +723,20 @@ export default function InventoryListPage() {
             location: `${item.mainLocation} / ${item.subLocation}`,
             wholesaler: wholesalerName
         });
-        setFontSize(70);
+        
+        // Load default settings
+        if (appSettings?.labelSettings?.item) {
+            setLabelSize({
+                width: appSettings.labelSettings.item.width,
+                height: appSettings.labelSettings.item.height,
+            });
+            setFontSize(appSettings.labelSettings.item.fontSize);
+        } else {
+            // Fallback to default
+            setLabelSize({ width: 60, height: 30 });
+            setFontSize(70);
+        }
         setBarcodeSource('preferred');
-        setLabelSize({ width: 60, height: 30 });
         setIsQrCodeOpen(true);
     };
      const handleOpenArrangeReorderModal = (event: Event) => {
@@ -766,7 +777,7 @@ export default function InventoryListPage() {
         window.removeEventListener('openArrangeReorderModal', handleOpenArrangeReorderModal);
         window.removeEventListener('openTransferModal', handleOpenTransferModal);
     };
-}, [activeLocationId, locations, wholesalers, items]);
+}, [activeLocationId, locations, wholesalers, items, appSettings]);
 
   React.useEffect(() => {
     if (qrScannedId) {
@@ -804,15 +815,25 @@ export default function InventoryListPage() {
     const sortableItems = [...items.filter((item): item is InventoryItem => item.itemType === 'item')];
 
     const naturalSort = (a: string, b: string) => {
-        const aNum = parseInt(a.replace(/[^0-9]/g, ''), 10);
-        const bNum = parseInt(b.replace(/[^0-9]/g, ''), 10);
-        
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-            if (aNum !== bNum) {
-                return aNum - bNum;
-            }
+      // regex to find numbers in string
+      const aNumbers = a.match(/\d+/g) || [];
+      const bNumbers = b.match(/\d+/g) || [];
+      
+      const minLength = Math.min(aNumbers.length, bNumbers.length);
+      
+      for (let i = 0; i < minLength; i++) {
+        const aNum = parseInt(aNumbers[i]!);
+        const bNum = parseInt(bNumbers[i]!);
+        if (aNum !== bNum) {
+          return aNum - bNum;
         }
-        return a.localeCompare(b);
+      }
+
+      if (aNumbers.length !== bNumbers.length) {
+        return aNumbers.length - bNumbers.length;
+      }
+      
+      return a.localeCompare(b);
     };
 
     if (itemSortConfig.current) {
@@ -1860,7 +1881,23 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
         }
         setIsDuplicateDialogOpen(false);
         setDuplicateItem(null);
-    }
+    };
+
+    const handleSaveLabelSettings = () => {
+        if (!appSettings) return;
+        updateAppSettings({
+            ...appSettings,
+            labelSettings: {
+                ...appSettings.labelSettings,
+                item: {
+                    width: labelSize.width,
+                    height: labelSize.height,
+                    fontSize: fontSize,
+                }
+            }
+        });
+        toast({ title: 'Standardeinstellungen für Artikel-Etiketten gespeichert.' });
+    };
 
 
   return (
@@ -2517,9 +2554,15 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
                   </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setIsQrCodeOpen(false)}>Schließen</Button>
-            <Button onClick={handleDownloadQrCode}>Herunterladen</Button>
+          <DialogFooter className="justify-between">
+            <Button variant="outline" onClick={handleSaveLabelSettings}>
+                <Save className="mr-2 h-4 w-4" />
+                Als Standard speichern
+            </Button>
+            <div>
+                <Button variant="secondary" onClick={() => setIsQrCodeOpen(false)}>Schließen</Button>
+                <Button onClick={handleDownloadQrCode} className="ml-2">Herunterladen</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -3161,3 +3204,4 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
     </div>
   );
 }
+

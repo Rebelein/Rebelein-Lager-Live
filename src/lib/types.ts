@@ -1,5 +1,6 @@
 
 
+
 export type LabelSetting = {
   width: number;
   height: number;
@@ -271,3 +272,4 @@ export type Commission = {
   items: CommissionItem[];
   isNewlyReady?: boolean;
 };
+

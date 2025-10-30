@@ -1,8 +1,9 @@
 
+
 'use client';
 
 import * as React from 'react';
-import { Search, AlertCircle, Printer } from 'lucide-react';
+import { Search, AlertCircle, Printer, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -35,7 +36,7 @@ const MM_PER_INCH = 25.4;
 const mmToPx = (mm: number) => (mm / MM_PER_INCH) * DPI;
 
 export default function LabelsPage() {
-  const { items, wholesalers, updateItem, currentUser, locations } = useAppContext();
+  const { items, wholesalers, updateItem, currentUser, locations, appSettings, updateAppSettings } = useAppContext();
   const [searchTerm, setSearchTerm] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('suggestions');
   const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set());
@@ -75,6 +76,22 @@ export default function LabelsPage() {
         setSelectedMainLocation('all');
     }
   }, [mainLocations, selectedMainLocation]);
+  
+  React.useEffect(() => {
+    if (isPrintDialogOpen) {
+      const settingsKey = activeTab === 'compartment' ? 'compartment' : 'item';
+      const settings = appSettings?.labelSettings?.[settingsKey];
+      if (settings) {
+        setLabelSize({ width: settings.width, height: settings.height });
+        setFontSize(settings.fontSize);
+      } else {
+        // Fallback to default
+        setLabelSize({ width: 60, height: 30 });
+        setFontSize(70);
+      }
+    }
+  }, [isPrintDialogOpen, activeTab, appSettings]);
+
   
   const filteredItems = React.useMemo(() => {
     return items.filter(item => {
@@ -226,6 +243,25 @@ const handleDownload = React.useCallback(async () => {
   const labelHeightPx = mmToPx(labelSize.height);
 
   const selectionCount = activeTab === 'compartment' ? selectedCompartments.size : selectedItems.size;
+
+  const handleSaveLabelSettings = () => {
+    if (!appSettings) return;
+
+    const keyToSave = activeTab === 'compartment' ? 'compartment' : 'item';
+    
+    updateAppSettings({
+        ...appSettings,
+        labelSettings: {
+            ...appSettings.labelSettings,
+            [keyToSave]: {
+                width: labelSize.width,
+                height: labelSize.height,
+                fontSize: fontSize,
+            }
+        }
+    });
+    toast({ title: `Standardeinstellungen für ${keyToSave === 'item' ? 'Artikel' : 'Lagerfach'}-Etiketten gespeichert.` });
+};
 
   return (
     <div className="flex flex-col gap-4">
@@ -523,12 +559,19 @@ const handleDownload = React.useCallback(async () => {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setIsPrintDialogOpen(false)}>Schließen</Button>
-            <Button onClick={handleDownload}>Herunterladen</Button>
+          <DialogFooter className="justify-between">
+            <Button variant="outline" onClick={handleSaveLabelSettings}>
+                <Save className="mr-2 h-4 w-4" />
+                Als Standard speichern
+            </Button>
+            <div>
+                <Button variant="secondary" onClick={() => setIsPrintDialogOpen(false)}>Schließen</Button>
+                <Button onClick={handleDownload} className="ml-2">Herunterladen</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
