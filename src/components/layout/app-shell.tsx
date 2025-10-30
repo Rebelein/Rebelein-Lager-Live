@@ -161,7 +161,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     setIsClient(true);
-  }, []);
+    const handleOpenScanner = (event: Event) => {
+        const { type } = (event as CustomEvent).detail;
+        setIsGlobalScannerOpen(true);
+        // You might want to pass the 'type' to the GlobalScanner component if it needs to behave differently
+    };
+    window.addEventListener('openGlobalScanner', handleOpenScanner);
+    return () => {
+        window.removeEventListener('openGlobalScanner', handleOpenScanner);
+    };
+}, []);
 
   const handleOpenForm = (user: User | null) => {
     setUserToEdit(user);

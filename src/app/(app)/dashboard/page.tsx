@@ -65,18 +65,23 @@ const ScannerModeDashboard = () => {
     const router = useRouter();
 
     const handleScanClick = (page: string) => {
-        router.push(page);
+        if (page.startsWith('/')) {
+            router.push(page);
+        } else {
+            const event = new CustomEvent('openGlobalScanner', { detail: { type: page } });
+            window.dispatchEvent(event);
+        }
     };
 
     return (
         <div className="flex flex-col items-center justify-center h-full gap-8 p-4">
             <h1 className="text-3xl font-bold text-center">Scanner-Modus</h1>
             <div className="grid w-full max-w-md gap-6">
-                <Button className="h-24 text-xl" onClick={() => handleScanClick('/inventory-list?scanner=true')}>
+                <Button className="h-24 text-xl" onClick={() => handleScanClick('inventory-list')}>
                     <Package className="mr-4 h-8 w-8" />
                     Lagerbestand
                 </Button>
-                <Button className="h-24 text-xl" onClick={() => handleScanClick('/commissioning?scanner=true')}>
+                <Button className="h-24 text-xl" onClick={() => handleScanClick('commissioning')}>
                     <PackageSearch className="mr-4 h-8 w-8" />
                     Kommission
                 </Button>
