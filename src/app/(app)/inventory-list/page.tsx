@@ -658,6 +658,20 @@ export default function InventoryListPage() {
       }
     }
   }, [locations, currentUser, mainWarehouse]);
+
+    React.useEffect(() => {
+        const urlMainLocation = searchParams.get('mainLocation');
+        const urlSubLocation = searchParams.get('subLocation');
+
+        if (urlMainLocation && urlSubLocation) {
+            setSearchTerm(`${urlMainLocation} ${urlSubLocation}`);
+            // Clean up URL
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.delete('mainLocation');
+            nextUrl.searchParams.delete('subLocation');
+            router.replace(nextUrl.toString(), { scroll: false });
+        }
+    }, [searchParams, router]);
   
   React.useEffect(() => {
     const handleOpenStock = (event: Event) => {
@@ -1252,7 +1266,7 @@ React.useEffect(() => {
         changelog: [newLogEntry],
         suppliers: suppliers,
         preferredWholesalerId: preferredWholesaler,
-        lastInventoriedAt: {[activeLocationId]: now.toISOString()},
+        lastInventoriedAt: { [locationId]: now.toISOString() },
         imageUrl: itemImage,
         linkedImageUrl: linkedImageUrl,
         itemType: 'item',
@@ -3204,4 +3218,5 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
     </div>
   );
 }
+
 

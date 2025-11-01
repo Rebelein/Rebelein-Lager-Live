@@ -103,15 +103,14 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
 
   const handleScan = React.useCallback((data: string) => {
     lastScannedId.current = data;
-    setScannedData(data);
-    onOpenChange(false); // Close the scanner dialog
-
+    
     if (data.startsWith('item::')) {
       const itemId = data.split('::')[1];
       const item = items.find(i => i.id === itemId);
       if (item?.itemType === 'item') {
         setScannedItem(item);
         setActionType('item');
+        onOpenChange(false);
       }
     } else if (data.startsWith('machine::')) {
       const machineId = data.split('::')[1];
@@ -119,6 +118,7 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
       if (machine?.itemType === 'machine') {
         setScannedItem(machine);
         setActionType('machine');
+        onOpenChange(false);
       }
     } else if (data.startsWith('commission::')) {
       const commissionId = data.split('::')[1];
@@ -126,7 +126,15 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
       if (commission) {
         setScannedItem(commission);
         setActionType('commission');
+        onOpenChange(false);
       }
+    } else if (data.startsWith('compartment::')) {
+        const [, mainLoc, subLoc] = data.split('::');
+        const searchParams = new URLSearchParams();
+        searchParams.set('mainLocation', mainLoc);
+        searchParams.set('subLocation', subLoc);
+        toast.toast({ title: 'Lagerfach erkannt!', description: `Zeige Artikel für ${mainLoc} / ${subLoc}`});
+        handleAction('/inventory-list', searchParams);
     } else {
       // Assume it's a delivery note barcode
       let found = false;
@@ -135,6 +143,7 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
           if (item.source === 'external_order' && item.transactionNumber && data.includes(item.transactionNumber)) {
             setScannedItem(commission);
             setActionType('delivery_note');
+            onOpenChange(false);
             found = true;
             break;
           }
@@ -143,10 +152,10 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
       }
       if (!found) {
         toast.toast({ title: 'Kein passender Eintrag gefunden', description: 'Der Code konnte keinem Artikel, keiner Maschine oder Kommission zugeordnet werden.', variant: 'destructive' });
-        resetScannerState();
+        lastScannedId.current = null; // Allow rescanning
       }
     }
-  }, [items, commissions, onOpenChange, toast]);
+  }, [items, commissions, onOpenChange, toast, router]);
 
     const captureCode = React.useCallback(() => {
         if (!webcamRef.current) return;
@@ -169,7 +178,6 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
             // Always check for QR first for internal codes
             const qrCode = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
             if (qrCode && qrCode.data && lastScannedId.current !== qrCode.data) {
-                lastScannedId.current = qrCode.data;
                 codeFound = true;
                 handleScan(qrCode.data);
             }
@@ -181,7 +189,6 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
                     const barcodeDetector = new window.BarcodeDetector({ formats: ['code_128', 'ean_13', 'code_39'] });
                     const barcodes = await barcodeDetector.detect(imageData);
                     if (barcodes.length > 0 && barcodes[0] && lastScannedId.current !== barcodes[0].rawValue) {
-                        lastScannedId.current = barcodes[0].rawValue;
                         codeFound = true;
                         handleScan(barcodes[0].rawValue);
                     }
@@ -282,13 +289,13 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
                 )}
                 {actionType === 'commission' && (
                     <>
-                        <Button size="lg" variant="outline" onClick={() => handleAction('/commissioning', new URLSearchParams({ openDetails: scannedItem!.id }))}><Info className="mr-2 h-4 w-4"/> Details anzeigen</Button>
-                        <Button size="lg" variant="outline" onClick={() => handleAction('/commissioning', new URLSearchParams({ openPrepare: scannedItem!.id }))}><ClipboardList className="mr-2 h-4 w-4"/> Vorbereiten</Button>
+                        <Button size="lg" variant="outline" onClick={() => handleAction('/commissioning', new URLSearchParams({ commissionId: scannedItem!.id, openDetails: 'true' }))}><Info className="mr-2 h-4 w-4"/> Details anzeigen</Button>
+                        <Button size="lg" variant="outline" onClick={() => handleAction('/commissioning', new URLSearchParams({ commissionId: scannedItem!.id, openPrepare: 'true' }))}><ClipboardList className="mr-2 h-4 w-4"/> Vorbereiten</Button>
                         <Button size="lg" onClick={() => handleAction('/commissioning', new URLSearchParams({ action: 'withdraw', commissionId: scannedItem!.id }))}><Archive className="mr-2 h-4 w-4"/> Entnehmen</Button>
                     </>
                 )}
                  {actionType === 'delivery_note' && (
-                    <Button size="lg" onClick={() => handleAction('/commissioning', new URLSearchParams({ openPrepare: scannedItem!.id }))}>
+                    <Button size="lg" onClick={() => handleAction('/commissioning', new URLSearchParams({ commissionId: scannedItem!.id, openPrepare: 'true' }))}>
                         <ClipboardList className="mr-2 h-4 w-4"/> Vorbereitung für Kommission öffnen
                     </Button>
                 )}
