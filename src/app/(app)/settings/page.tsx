@@ -683,17 +683,19 @@ export default function SettingsPage() {
       <div className="md:hidden">
         <Accordion type="single" collapsible className="w-full space-y-4" value={activeSection} onValueChange={setActiveSection}>
             {settingsSections.map(section => (
-                <AccordionItem key={section.id} value={section.id} className="border rounded-lg bg-card/90">
-                    <AccordionTrigger className="p-4 hover:no-underline">
-                        <div className="flex items-center gap-3">
-                           <section.icon className="h-5 w-5 text-primary" />
-                           <span className="font-semibold">{section.label}</span>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="p-4 pt-0">
-                       <Separator className="mb-4" />
-                       {renderContent()}
-                    </AccordionContent>
+                <AccordionItem key={section.id} value={section.id} className="border-b-0">
+                    <Card>
+                        <AccordionTrigger className="p-4 hover:no-underline">
+                            <div className="flex items-center gap-3">
+                               <section.icon className="h-5 w-5 text-primary" />
+                               <span className="font-semibold">{section.label}</span>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="p-4 pt-0">
+                           <Separator className="mb-4" />
+                           {renderContent()}
+                        </AccordionContent>
+                    </Card>
                 </AccordionItem>
             ))}
         </Accordion>
