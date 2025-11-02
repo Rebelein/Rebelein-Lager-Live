@@ -78,13 +78,15 @@
    .animate-glow-orange {
     animation: glow-orange 2s infinite;
   }
+}
 
-  .app-background {
+.app-shell-background {
     position: relative;
     overflow: hidden;
-  }
+    background-color: hsl(var(--background));
+}
   
-  .app-background::before {
+.app-shell-background::before {
     content: "";
     position: absolute;
     top: 0;
@@ -95,17 +97,25 @@
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    filter: blur(8px);
+    transform: scale(1.1);
     z-index: -2;
-  }
+}
 
-  .app-background::after {
+.app-shell-background::after {
     content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: hsl(var(--background) / 0.8);
+    background-color: hsl(var(--background) / 0.6);
+    backdrop-filter: saturate(150%);
     z-index: -1;
-  }
+}
+
+/* Make sure the main content area is above the pseudo-elements */
+main {
+    position: relative;
+    z-index: 1;
 }

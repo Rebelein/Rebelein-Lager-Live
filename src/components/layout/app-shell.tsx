@@ -285,11 +285,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isNavSortable = currentUser?.isNavSortable ?? false;
 
   const mainContent = (
-    <div className="flex min-h-screen w-full app-background">
+    <div className="flex min-h-screen w-full app-shell-background">
        {isClient ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <aside 
-              className={cn("hidden flex-col border-r bg-background/80 sm:flex transition-all duration-300 ease-in-out z-40", isSidebarExpanded || isSidebarPinned ? 'w-56' : 'w-14', !showApp && 'pointer-events-none opacity-50')}
+              className={cn(
+                "hidden flex-col border-r bg-background/90 backdrop-blur-sm sm:flex transition-all duration-300 ease-in-out z-40",
+                isSidebarExpanded || isSidebarPinned ? 'w-56' : 'w-14',
+                !showApp && 'pointer-events-none opacity-50'
+              )}
               onMouseEnter={() => !isSidebarPinned && setIsSidebarExpanded(true)}
               onMouseLeave={() => !isSidebarPinned && setIsSidebarExpanded(false)}
             >
@@ -324,7 +328,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ) : <aside className="hidden w-14 flex-col border-r bg-background/80 sm:flex" />}
       
       <div className={cn("flex flex-1 flex-col sm:gap-4 sm:py-4 transition-all duration-300 ease-in-out", isSidebarPinned ? 'sm:pl-56' : 'sm:pl-14')}>
-        <header className={cn("sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6", !showApp && 'pointer-events-none opacity-50')}>
+        <header className={cn("sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/90 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6", !showApp && 'pointer-events-none opacity-50')}>
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
               <Button size="icon" variant="outline" className="sm:hidden">
@@ -332,7 +336,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <span className="sr-only">Navigation ein-/ausblenden</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col sm:max-w-xs">
+            <SheetContent side="left" className="flex flex-col sm:max-w-xs bg-background/90 backdrop-blur-sm">
               <SheetHeader>
                 <SheetTitle>Hauptnavigation</SheetTitle>
               </SheetHeader>
@@ -400,7 +404,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Select>
           </div>
         </header>
-        <main className={cn("flex-1 p-4 sm:px-6 sm:py-0 flex flex-col bg-transparent", !showApp && 'pointer-events-none opacity-50')}>
+        <main className={cn("flex-1 p-4 sm:px-6 sm:py-0 flex flex-col bg-transparent z-10", !showApp && 'pointer-events-none opacity-50')}>
           {isClient && <LoadingOverlay />}
           {showApp ? (
             <>
