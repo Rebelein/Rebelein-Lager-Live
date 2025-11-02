@@ -109,8 +109,8 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: hsl(var(--background) / 0.6);
-    backdrop-filter: saturate(150%);
+    background-color: hsl(var(--background) / 0.8);
+    backdrop-filter: saturate(180%);
     z-index: -1;
 }
 
