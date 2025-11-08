@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -286,10 +284,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const mainContent = (
     <div className="flex min-h-screen w-full relative">
-       <div className="absolute inset-0 overflow-hidden -z-10">
-        <div className="absolute w-[250px] h-[250px] bg-primary rounded-full -top-20 -left-20 animate-blob-1 filter blur-3xl opacity-30"></div>
-        <div className="absolute w-[250px] h-[250px] bg-secondary rounded-full -bottom-20 -right-20 animate-blob-2 filter blur-3xl opacity-30"></div>
-        <div className="absolute w-[200px] h-[200px] bg-destructive/50 rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-blob-3 filter blur-3xl opacity-20"></div>
+       <div className="absolute inset-0 overflow-hidden -z-10 bg-[url('/grid.svg')] [mask-image:linear-gradient(to_bottom,white_5%,transparent_50%)]">
+        <div className="absolute w-[400px] h-[400px] bg-primary rounded-full -top-20 -left-20 animate-blob-1 filter blur-3xl opacity-30"></div>
+        <div className="absolute w-[350px] h-[350px] bg-secondary rounded-full bottom-0 -right-40 animate-blob-2 filter blur-3xl opacity-30"></div>
+        <div className="absolute w-[300px] h-[300px] bg-destructive/50 rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-blob-3 filter blur-3xl opacity-20"></div>
       </div>
        {isClient ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -445,5 +443,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </TooltipProvider>
   );
 }
-
-    
