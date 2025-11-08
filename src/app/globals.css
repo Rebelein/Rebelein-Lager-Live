@@ -80,42 +80,37 @@
   }
 }
 
-.app-shell-background {
-    position: relative;
-    overflow: hidden;
-    background-color: hsl(var(--background));
+.animate-blob-1 {
+  animation: blob-1 15s infinite;
 }
-  
-.app-shell-background::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: url('https://i.postimg.cc/B6tLrjdV/57150396-duplo25.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    filter: blur(8px);
-    transform: scale(1.1);
-    z-index: -2;
+.animate-blob-2 {
+  animation: blob-2 20s infinite;
+}
+.animate-blob-3 {
+  animation: blob-3 18s infinite;
 }
 
-.app-shell-background::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: hsl(var(--background) / 0.8);
-    backdrop-filter: saturate(180%);
-    z-index: -1;
+@keyframes blob-1 {
+  0% { transform: translate(-20%, 20%) scale(1); }
+  25% { transform: translate(30%, -25%) scale(1.2); }
+  50% { transform: translate(10%, 40%) scale(0.9); }
+  75% { transform: translate(-30%, -10%) scale(1.1); }
+  100% { transform: translate(-20%, 20%) scale(1); }
 }
 
-/* Make sure the main content area is above the pseudo-elements */
-main {
-    position: relative;
-    z-index: 1;
+@keyframes blob-2 {
+  0% { transform: translate(20%, -20%) scale(1); }
+  25% { transform: translate(-40%, 10%) scale(0.8); }
+  50% { transform: translate(-10%, -30%) scale(1.1); }
+  75% { transform: translate(35%, 25%) scale(1.2); }
+  100% { transform: translate(20%, -20%) scale(1); }
 }
+
+@keyframes blob-3 {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33% { transform: translate(50px, -50px) scale(1.1) rotate(120deg); }
+  66% { transform: translate(-50px, 50px) scale(0.9) rotate(240deg); }
+  100% { transform: translate(0, 0) scale(1) rotate(360deg); }
+}
+
+    

@@ -285,12 +285,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isNavSortable = currentUser?.isNavSortable ?? false;
 
   const mainContent = (
-    <div className="flex min-h-screen w-full app-shell-background">
+    <div className="flex min-h-screen w-full relative">
+       <div className="absolute inset-0 overflow-hidden -z-10">
+        <div className="absolute w-[250px] h-[250px] bg-primary rounded-full -top-20 -left-20 animate-blob-1 filter blur-3xl opacity-30"></div>
+        <div className="absolute w-[250px] h-[250px] bg-secondary rounded-full -bottom-20 -right-20 animate-blob-2 filter blur-3xl opacity-30"></div>
+        <div className="absolute w-[200px] h-[200px] bg-destructive/50 rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-blob-3 filter blur-3xl opacity-20"></div>
+      </div>
        {isClient ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <aside 
               className={cn(
-                "hidden flex-col border-r bg-background/90 backdrop-blur-sm sm:flex transition-all duration-300 ease-in-out z-40",
+                "hidden flex-col border-r bg-background/80 backdrop-blur-sm sm:flex transition-all duration-300 ease-in-out z-40",
                 isSidebarExpanded || isSidebarPinned ? 'w-56' : 'w-14',
                 !showApp && 'pointer-events-none opacity-50'
               )}
@@ -328,7 +333,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ) : <aside className="hidden w-14 flex-col border-r bg-background/80 sm:flex" />}
       
       <div className={cn("flex flex-1 flex-col sm:gap-4 sm:py-4 transition-all duration-300 ease-in-out", isSidebarPinned ? 'sm:pl-56' : 'sm:pl-14')}>
-        <header className={cn("sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/90 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6", !showApp && 'pointer-events-none opacity-50')}>
+        <header className={cn("sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6", !showApp && 'pointer-events-none opacity-50')}>
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
               <Button size="icon" variant="outline" className="sm:hidden">
@@ -440,3 +445,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </TooltipProvider>
   );
 }
+
+    
