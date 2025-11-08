@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -250,7 +249,7 @@ export default function DashboardPage() {
                 </div>
             </div>
             
-            <div className={cn("gap-4", isDesktop ? "grid lg:grid-cols-3 auto-rows-[160px]" : "flex flex-col")}>
+            <div className={cn("gap-4", isDesktop ? "grid lg:grid-cols-3 grid-rows-auto" : "flex flex-col")}>
                 <SortableContext items={dashboardLayout.layout.map(item => item.id)} disabled={!dashboardLayout.isEditing || !isDesktop}>
                     {dashboardLayout.layout.filter(l => !l.hidden).map((cardLayout) => {
                         const cardComponent = getCardComponent(cardLayout);
@@ -610,3 +609,5 @@ const TurnoverCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
     </DraggableCardWrapper>
     )
 }
+
+    
