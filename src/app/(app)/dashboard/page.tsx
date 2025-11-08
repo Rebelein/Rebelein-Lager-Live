@@ -249,7 +249,7 @@ export default function DashboardPage() {
                 </div>
             </div>
             
-            <div className={cn("gap-4", isDesktop ? "grid lg:grid-cols-3 grid-rows-auto" : "flex flex-col")}>
+            <div className={cn("gap-4", isDesktop ? "grid lg:grid-cols-3 auto-rows-fr" : "flex flex-col")}>
                 <SortableContext items={dashboardLayout.layout.map(item => item.id)} disabled={!dashboardLayout.isEditing || !isDesktop}>
                     {dashboardLayout.layout.filter(l => !l.hidden).map((cardLayout) => {
                         const cardComponent = getCardComponent(cardLayout);
@@ -464,7 +464,7 @@ const ActivityCard = ({ id, size, onSizeChange, title, icon: Icon, changelog }: 
         <DraggableCardWrapper id={id} currentSize={size} onSizeChange={onSizeChange}>
             <Card className="h-full flex flex-col">
                 <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Icon className="h-5 w-5 text-primary" /> {title}</CardTitle></CardHeader>
-                <CardContent className="flex-grow overflow-hidden pl-2"><div className="space-y-4 h-full overflow-y-auto">{changelog.slice(0, 15).map((log, index) => (<div key={`${log.id}-${index}`} className="flex items-center gap-4 pr-4"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">{log.type === 'in' || log.type === 'received' ? <PackagePlus className="h-4 w-4 text-green-500" /> : log.type === 'out' ? <PackageMinus className="h-4 w-4 text-red-500" /> : <History className="h-4 w-4 text-gray-500" />}</div><div className="grid gap-1 flex-1"><p className="text-sm font-medium leading-none truncate">{log.itemName || 'Artikel'}</p><p className="text-sm text-muted-foreground">{getChangeLogActionText(log)} von {log.userName}</p></div><div className="ml-auto font-medium text-sm text-muted-foreground">{format(new Date(log.date), 'dd.MM HH:mm', { locale: de })}</div></div>))}</div></CardContent>
+                <CardContent className="flex-grow overflow-hidden pl-2"><div className="space-y-4 h-full overflow-y-auto">{changelog.slice(0, 10).map((log, index) => (<div key={`${log.id}-${index}`} className="flex items-center gap-4 pr-4"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">{log.type === 'in' || log.type === 'received' ? <PackagePlus className="h-4 w-4 text-green-500" /> : log.type === 'out' ? <PackageMinus className="h-4 w-4 text-red-500" /> : <History className="h-4 w-4 text-gray-500" />}</div><div className="grid gap-1 flex-1"><p className="text-sm font-medium leading-none truncate">{log.itemName || 'Artikel'}</p><p className="text-sm text-muted-foreground">{getChangeLogActionText(log)} von {log.userName}</p></div><div className="ml-auto font-medium text-sm text-muted-foreground">{format(new Date(log.date), 'dd.MM HH:mm', { locale: de })}</div></div>))}</div></CardContent>
             </Card>
         </DraggableCardWrapper>
     );
