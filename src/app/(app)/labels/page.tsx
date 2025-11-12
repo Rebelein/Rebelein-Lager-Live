@@ -62,12 +62,26 @@ export default function LabelsPage() {
 
   const subLocations = React.useMemo(() => {
       if (selectedMainLocation === 'all') return [];
+      
       const itemsInMainLocation = items.filter(item => 
           item.mainLocation === selectedMainLocation &&
           (selectedLocationId === 'all' || item.stocks.some(s => s.locationId === selectedLocationId))
       );
-      const uniqueSubLocations = new Set(itemsInMainLocation.map(item => item.subLocation).filter(Boolean));
-      return Array.from(uniqueSubLocations).sort();
+
+      // Group items by subLocation
+      const itemsBySubLocation: { [key: string]: InventoryItem[] } = {};
+      itemsInMainLocation.forEach(item => {
+        if (item.itemType !== 'item' || !item.subLocation) return;
+        if (!itemsBySubLocation[item.subLocation]) {
+          itemsBySubLocation[item.subLocation] = [];
+        }
+        itemsBySubLocation[item.subLocation].push(item as InventoryItem);
+      });
+      
+      // Filter out subLocations that have less than 2 items
+      const relevantSubLocations = Object.keys(itemsBySubLocation).filter(subLoc => itemsBySubLocation[subLoc].length >= 2);
+      
+      return relevantSubLocations.sort();
   }, [items, selectedMainLocation, selectedLocationId]);
 
 
@@ -437,7 +451,7 @@ const handleDownload = React.useCallback(async () => {
                             ) : (
                                 <TableRow>
                                     <TableCell colSpan={4} className="h-24 text-center">
-                                        {selectedMainLocation === 'all' ? "Bitte wählen Sie zuerst einen Lagerbereich aus." : "Keine Fächer in diesem Bereich gefunden."}
+                                        {selectedMainLocation === 'all' ? "Bitte wählen Sie zuerst einen Lagerbereich aus." : "Keine Fächer mit 2 oder mehr Artikeln gefunden."}
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -586,4 +600,3 @@ const handleDownload = React.useCallback(async () => {
     </div>
   );
 }
-
