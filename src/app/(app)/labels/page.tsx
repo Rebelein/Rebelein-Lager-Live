@@ -164,23 +164,35 @@ const handleDownload = React.useCallback(async () => {
     }
 
     let downloadCount = 0;
-    for (const labelNode of labelElements) {
-        try {
-            const dataUrl = await toPng(labelNode as HTMLElement, {
-                cacheBust: true,
-                pixelRatio: 3,
-                fontEmbedCSS: `@import url('https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap');`,
-            });
-            
-            const link = document.createElement('a');
-            const fileName = labelNode.getAttribute('data-filename') || `etikett-${downloadCount + 1}.png`;
-            link.download = fileName;
-            link.href = dataUrl;
-            link.click();
-            downloadCount++;
-        } catch (err) {
-            console.error('Fehler beim Erstellen eines Etiketts:', err);
-        }
+    
+    // Function to download a single label with a delay
+    const downloadWithDelay = (labelNode: Element, index: number): Promise<void> => {
+        return new Promise(async (resolve, reject) => {
+            setTimeout(async () => {
+                try {
+                    const dataUrl = await toPng(labelNode as HTMLElement, {
+                        cacheBust: true,
+                        pixelRatio: 3,
+                        fontEmbedCSS: `@import url('https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap');`,
+                    });
+                    
+                    const link = document.createElement('a');
+                    const fileName = labelNode.getAttribute('data-filename') || `etikett-${downloadCount + 1}.png`;
+                    link.download = fileName;
+                    link.href = dataUrl;
+                    link.click();
+                    downloadCount++;
+                    resolve();
+                } catch (err) {
+                    console.error('Fehler beim Erstellen eines Etiketts:', err);
+                    reject(err);
+                }
+            }, index * 100); // 100ms delay between each download
+        });
+    };
+
+    for (let i = 0; i < labelElements.length; i++) {
+        await downloadWithDelay(labelElements[i]!, i);
     }
     
     if (downloadCount > 0) {
