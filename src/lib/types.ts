@@ -106,8 +106,9 @@ export type User = {
     isDashboardEditing?: boolean;
     isScannerMode?: boolean;
     commissioningView?: {
-      draftsCollapsed: boolean;
-      readyCollapsed: boolean;
+      draftsCollapsed?: boolean;
+      readyCollapsed?: boolean;
+      isCompact?: boolean;
     };
 };
 
