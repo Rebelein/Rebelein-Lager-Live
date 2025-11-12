@@ -27,6 +27,16 @@ import { cn, resizeImage } from '@/lib/utils';
 import { getChangeLogActionText } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Command,
   CommandEmpty,
   CommandGroup,
