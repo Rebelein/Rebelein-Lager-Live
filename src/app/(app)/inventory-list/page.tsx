@@ -1266,7 +1266,7 @@ React.useEffect(() => {
         changelog: [newLogEntry],
         suppliers: suppliers,
         preferredWholesalerId: preferredWholesaler,
-        lastInventoriedAt: { [locationId]: now.toISOString() },
+        lastInventoriedAt: { [activeLocationId]: now.toISOString() },
         imageUrl: itemImage,
         linkedImageUrl: linkedImageUrl,
         itemType: 'item',
@@ -3218,5 +3218,6 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
     </div>
   );
 }
+
 
 
