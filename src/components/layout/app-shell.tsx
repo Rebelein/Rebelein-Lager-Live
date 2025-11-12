@@ -11,7 +11,6 @@ import Logo from '@/components/logo';
 import { useAppContext } from '@/context/AppContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { LoadingOverlay } from '@/components/layout/loading-overlay';
-import { NotificationBell } from './notification-bell';
 import { SyncStatus } from './sync-status';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
@@ -363,7 +362,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Sheet>
           <div className="ml-auto flex items-center gap-2 md:gap-4">
             <SyncStatus status={dbConnectionStatus} />
-            <NotificationBell />
             <Button variant="default" size="sm" className="h-9 gap-2" onClick={() => setIsGlobalScannerOpen(true)}>
                 <ScanLine className="h-4 w-4"/>
                 <span className="hidden md:inline">Quick-Scan</span>

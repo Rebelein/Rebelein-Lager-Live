@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -66,10 +64,6 @@ interface AppContextType {
   setIsDetailViewOpen: React.Dispatch<React.SetStateAction<boolean>>;
   currentItem: InventoryItem | Machine | null;
   detailViewTab: string;
-  notifications: Notification[];
-  markNotificationsAsRead: () => void;
-  dismissNotification: (notificationId: string) => void;
-  dismissAllNotifications: () => void;
   dashboardLayout: DashboardLayout;
   setDashboardLayout: (layout: DashboardCardLayout[]) => void;
   allDashboardCards: DashboardCardLayout[];
@@ -186,13 +180,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentItem, setCurrentItem] = useState<InventoryItem | Machine | null>(null);
   const [detailViewTab, setDetailViewTab] = useState('overview');
 
-  const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(new Set());
-  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<Set<string>>(() => {
-    // Correctly initialize from localStorage
-    const saved = getFromLocalStorage<string[]>('dismissedNotifications', []);
-    return new Set(saved);
-  });
-  
   const [dashboardLayout, setDashboardLayoutState] = useState<DashboardCardLayout[]>(allDashboardCards);
   
   // New state to manage initial auth check
@@ -286,139 +273,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const settingsRef = doc(firestore, 'app_settings', 'global');
     setDocumentNonBlocking(settingsRef, settings, { merge: true });
   }, [firestore, dbConnectionStatus]);
-
-
-  const notifications = useMemo<Notification[]>(() => {
-    if (isLoading) {
-      return [];
-    }
-    const twentyFourHoursAgo = subDays(new Date(), 1);
-    const mainWarehouse = locations.find(l => !l.isVehicle);
-    const mainWarehouseId = mainWarehouse?.id || 'main';
-
-    const generated: Notification[] = [];
-    
-    // 1. New Items Created
-    const newItemsLogs = allChangelog.filter(log => log.type === 'initial' && new Date(log.date) > twentyFourHoursAgo);
-    newItemsLogs.forEach(log => {
-       const id = `new-item-${log.itemId}`;
-       generated.push({
-           id,
-           type: 'newItem',
-           title: 'Neuer Artikel',
-           description: `"${log.itemName}" wurde von ${log.userName} angelegt.`,
-           date: log.date,
-           href: `/inventory-list`,
-           read: readNotificationIds.has(id),
-       });
-    });
-
-    // 2. Minimum Stock Breach (Main Warehouse only)
-    items.forEach(item => {
-        if(!isInventoryItem(item)) return;
-        const mainStock = (item.stocks || []).find(s => s.locationId === mainWarehouseId);
-        const mainMinStock = (item.minStocks || []).find(ms => ms.locationId === mainWarehouseId);
-
-        if (mainStock && mainMinStock && mainStock.quantity < mainMinStock.quantity) {
-             const id = `min-stock-${item.id}`;
-             generated.push({
-                id,
-                type: 'minStock',
-                title: 'Mindestbestand unterschritten',
-                description: `Bestand von "${item.name}" im Hauptlager ist niedrig.`,
-                date: new Date().toISOString(),
-                href: `/inventory-list`,
-                read: readNotificationIds.has(id),
-            });
-        }
-    });
-    
-    // 3. Main Warehouse Order Placed
-    const mainWarehouseOrders = orders.filter(order => order.locationId === mainWarehouseId && order.status === 'ordered' && new Date(order.date) > twentyFourHoursAgo);
-    mainWarehouseOrders.forEach(order => {
-        const id = `order-placed-${order.id}`;
-        generated.push({
-            id,
-            type: 'orderStatus',
-            title: 'Hauptlager Bestellung',
-            description: `Bestellung ${order.orderNumber} wurde ausgelöst.`,
-            date: order.date,
-            href: '/order-history',
-            read: readNotificationIds.has(id),
-        });
-    });
-
-    // 4. Main Warehouse Delivery Received
-    const receivedLogs = allChangelog.filter(log => 
-        log.type === 'received' && 
-        log.locationId === mainWarehouseId &&
-        new Date(log.date) > twentyFourHoursAgo
-    );
-    receivedLogs.forEach(log => {
-        const id = `delivery-${log.id}`;
-        generated.push({
-            id,
-            type: 'delivery',
-            title: 'Lieferung eingegangen',
-            description: `Lieferung für "${log.itemName}" im Hauptlager verbucht.`,
-            date: log.date,
-            href: '/order-history',
-            read: readNotificationIds.has(id),
-        });
-    });
-
-
-    // 5. Rented machines by current user (if user is selected)
-    if (currentUser) {
-        const userRentedMachines = items.filter((item): item is Machine =>
-            isMachine(item) &&
-            item.rentalStatus === 'rented' &&
-            item.rentedBy?.type === 'user' &&
-            item.rentedBy?.id === currentUser.id
-        );
-
-        userRentedMachines.forEach(machine => {
-            const id = `rented-${machine.id}`;
-            generated.push({
-                id: id,
-                type: 'rentedMachine',
-                title: 'Maschine ausgeliehen',
-                description: `Sie haben "${machine.name}" ausgeliehen.`,
-                date: machine.rentalHistory?.find(h => h.type === 'rented')?.date || new Date().toISOString(),
-                href: '/machines',
-                read: readNotificationIds.has(id),
-                userId: currentUser.id,
-            });
-        });
-    }
-    
-    return generated
-      .filter(n => !dismissedNotificationIds.has(n.id))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [items, orders, currentUser, isLoading, readNotificationIds, dismissedNotificationIds, locations, allChangelog]);
-
-
-  const markNotificationsAsRead = useCallback(() => {
-    setReadNotificationIds(prev => {
-        const newReadIds = new Set(prev);
-        notifications.forEach(n => newReadIds.add(n.id));
-        return newReadIds;
-    });
-  }, [notifications]);
-  
-  const dismissNotification = useCallback((notificationId: string) => {
-    setDismissedNotificationIds(prev => {
-        const newDismissed = new Set(prev).add(notificationId);
-        saveToLocalStorage('dismissedNotifications', Array.from(newDismissed));
-        return newDismissed;
-    });
-  }, []);
-
-  const dismissAllNotifications = useCallback(() => {
-    const allIds = new Set(notifications.map(n => n.id));
-    setDismissedNotificationIds(allIds);
-    saveToLocalStorage('dismissedNotifications', Array.from(allIds));
-  }, [notifications]);
 
   const addItem = useCallback((newItem: InventoryItem) => {
     if (!firestore || dbConnectionStatus !== 'connected') return;
@@ -1400,7 +1254,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     }, [mainWarehouse, currentUser, items, handleQuickStockChange, toast]);
 
 
-  const value = {
+  const value: AppContextType = {
     dbConnectionStatus,
     isLoading,
     isUserSelectionRequired,
@@ -1448,10 +1302,6 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     setIsDetailViewOpen,
     currentItem,
     detailViewTab,
-    notifications,
-    markNotificationsAsRead,
-    dismissNotification,
-    dismissAllNotifications,
     dashboardLayout: { layout: dashboardLayout, isEditing: currentUser?.isDashboardEditing ?? false },
     setDashboardLayout,
     allDashboardCards,
