@@ -105,6 +105,10 @@ export type User = {
     isNavSortable?: boolean;
     isDashboardEditing?: boolean;
     isScannerMode?: boolean;
+    commissioningView?: {
+      draftsCollapsed: boolean;
+      readyCollapsed: boolean;
+    };
 };
 
 export type Location = {
