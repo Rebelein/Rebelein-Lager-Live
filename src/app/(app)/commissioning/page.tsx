@@ -330,7 +330,7 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
             });
             setFontSize(appSettings.labelSettings.commission.fontSize);
         }
-    }, [appSettings, open]);
+    }, [appSettings]);
 
     const generatePdf = React.useCallback(async (): Promise<Blob> => {
         if (!qrCodeRef.current || !commission) throw new Error("Label element not found");
@@ -1057,65 +1057,38 @@ export default function CommissioningPage() {
     };
     
     const CommissionCard = ({ commission }: { commission: Commission }) => {
-        return (
-            <Collapsible>
-                <div className={cn("rounded-lg bg-card shadow-sm", isCompactView && "border")}>
-                    <CollapsibleTrigger className="w-full text-left" disabled={!isCompactView}>
-                        {isCompactView ? (
-                            <div className="flex items-center justify-between p-3">
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-semibold truncate">{commission.name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">Auftrags-Nr: {commission.orderNumber}</p>
-                                </div>
-                                <Badge variant={getStatusVariant(commission.status)}>{getStatusText(commission.status)}</Badge>
-                                <MoreHorizontal className="h-4 w-4 ml-2 text-muted-foreground" />
-                            </div>
-                        ) : (
-                             <CardHeader>
-                                <div className="flex justify-between items-start">
-                                <div className="flex-1 min-w-0">
-                                    <CardTitle className="truncate pr-2">{commission.name}</CardTitle>
-                                    <CardDescription>Auftrags-Nr: {commission.orderNumber}</CardDescription>
-                                </div>
-                                <div className="flex items-center">
-                                    <Badge variant={getStatusVariant(commission.status)}>{getStatusText(commission.status)}</Badge>
-                                        <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Aktionen</DropdownMenuLabel>
-                                            <DropdownMenuItem onSelect={() => setDetailCommission(commission)}>
-                                                <Info className="mr-2 h-4 w-4" /> Details anzeigen
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => handleOpenForm(commission)}>
-                                                <Pencil className="mr-2 h-4 w-4" /> Bearbeiten
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}>
-                                                <Printer className="mr-2 h-4 w-4" /> Etikett drucken
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem className="text-destructive" onSelect={() => setCommissionToDelete(commission)}>
-                                                <Trash2 className="mr-2 h-4 w-4" /> Löschen
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-                                </div>
-                            </CardHeader>
-                        )}
-                    </CollapsibleTrigger>
-                    
-                    <CollapsibleContent asChild>
-                         <div className={cn(!isCompactView && "hidden")}>
-                            <CardContent className="pt-0">
+        if (isCompactView) {
+            return (
+                <Collapsible>
+                    <div className="rounded-lg bg-card shadow-sm border">
+                        <div className="flex items-center justify-between p-3">
+                            <CollapsibleTrigger className="flex-1 min-w-0 text-left">
+                                <p className="font-semibold truncate">{commission.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">Auftrags-Nr: {commission.orderNumber}</p>
+                            </CollapsibleTrigger>
+                            <Badge variant={getStatusVariant(commission.status)}>{getStatusText(commission.status)}</Badge>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onSelect={() => setDetailCommission(commission)}><Info className="mr-2 h-4 w-4" /> Details</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => handleOpenForm(commission)}><Pencil className="mr-2 h-4 w-4" /> Bearbeiten</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}><Printer className="mr-2 h-4 w-4" /> Etikett</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setCommissionToDelete(commission)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                        <CollapsibleContent>
+                            <CardContent className="pt-0 border-t">
                                 {commission.notes ? (
-                                    <p className="text-sm text-muted-foreground italic h-10 overflow-hidden text-ellipsis">
+                                    <p className="text-sm text-muted-foreground italic h-10 overflow-hidden text-ellipsis pt-4">
                                         &quot;{commission.notes}&quot;
                                     </p>
                                 ) : (
-                                    <div className="h-10"></div>
+                                    <div className="h-10 pt-4"></div>
                                 )}
                                 <p className="text-xs text-muted-foreground mt-4">
                                     Erstellt von {commission.createdBy} am {format(new Date(commission.createdAt), 'dd.MM.yyyy', { locale: de })}
@@ -1129,35 +1102,60 @@ export default function CommissioningPage() {
                                     <Archive className="mr-2 h-4 w-4"/> Entnehmen
                                 </Button>
                             </CardFooter>
-                         </div>
-                    </CollapsibleContent>
+                        </CollapsibleContent>
+                    </div>
+                </Collapsible>
+            );
+        }
 
-                    {!isCompactView && (
-                        <>
-                            <CardContent>
-                                {commission.notes ? (
-                                    <p className="text-sm text-muted-foreground italic h-10 overflow-hidden text-ellipsis">
-                                        &quot;{commission.notes}&quot;
-                                    </p>
-                                ) : (
-                                    <div className="h-10"></div>
-                                )}
-                                <p className="text-xs text-muted-foreground mt-4">
-                                    Erstellt von {commission.createdBy} am {format(new Date(commission.createdAt), 'dd.MM.yyyy', { locale: de })}
-                                </p>
-                            </CardContent>
-                            <CardFooter className="grid grid-cols-2 gap-2">
-                                <Button className={cn("w-full", commission.items.length === 0 && "hidden")} variant="outline" onClick={() => setPreparingCommission(commission)}>
-                                    <ClipboardList className="mr-2 h-4 w-4"/> Vorbereiten
-                                </Button>
-                                <Button className={cn("w-full", commission.items.length === 0 && "col-span-2")} onClick={() => handleWithdraw(commission)} disabled={commission.status !== 'ready' && !(commission.status === 'draft' && commission.items.length === 0)}>
-                                    <Archive className="mr-2 h-4 w-4"/> Entnehmen
-                                </Button>
-                            </CardFooter>
-                        </>
+        return (
+            <Card className="flex flex-col">
+                <CardHeader>
+                    <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                            <CardTitle className="truncate pr-2">{commission.name}</CardTitle>
+                            <CardDescription>Auftrags-Nr: {commission.orderNumber}</CardDescription>
+                        </div>
+                        <div className="flex items-center">
+                            <Badge variant={getStatusVariant(commission.status)}>{getStatusText(commission.status)}</Badge>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Aktionen</DropdownMenuLabel>
+                                    <DropdownMenuItem onSelect={() => setDetailCommission(commission)}><Info className="mr-2 h-4 w-4" /> Details anzeigen</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => handleOpenForm(commission)}><Pencil className="mr-2 h-4 w-4" /> Bearbeiten</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}><Printer className="mr-2 h-4 w-4" /> Etikett drucken</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setCommissionToDelete(commission)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                    {commission.notes ? (
+                        <p className="text-sm text-muted-foreground italic h-10 overflow-hidden text-ellipsis">
+                            &quot;{commission.notes}&quot;
+                        </p>
+                    ) : (
+                        <div className="h-10"></div>
                     )}
-                </div>
-            </Collapsible>
+                    <p className="text-xs text-muted-foreground mt-4">
+                        Erstellt von {commission.createdBy} am {format(new Date(commission.createdAt), 'dd.MM.yyyy', { locale: de })}
+                    </p>
+                </CardContent>
+                <CardFooter className="grid grid-cols-2 gap-2">
+                    <Button className={cn("w-full", commission.items.length === 0 && "hidden")} variant="outline" onClick={() => setPreparingCommission(commission)}>
+                        <ClipboardList className="mr-2 h-4 w-4"/> Vorbereiten
+                    </Button>
+                    <Button className={cn("w-full", commission.items.length === 0 && "col-span-2")} onClick={() => handleWithdraw(commission)} disabled={commission.status !== 'ready' && !(commission.status === 'draft' && commission.items.length === 0)}>
+                        <Archive className="mr-2 h-4 w-4"/> Entnehmen
+                    </Button>
+                </CardFooter>
+            </Card>
         );
     };
 
@@ -1667,4 +1665,3 @@ export default function CommissioningPage() {
     </div>
   );
 }
-

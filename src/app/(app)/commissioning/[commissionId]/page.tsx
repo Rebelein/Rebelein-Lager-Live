@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -328,7 +328,7 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
             });
             setFontSize(appSettings.labelSettings.commission.fontSize);
         }
-    }, [appSettings, open]);
+    }, [appSettings]);
 
     const generatePdf = React.useCallback(async (): Promise<Blob> => {
         if (!qrCodeRef.current || !commission) throw new Error("Label element not found");
@@ -579,7 +579,7 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
 type SortKey = 'name' | 'orderNumber' | 'createdAt' | 'status';
 
 export default function CommissioningPage() {
-  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading } = useAppContext();
+  const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading, updateUserSettings } = useAppContext();
   const { toast } = useToast();
   
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -618,6 +618,47 @@ export default function CommissioningPage() {
   const [torchOn, setTorchOn] = React.useState(false);
 
   const [sortConfig, setSortConfig] = React.useState<{ key: SortKey, direction: 'asc' | 'desc' }>({ key: 'createdAt', direction: 'desc' });
+  const [openSections, setOpenSections] = React.useState<string[]>([]);
+  const [isCompactView, setIsCompactView] = React.useState(false);
+  
+   React.useEffect(() => {
+    if (currentUser) {
+      const initialOpen: string[] = [];
+      if (!currentUser.commissioningView?.draftsCollapsed) {
+        initialOpen.push('drafts');
+      }
+      if (!currentUser.commissioningView?.readyCollapsed) {
+        initialOpen.push('ready');
+      }
+      setOpenSections(initialOpen);
+      setIsCompactView(currentUser.commissioningView?.isCompact ?? false);
+    }
+  }, [currentUser]);
+
+  const handleSectionToggle = (value: string[]) => {
+    setOpenSections(value);
+    if (currentUser) {
+        updateUserSettings({
+            commissioningView: {
+                ...currentUser.commissioningView,
+                draftsCollapsed: !value.includes('drafts'),
+                readyCollapsed: !value.includes('ready'),
+            }
+        });
+    }
+  };
+  
+    const handleCompactViewChange = (checked: boolean) => {
+        setIsCompactView(checked);
+        if (currentUser) {
+            updateUserSettings({
+                commissioningView: {
+                    ...currentUser.commissioningView,
+                    isCompact: checked,
+                }
+            });
+        }
+    };
 
 
   const mainWarehouseItems = React.useMemo(() => {
@@ -768,22 +809,29 @@ export default function CommissioningPage() {
     });
   };
 
-  const activeCommissions = React.useMemo(() => {
+  const sortCommissions = (commissionList: Commission[]) => {
+    return [...commissionList].sort((a, b) => {
+        const { key, direction } = sortConfig;
+        const dir = direction === 'asc' ? 1 : -1;
+        
+        switch(key) {
+            case 'name': return a.name.localeCompare(b.name) * dir;
+            case 'orderNumber': return a.orderNumber.localeCompare(b.orderNumber) * dir;
+            case 'status': return getStatusText(a.status).localeCompare(getStatusText(b.status)) * dir;
+            case 'createdAt':
+            default: return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir * -1; // Default to desc
+        }
+    });
+  };
+  
+  const readyCommissions = React.useMemo(() => {
     if (!commissions) return [];
-    return [...commissions]
-      .filter(c => c.status !== 'withdrawn')
-      .sort((a, b) => {
-          const { key, direction } = sortConfig;
-          const dir = direction === 'asc' ? 1 : -1;
-          
-          switch(key) {
-              case 'name': return a.name.localeCompare(b.name) * dir;
-              case 'orderNumber': return a.orderNumber.localeCompare(b.orderNumber) * dir;
-              case 'status': return getStatusText(a.status).localeCompare(getStatusText(b.status)) * dir;
-              case 'createdAt':
-              default: return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir * -1; // Default to desc
-          }
-      });
+    return sortCommissions(commissions.filter(c => c.status === 'ready'));
+  }, [commissions, sortConfig]);
+
+  const draftCommissions = React.useMemo(() => {
+      if (!commissions) return [];
+      return sortCommissions(commissions.filter(c => c.status === 'draft' || c.status === 'preparing'));
   }, [commissions, sortConfig]);
 
   const withdrawnCommissions = React.useMemo(() => {
@@ -914,6 +962,7 @@ export default function CommissioningPage() {
         }
     } else {
         // Fuzzy search for transaction number in all active commissions
+        const activeCommissions = [...draftCommissions, ...readyCommissions];
         for (const commission of activeCommissions) {
             for (const item of commission.items) {
                 if (item.source === 'external_order' && item.transactionNumber && scannedData.includes(item.transactionNumber)) {
@@ -927,7 +976,7 @@ export default function CommissioningPage() {
         toast({ title: 'Keine passende Kommission gefunden', description: 'Der gescannte Code konnte keiner externen Bestellung zugeordnet werden.', variant: 'destructive' });
     }
     lastScannedId.current = null; // Allow re-scanning after message
-  }, [activeCommissions, commissions, toast]);
+  }, [draftCommissions, readyCommissions, commissions, toast]);
 
     const captureCode = React.useCallback(async () => {
         if (!webcamRef.current) return;
@@ -1004,6 +1053,131 @@ export default function CommissioningPage() {
             }
         }
     };
+    
+    const CommissionCard = ({ commission }: { commission: Commission }) => {
+        if (isCompactView) {
+            return (
+                <Collapsible>
+                    <div className="rounded-lg bg-card shadow-sm border">
+                        <div className="flex items-center justify-between p-3">
+                            <CollapsibleTrigger className="flex-1 min-w-0 text-left">
+                                <p className="font-semibold truncate">{commission.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">Auftrags-Nr: {commission.orderNumber}</p>
+                            </CollapsibleTrigger>
+                            <Badge variant={getStatusVariant(commission.status)}>{getStatusText(commission.status)}</Badge>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onSelect={() => setDetailCommission(commission)}><Info className="mr-2 h-4 w-4" /> Details</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => handleOpenForm(commission)}><Pencil className="mr-2 h-4 w-4" /> Bearbeiten</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}><Printer className="mr-2 h-4 w-4" /> Etikett</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setCommissionToDelete(commission)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                        <CollapsibleContent>
+                            <CardContent className="pt-0 border-t">
+                                {commission.notes ? (
+                                    <p className="text-sm text-muted-foreground italic h-10 overflow-hidden text-ellipsis pt-4">
+                                        &quot;{commission.notes}&quot;
+                                    </p>
+                                ) : (
+                                    <div className="h-10 pt-4"></div>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-4">
+                                    Erstellt von {commission.createdBy} am {format(new Date(commission.createdAt), 'dd.MM.yyyy', { locale: de })}
+                                </p>
+                            </CardContent>
+                            <CardFooter className="grid grid-cols-2 gap-2">
+                                <Button className={cn("w-full", commission.items.length === 0 && "hidden")} variant="outline" onClick={() => setPreparingCommission(commission)}>
+                                    <ClipboardList className="mr-2 h-4 w-4"/> Vorbereiten
+                                </Button>
+                                <Button className={cn("w-full", commission.items.length === 0 && "col-span-2")} onClick={() => handleWithdraw(commission)} disabled={commission.status !== 'ready' && !(commission.status === 'draft' && commission.items.length === 0)}>
+                                    <Archive className="mr-2 h-4 w-4"/> Entnehmen
+                                </Button>
+                            </CardFooter>
+                        </CollapsibleContent>
+                    </div>
+                </Collapsible>
+            );
+        }
+
+        return (
+            <Card className="flex flex-col">
+                <CardHeader>
+                    <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                            <CardTitle className="truncate pr-2">{commission.name}</CardTitle>
+                            <CardDescription>Auftrags-Nr: {commission.orderNumber}</CardDescription>
+                        </div>
+                        <div className="flex items-center">
+                            <Badge variant={getStatusVariant(commission.status)}>{getStatusText(commission.status)}</Badge>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Aktionen</DropdownMenuLabel>
+                                    <DropdownMenuItem onSelect={() => setDetailCommission(commission)}><Info className="mr-2 h-4 w-4" /> Details anzeigen</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => handleOpenForm(commission)}><Pencil className="mr-2 h-4 w-4" /> Bearbeiten</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}><Printer className="mr-2 h-4 w-4" /> Etikett drucken</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setCommissionToDelete(commission)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                    {commission.notes ? (
+                        <p className="text-sm text-muted-foreground italic h-10 overflow-hidden text-ellipsis">
+                            &quot;{commission.notes}&quot;
+                        </p>
+                    ) : (
+                        <div className="h-10"></div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-4">
+                        Erstellt von {commission.createdBy} am {format(new Date(commission.createdAt), 'dd.MM.yyyy', { locale: de })}
+                    </p>
+                </CardContent>
+                <CardFooter className="grid grid-cols-2 gap-2">
+                    <Button className={cn("w-full", commission.items.length === 0 && "hidden")} variant="outline" onClick={() => setPreparingCommission(commission)}>
+                        <ClipboardList className="mr-2 h-4 w-4"/> Vorbereiten
+                    </Button>
+                    <Button className={cn("w-full", commission.items.length === 0 && "col-span-2")} onClick={() => handleWithdraw(commission)} disabled={commission.status !== 'ready' && !(commission.status === 'draft' && commission.items.length === 0)}>
+                        <Archive className="mr-2 h-4 w-4"/> Entnehmen
+                    </Button>
+                </CardFooter>
+            </Card>
+        );
+    };
+
+    const CommissionSection = ({ commissionsList }: { commissionsList: Commission[]}) => (
+        <div className="space-y-4">
+            {commissionsList.length > 0 ? (
+                 <div className={cn("grid gap-4", !isCompactView && "md:grid-cols-2 lg:grid-cols-3")}>
+                    {commissionsList.map(commission => (
+                       <CommissionCard key={commission.id} commission={commission} />
+                    ))}
+                </div>
+            ) : (
+                 <Card className="mt-4">
+                    <CardContent className="pt-6">
+                        <div className="text-center text-muted-foreground py-12">
+                            <PackageSearch className="mx-auto h-12 w-12" />
+                            <h3 className="mt-4 text-lg font-semibold">Keine Kommissionen</h3>
+                            <p className="mt-2 text-sm">Für diese Kategorie gibt es keine Kommissionen.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    );
 
 
   return (
@@ -1026,6 +1200,13 @@ export default function CommissioningPage() {
                         <DropdownMenuRadioItem value="orderNumber">Auftrags-Nr.</DropdownMenuRadioItem>
                         <DropdownMenuRadioItem value="status">Status</DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="focus:bg-transparent">
+                        <div className="flex items-center justify-between w-full">
+                            <Label htmlFor="compact-view">Kompaktansicht</Label>
+                            <Switch id="compact-view" checked={isCompactView} onCheckedChange={handleCompactViewChange} />
+                        </div>
+                    </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
             <Button size="sm" variant="outline" className="h-8 gap-1" onClick={openScanner}>
@@ -1041,7 +1222,7 @@ export default function CommissioningPage() {
       
        <Tabs defaultValue="active" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="active">Aktiv ({activeCommissions.length})</TabsTrigger>
+            <TabsTrigger value="active">Aktiv</TabsTrigger>
             <TabsTrigger value="withdrawn">Entnommen</TabsTrigger>
         </TabsList>
         <TabsContent value="active">
@@ -1051,85 +1232,25 @@ export default function CommissioningPage() {
                         <p>Lade Kommissionen...</p>
                     </CardContent>
                 </Card>
-              ) : activeCommissions.length === 0 ? (
-                <Card className="mt-4">
-                    <CardContent className="pt-6">
-                        <div className="text-center text-muted-foreground py-12">
-                            <PackageSearch className="mx-auto h-12 w-12" />
-                            <h3 className="mt-4 text-lg font-semibold">Keine aktiven Kommissionen</h3>
-                            <p className="mt-2 text-sm">Erstellen Sie eine neue Kommission, um zu beginnen.</p>
-                        </div>
-                    </CardContent>
-                </Card>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4">
-                  {activeCommissions.map(commission => (
-                    <Card key={commission.id} className="flex flex-col">
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                           <div className="flex-1 min-w-0">
-                                <CardTitle className="truncate pr-2">{commission.name}</CardTitle>
-                                <CardDescription>Auftrags-Nr: {commission.orderNumber}</CardDescription>
-                           </div>
-                           <div className="flex items-center">
-                                <Badge variant={getStatusVariant(commission.status)}>{getStatusText(commission.status)}</Badge>
-                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Aktionen</DropdownMenuLabel>
-                                          <DropdownMenuItem onSelect={() => setDetailCommission(commission)}>
-                                              <Info className="mr-2 h-4 w-4" /> Details anzeigen
-                                          </DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => handleOpenForm(commission)}>
-                                            <Pencil className="mr-2 h-4 w-4" /> Bearbeiten
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}>
-                                            <Printer className="mr-2 h-4 w-4" /> Etikett drucken
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem className="text-destructive" onSelect={() => setCommissionToDelete(commission)}>
-                                            <Trash2 className="mr-2 h-4 w-4" /> Löschen
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                           </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="flex-grow">
-                        {commission.notes ? (
-                            <p className="text-sm text-muted-foreground italic h-10 overflow-hidden text-ellipsis">
-                                &quot;{commission.notes}&quot;
-                            </p>
-                        ) : (
-                            <div className="h-10"></div>
-                        )}
-                         <p className="text-xs text-muted-foreground mt-4">
-                            Erstellt von {commission.createdBy} am {format(new Date(commission.createdAt), 'dd.MM.yyyy', { locale: de })}
-                        </p>
-                      </CardContent>
-                      <CardFooter className="grid grid-cols-2 gap-2">
-                        <Button 
-                          className={cn("w-full", commission.items.length === 0 && "hidden")}
-                          variant="outline" 
-                          onClick={() => setPreparingCommission(commission)}
-                        >
-                              <ClipboardList className="mr-2 h-4 w-4"/>
-                              Vorbereiten
-                        </Button>
-                        <Button 
-                            className={cn("w-full", commission.items.length === 0 && "col-span-2")}
-                            onClick={() => handleWithdraw(commission)} 
-                            disabled={commission.status !== 'ready' && !(commission.status === 'draft' && commission.items.length === 0)}>
-                            <Archive className="mr-2 h-4 w-4"/>
-                            Entnehmen
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
+                <Accordion type="multiple" value={openSections} onValueChange={handleSectionToggle} className="w-full space-y-4 mt-4">
+                    <AccordionItem value="ready" className="border-b-0">
+                        <AccordionTrigger className="text-lg font-semibold bg-card px-4 py-3 rounded-lg border hover:no-underline">
+                            Bereitgestellt ({readyCommissions.length})
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-4">
+                            <CommissionSection commissionsList={readyCommissions} />
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="drafts" className="border-b-0">
+                        <AccordionTrigger className="text-lg font-semibold bg-card px-4 py-3 rounded-lg border hover:no-underline">
+                            Entwürfe & In Vorbereitung ({draftCommissions.length})
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-4">
+                            <CommissionSection commissionsList={draftCommissions} />
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
               )}
         </TabsContent>
         <TabsContent value="withdrawn">
