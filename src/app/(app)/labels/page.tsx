@@ -75,11 +75,11 @@ export default function LabelsPage() {
         if (!itemsBySubLocation[item.subLocation]) {
           itemsBySubLocation[item.subLocation] = [];
         }
-        itemsBySubLocation[item.subLocation].push(item as InventoryItem);
+        itemsBySubLocation[item.subLocation]!.push(item as InventoryItem);
       });
       
       // Filter out subLocations that have less than 2 items
-      const relevantSubLocations = Object.keys(itemsBySubLocation).filter(subLoc => itemsBySubLocation[subLoc].length >= 2);
+      const relevantSubLocations = Object.keys(itemsBySubLocation).filter(subLoc => (itemsBySubLocation[subLoc] || []).length >= 2);
       
       return relevantSubLocations.sort();
   }, [items, selectedMainLocation, selectedLocationId]);
@@ -201,7 +201,7 @@ const handleDownload = React.useCallback(async () => {
                     console.error('Fehler beim Erstellen eines Etiketts:', err);
                     reject(err);
                 }
-            }, index * 100); // 100ms delay between each download
+            }, 100); // 100ms delay between each download
         });
     };
 
@@ -359,7 +359,9 @@ const handleDownload = React.useCallback(async () => {
                             {filteredItems.length > 0 ? (
                                 filteredItems.map(item => {
                                     if (!isInventoryItem(item)) return null;
-                                    const needsLabelUpdate = !!((item.changelog || []).filter(log => log.type === 'update').sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] && isInventoryItem(item) && item.labelLastPrintedAt && new Date((item.changelog || []).filter(log => log.type === 'update').sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]!.date) > new Date(item.labelLastPrintedAt));
+                                    const updateLogs = (item.changelog || []).filter(log => log.type === 'update').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                                    const lastUpdate = updateLogs[0];
+                                    const needsLabelUpdate = !!(lastUpdate && isInventoryItem(item) && item.labelLastPrintedAt && new Date(lastUpdate.date) > new Date(item.labelLastPrintedAt));
                                     return(
                                     <TableRow key={item.id}>
                                         <TableCell><Checkbox checked={selectedItems.has(item.id)} onCheckedChange={(checked) => handleSelectItem(item.id, !!checked)} aria-label={`${item.name} auswählen`} /></TableCell>
@@ -600,3 +602,5 @@ const handleDownload = React.useCallback(async () => {
     </div>
   );
 }
+
+    

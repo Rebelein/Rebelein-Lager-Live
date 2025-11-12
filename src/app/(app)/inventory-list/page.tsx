@@ -3215,9 +3215,27 @@ Waschtischarmatur Classic,WTA-C,,Regal B,Fach 1,25,5`;
             </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+       <AlertDialog open={isPostSaveLabelOpen} onOpenChange={setIsPostSaveLabelOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Daten geändert</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Die Daten für &quot;{itemJustSaved?.name}&quot; wurden geändert. Möchten Sie jetzt ein aktualisiertes Etikett drucken?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <Button variant="secondary" onClick={handlePostSaveDismiss}>Später erinnern</Button>
+                <AlertDialogAction onClick={handlePostSavePrint}>Ja, Etikett drucken</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 
 
+
+
+    
