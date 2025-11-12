@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -12,11 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/context/AppContext';
 import type { Commission, CommissionItem, InventoryItem } from '@/lib/types';
-import { PlusCircle, Archive, PackageSearch, ChevronsUpDown, ClipboardList, Warehouse, CheckCircle, Circle, X, MoreHorizontal, Pencil, Trash2, ShoppingCart, Minus, Plus, Undo, Info } from 'lucide-react';
+import { PlusCircle, Archive, PackageSearch, ChevronsUpDown, ClipboardList, Warehouse, CheckCircle, Circle, X, MoreHorizontal, Pencil, Trash2, ShoppingCart, Minus, Plus, Undo, Info, Printer, Mail, ScanLine, Save, RefreshCw, Zap, ZapOff, Camera, ArrowUpDown, ArrowDown, ArrowUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { isInventoryItem } from '@/lib/utils';
@@ -30,11 +29,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
+import QRCode from 'react-qr-code';
+import { toPng } from 'html-to-image';
+import { Slider } from '@/components/ui/slider';
+import jsPDF from 'jspdf';
+import Webcam from 'react-webcam';
+import jsQR from 'jsqr';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
+import { useCallback, useEffect } from 'react';
 
 
 const getStatusVariant = (status: Commission['status']) => {
@@ -64,7 +72,7 @@ const getStatusText = (status: Commission['status']) => {
 
 // *** Commission Detail/Preparation Dialog ***
 function CommissionPreparationDialog({
-    commission: initialCommission,
+    commission,
     onOpenChange,
     onUpdateCommission,
 }: {
@@ -74,7 +82,8 @@ function CommissionPreparationDialog({
 }) {
     const { reduceStockForCommissionItem, increaseStockForCommissionItem } = useAppContext();
     const { toast } = useToast();
-    const [localItems, setLocalItems] = React.useState<CommissionItem[]>(() => JSON.parse(JSON.stringify(initialCommission.items)));
+    const [localItems, setLocalItems] = React.useState<CommissionItem[]>(() => JSON.parse(JSON.stringify(commission.items)));
+    const originalCommissionRef = React.useRef(commission);
 
     const handleToggleItem = (itemToToggle: CommissionItem) => {
         setLocalItems(currentItems =>
@@ -87,22 +96,20 @@ function CommissionPreparationDialog({
     };
 
     const handleFinalizePreparation = () => {
-        const originalItems = initialCommission.items;
+        const updatedCommission = { ...originalCommissionRef.current, items: localItems };
 
-        originalItems.forEach(originalItem => {
-            const updatedItem = localItems.find(li => li.id === originalItem.id);
-            if (!updatedItem) return; // Should not happen
+        localItems.forEach(updatedItem => {
+            const originalItem = originalCommissionRef.current.items.find(oi => oi.id === updatedItem.id);
+            if(!originalItem) return;
 
             const wasReady = originalItem.status === 'ready';
             const isReady = updatedItem.status === 'ready';
-
+            
             if (originalItem.source === 'main_warehouse') {
-                if (isReady && !wasReady) {
-                    // Item was newly checked
-                    reduceStockForCommissionItem(initialCommission.id, originalItem.id, originalItem.quantity);
+                 if (isReady && !wasReady) {
+                    reduceStockForCommissionItem(originalCommissionRef.current.id, originalItem.id, originalItem.quantity);
                 } else if (!isReady && wasReady) {
-                    // Item was unchecked
-                    increaseStockForCommissionItem(initialCommission.id, originalItem.id, originalItem.quantity);
+                    increaseStockForCommissionItem(originalCommissionRef.current.id, originalItem.id, originalItem.quantity);
                 }
             } else {
                  if (isReady && !wasReady) {
@@ -112,12 +119,10 @@ function CommissionPreparationDialog({
                 }
             }
         });
-        
-        const updatedCommission = { ...initialCommission, items: localItems };
-        onUpdateCommission(initialCommission, updatedCommission);
+
+        onUpdateCommission(originalCommissionRef.current, updatedCommission);
         onOpenChange(false);
     };
-
 
     const handleRemoveItem = (itemId: string) => {
          const itemToRemove = localItems.find(i => i.id === itemId);
@@ -132,8 +137,8 @@ function CommissionPreparationDialog({
         <Dialog open={true} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-xl h-[70vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Kommission vorbereiten: {initialCommission.name}</DialogTitle>
-                    <DialogDescription>Auftrags-Nr: {initialCommission.orderNumber}. Haken Sie die Artikel ab, um sie zu kommissionieren und den Bestand zu reduzieren.</DialogDescription>
+                    <DialogTitle>Kommission vorbereiten: {commission.name}</DialogTitle>
+                    <DialogDescription>Auftrags-Nr: {commission.orderNumber}. Haken Sie die Artikel ab, um sie zu kommissionieren und den Bestand zu reduzieren.</DialogDescription>
                 </DialogHeader>
                 <div className="flex-1 min-h-0">
                     <ScrollArea className="border rounded-lg h-full">
@@ -148,7 +153,7 @@ function CommissionPreparationDialog({
                                     </Button>
                                     <div className="flex-1">
                                         <p className="font-medium">{item.name}</p>
-                                        <p className="text-xs text-muted-foreground">{item.source === 'external_order' ? 'Externe Bestellung' : item.itemNumber}</p>
+                                        <p className="text-xs text-muted-foreground">{item.source === 'external_order' ? `Vorgang: ${item.transactionNumber || 'N/A'}` : item.itemNumber}</p>
                                     </div>
                                     <div className="font-semibold">{item.quantity} Stk.</div>
                                     <Button 
@@ -273,6 +278,7 @@ function CommissionDetailDialog({ commission, onOpenChange }: { commission: Comm
                                                     {getItemStatusIcon(item.status)}
                                                     <div className="flex-1">
                                                         <p className="font-semibold">{item.name}</p>
+                                                        <p className="text-xs text-muted-foreground">Vorgang: {item.transactionNumber || 'N/A'}</p>
                                                     </div>
                                                     <div className="font-bold">{item.quantity} Stk.</div>
                                                 </li>
@@ -295,10 +301,287 @@ function CommissionDetailDialog({ commission, onOpenChange }: { commission: Comm
     )
 }
 
+const presetLabelSizes = [
+  { name: 'Klein (40x20mm)', width: 40, height: 20 },
+  { name: 'Mittel (60x30mm)', width: 60, height: 30 },
+  { name: 'Groß (80x40mm)', width: 80, height: 40 },
+  { name: 'Versand (102x50mm)', width: 102, height: 50 },
+];
+
+const DPI = 96;
+const MM_PER_INCH = 25.4;
+const mmToPx = (mm: number) => (mm / MM_PER_INCH) * DPI;
+
+function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: Commission | null, onOpenChange: (open: boolean) => void}) {
+    const { toast } = useToast();
+    const { appSettings, updateAppSettings } = useAppContext();
+    const qrCodeRef = React.useRef<HTMLDivElement>(null);
+
+    const [labelSize, setLabelSize] = React.useState({ width: 80, height: 40 });
+    const [fontSize, setFontSize] = React.useState(70);
+    
+    React.useEffect(() => {
+        if(appSettings?.labelSettings?.commission) {
+            setLabelSize({
+                width: appSettings.labelSettings.commission.width,
+                height: appSettings.labelSettings.commission.height,
+            });
+            setFontSize(appSettings.labelSettings.commission.fontSize);
+        }
+    }, [appSettings, open]);
+
+    const generatePdf = React.useCallback(async (): Promise<Blob> => {
+        if (!qrCodeRef.current || !commission) throw new Error("Label element not found");
+        
+        const dataUrl = await toPng(qrCodeRef.current, {
+          cacheBust: true,
+          pixelRatio: 3,
+          fontEmbedCSS: `@font-face {
+            font-family: 'PT Sans';
+            src: url('https://fonts.gstatic.com/s/ptsans/v17/jizaRExUiTo99u79D0-ExdGM.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+          }
+          @font-face {
+            font-family: 'PT Sans';
+            src: url('https://fonts.gstatic.com/s/ptsans/v17/jizfRExUiTo99u79B_mh4O3f-A.woff2') format('woff2');
+            font-weight: bold;
+            font-style: normal;
+          }`,
+        });
+        
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a6' // DIN A6 format
+        });
+
+        // A6 size in mm is 105 x 148
+        const xOffset = 10;
+        let yOffset = 10;
+
+        pdf.addImage(dataUrl, 'PNG', xOffset, yOffset, labelSize.width, labelSize.height);
+        yOffset += labelSize.height + 15; // Move below the label image
+
+        // Add text content below the image
+        const itemsFromWarehouse = commission.items.filter(item => item.source === 'main_warehouse');
+        const itemsFromOrders = commission.items.filter(item => item.source === 'external_order');
+
+        pdf.setFont('PT Sans', 'bold');
+        pdf.setFontSize(12);
+
+        if (itemsFromWarehouse.length > 0) {
+            pdf.text('Benötigtes Material aus Lager:', xOffset, yOffset);
+            yOffset += 7;
+            pdf.setFont('PT Sans', 'normal');
+            pdf.setFontSize(10);
+            itemsFromWarehouse.forEach(item => {
+                if (yOffset > 138) { // Check if new page is needed
+                    pdf.addPage();
+                    yOffset = 10;
+                }
+                pdf.text(`- ${item.quantity}x ${item.name}`, xOffset, yOffset);
+                yOffset += 5;
+            });
+            yOffset += 5; // Extra space
+        }
+        
+        if (itemsFromOrders.length > 0) {
+            pdf.setFont('PT Sans', 'bold');
+            pdf.setFontSize(12);
+            if (yOffset > 138) { pdf.addPage(); yOffset = 10; }
+            pdf.text('Erwartete externe Bestellungen:', xOffset, yOffset);
+            yOffset += 7;
+            pdf.setFont('PT Sans', 'normal');
+            pdf.setFontSize(10);
+            itemsFromOrders.forEach(item => {
+                 if (yOffset > 138) { pdf.addPage(); yOffset = 10; }
+                pdf.text(`- ${item.name} (${item.transactionNumber || 'N/A'})`, xOffset, yOffset);
+                yOffset += 5;
+            });
+        }
+        
+        return pdf.output('blob');
+    }, [commission, labelSize]);
+
+    const handleDownloadPng = React.useCallback(async () => {
+        if (!qrCodeRef.current || !commission) return;
+        try {
+            const dataUrl = await toPng(qrCodeRef.current, {
+                cacheBust: true,
+                pixelRatio: 3,
+                fontEmbedCSS: `@font-face {
+                    font-family: 'PT Sans';
+                    src: url('https://fonts.gstatic.com/s/ptsans/v17/jizaRExUiTo99u79D0-ExdGM.woff2') format('woff2');
+                    font-weight: normal;
+                    font-style: normal;
+                  }
+                  @font-face {
+                    font-family: 'PT Sans';
+                    src: url('https://fonts.gstatic.com/s/ptsans/v17/jizfRExUiTo99u79B_mh4O3f-A.woff2') format('woff2');
+                    font-weight: bold;
+                    font-style: normal;
+                  }`,
+            });
+            const link = document.createElement('a');
+            link.download = `kommission-${commission.name.replace(/\s+/g, '-')}.png`;
+            link.href = dataUrl;
+            link.click();
+            toast({ title: 'Etikett heruntergeladen' });
+        } catch (err) {
+            console.error(err);
+            toast({ title: 'Fehler beim Erstellen des Bildes', variant: 'destructive' });
+        }
+    }, [commission?.name, toast, commission]);
+    
+    const handleSaveAsDefault = () => {
+        if (!appSettings) return;
+        updateAppSettings({
+            ...appSettings,
+            labelSettings: {
+                ...appSettings.labelSettings,
+                commission: {
+                    width: labelSize.width,
+                    height: labelSize.height,
+                    fontSize,
+                }
+            }
+        });
+        toast({ title: 'Standardeinstellungen gespeichert', description: 'Die aktuellen Einstellungen wurden als Standard für Kommissions-Etiketten gespeichert.' });
+    };
+
+    if (!commission) return null;
+
+    const handleSendEmail = async () => {
+        const printerEmail = appSettings?.commission?.printerEmail;
+        if (!printerEmail) {
+            toast({
+                title: 'E-Mail-Adresse fehlt',
+                description: 'Bitte hinterlegen Sie die Drucker-E-Mail-Adresse in den Einstellungen.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        try {
+            const pdfBlob = await generatePdf();
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(pdfBlob); 
+            reader.onloadend = function() {
+                const base64data = reader.result;
+                const mailtoLink = `mailto:${printerEmail}?subject=${encodeURIComponent(`Kommission: ${commission.name}`)}&body=${encodeURIComponent(`Anhang: Kommission-${commission.name.replace(/\s+/g, '-')}.pdf`)}`;
+                
+                const a = document.createElement('a');
+                a.href = mailtoLink;
+                // You can't directly attach a file this way due to security reasons.
+                // The user has to attach the file manually. Let's provide the download for them.
+                
+                const url = URL.createObjectURL(pdfBlob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = `Kommission-${commission.name}.pdf`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(url);
+                
+                toast({
+                    title: 'PDF heruntergeladen',
+                    description: 'Das PDF wurde heruntergeladen. Bitte hängen Sie es manuell an die E-Mail an.',
+                });
+                
+                // Open mail client
+                window.location.href = mailtoLink;
+            }
+
+        } catch (err) {
+            console.error(err);
+            toast({ title: 'Fehler beim Erstellen des PDFs', variant: 'destructive' });
+        }
+    };
+
+
+    const labelWidthPx = mmToPx(labelSize.width);
+    const labelHeightPx = mmToPx(labelSize.height);
+
+    return (
+        <Dialog open={!!commission} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>Etikett für Kommission: {commission.name}</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 max-h-[70vh]">
+                     <div className="space-y-6 overflow-y-auto pr-4">
+                        <div>
+                            <Label className="mb-2 block">Voreinstellungen</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {presetLabelSizes.map(preset => (
+                                    <Button key={preset.name} variant="outline" size="sm" onClick={() => setLabelSize({ width: preset.width, height: preset.height })}>
+                                        {preset.name}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                             <div>
+                                <Label htmlFor="label-width" className="mb-2 block text-sm font-medium">Breite ({labelSize.width}mm)</Label>
+                                <Slider id="label-width" min={40} max={150} step={1} value={[labelSize.width]} onValueChange={v => setLabelSize(p => ({...p, width: v[0]!}))} />
+                            </div>
+                            <div>
+                                <Label htmlFor="label-height" className="mb-2 block text-sm font-medium">Höhe ({labelSize.height}mm)</Label>
+                                <Slider id="label-height" min={20} max={100} step={1} value={[labelSize.height]} onValueChange={v => setLabelSize(p => ({...p, height: v[0]!}))} />
+                            </div>
+                            <div>
+                                <Label htmlFor="font-size" className="mb-2 block text-sm font-medium">Schriftgröße ({fontSize}%)</Label>
+                                <Slider id="font-size" min={50} max={150} step={10} value={[fontSize]} onValueChange={v => setFontSize(v[0]!)} />
+                            </div>
+                        </div>
+                    </div>
+                     <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-4 rounded-md min-h-[200px]">
+                        <div id="label-to-download" ref={qrCodeRef}>
+                            <div
+                                className="p-2 bg-white border flex items-stretch justify-center gap-2"
+                                style={{
+                                    fontFamily: "'PT Sans', sans-serif",
+                                    width: `${labelWidthPx}px`,
+                                    height: `${labelHeightPx}px`,
+                                    boxSizing: 'content-box'
+                                }}
+                            >
+                                <div className="flex-1 flex flex-col justify-between overflow-hidden p-1">
+                                    <div>
+                                        <p className="text-black font-bold" style={{ fontSize: `${Math.max(8, (labelHeightPx * 0.15) * (fontSize / 100))}px`, lineHeight: 1.1 }}>{commission.name}</p>
+                                        <p className="text-gray-600" style={{ fontSize: `${Math.max(7, (labelHeightPx * 0.12) * (fontSize / 100))}px`, lineHeight: 1 }}>Auftrag: {commission.orderNumber}</p>
+                                    </div>
+                                    {commission.notes && <p className="text-gray-500 italic text-xs" style={{ fontSize: `${Math.max(6, (labelHeightPx * 0.1) * (fontSize / 100))}px`, lineHeight: 1.2 }}>&quot;{commission.notes}&quot;</p>}
+                                </div>
+                                <div className="h-full flex items-center justify-center p-1" style={{ width: `${Math.min(labelHeightPx - 8, 120)}px` }}>
+                                    <QRCode value={`commission::${commission.id}`} size={Math.min(labelHeightPx - 8, 120)} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter className="justify-between">
+                    <Button variant="outline" onClick={handleSaveAsDefault}><Save className="mr-2 h-4 w-4"/> Als Standard speichern</Button>
+                    <div className="flex gap-2">
+                        <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
+                        <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> Per E-Mail senden</Button>
+                        <Button onClick={handleDownloadPng}><Printer className="mr-2 h-4 w-4"/> Herunterladen (Bild)</Button>
+                    </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+type SortKey = 'name' | 'orderNumber' | 'createdAt' | 'status';
+
 export default function CommissioningPage() {
   const { currentUser, items, wholesalers, mainWarehouse, addOrUpdateCommission, deleteCommission, commissions, isLoading: isContextLoading } = useAppContext();
   const { toast } = useToast();
-
+  
   const [isFormOpen, setIsFormOpen] = React.useState(false);
   const [editingCommission, setEditingCommission] = React.useState<Commission | null>(null);
   const [commissionToDelete, setCommissionToDelete] = React.useState<Commission | null>(null);
@@ -311,10 +594,32 @@ export default function CommissioningPage() {
   const [newCommissionNotes, setNewCommissionNotes] = React.useState('');
   const [newCommissionItems, setNewCommissionItems] = React.useState<CommissionItem[]>([]);
   const [isWarehouseSearchOpen, setIsWarehouseSearchOpen] = React.useState(false);
+  const [addingWholesaler, setAddingWholesaler] = React.useState<string | null>(null);
+  const [wholesalerTransactionNumber, setWholesalerTransactionNumber] = React.useState('');
   
   const [preparingCommission, setPreparingCommission] = React.useState<Commission | null>(null);
   const [detailCommission, setDetailCommission] = React.useState<Commission | null>(null);
+  const [printingCommission, setPrintingCommission] = React.useState<Commission | null>(null);
+  const [scannedCommission, setScannedCommission] = React.useState<Commission | null>(null);
+
+  const [commissionJustSaved, setCommissionJustSaved] = React.useState<Commission | null>(null);
+  const [isPostSavePrintOpen, setIsPostSavePrintOpen] = React.useState(false);
   
+  const [isScannerOpen, setIsScannerOpen] = React.useState(false);
+  const [scannerType, setScannerType] = React.useState<'qr' | 'barcode'>('qr');
+  const [hasCameraPermission, setHasCameraPermission] = React.useState<boolean | null>(null);
+  const webcamRef = React.useRef<Webcam>(null);
+  const lastScannedId = React.useRef<string | null>(null);
+  const [isActionDialogOpen, setIsActionDialogOpen] = React.useState(false);
+
+  const [devices, setDevices] = React.useState<MediaDeviceInfo[]>([]);
+  const [activeDeviceId, setActiveDeviceId] = React.useState<string | undefined>(undefined);
+  const [torchSupported, setTorchSupported] = React.useState(false);
+  const [torchOn, setTorchOn] = React.useState(false);
+
+  const [sortConfig, setSortConfig] = React.useState<{ key: SortKey, direction: 'asc' | 'desc' }>({ key: 'createdAt', direction: 'desc' });
+
+
   const mainWarehouseItems = React.useMemo(() => {
     if (!mainWarehouse) return [];
     return items.filter(item => 
@@ -332,8 +637,11 @@ export default function CommissioningPage() {
             source: 'external_order',
             quantity: 1,
             status: 'pending',
+            transactionNumber: wholesalerTransactionNumber
         };
         setNewCommissionItems([...newCommissionItems, placeholderItem]);
+        setAddingWholesaler(null);
+        setWholesalerTransactionNumber('');
     };
 
   const handleAddItemToNewCommission = (item: InventoryItem) => {
@@ -362,6 +670,11 @@ export default function CommissioningPage() {
         setNewCommissionItems(newCommissionItems.map(i => i.id === itemId ? {...i, quantity: Math.max(1, newQuantity)} : i));
     };
 
+    const handleUpdateTransactionNumber = (itemId: string, transactionNumber: string) => {
+        setNewCommissionItems(newCommissionItems.map(i => i.id === itemId ? { ...i, transactionNumber } : i));
+    };
+
+
   const handleSaveCommission = () => {
     if (!currentUser) {
       toast({ title: 'Fehler', description: 'Benutzer nicht angemeldet oder Datenbankverbindung fehlt.', variant: 'destructive' });
@@ -375,31 +688,32 @@ export default function CommissioningPage() {
     let commissionData: Commission;
 
     if (editingCommission) {
-        commissionData = { 
-            ...editingCommission, 
-            name: newCommissionName.trim(),
-            orderNumber: newCommissionOrderNumber.trim(),
-            notes: newCommissionNotes.trim(),
-            items: newCommissionItems,
-        };
-        handleUpdateCommission(editingCommission, commissionData);
-        toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${commissionData.name}" wurde gespeichert.` });
+        handleUpdateCommission(editingCommission, {
+          ...editingCommission,
+          name: newCommissionName.trim(),
+          orderNumber: newCommissionOrderNumber.trim(),
+          notes: newCommissionNotes.trim(),
+          items: newCommissionItems
+        })
+        toast({ title: 'Kommission aktualisiert', description: `Die Kommission "${newCommissionName.trim()}" wurde gespeichert.` });
     } else {
-        const allItemsReadyForNew = newCommissionItems.length > 0 && newCommissionItems.every(i => i.status === 'ready');
         commissionData = {
           id: `commission-${Date.now()}`,
           name: newCommissionName.trim(),
           orderNumber: newCommissionOrderNumber.trim(),
           notes: newCommissionNotes.trim(),
-          status: allItemsReadyForNew ? 'ready' : (newCommissionItems.length > 0 ? 'preparing' : 'draft'),
+          status: 'draft',
           items: newCommissionItems,
           createdAt: new Date().toISOString(),
           createdBy: currentUser.name,
           withdrawnAt: null,
-          isNewlyReady: allItemsReadyForNew,
+          isNewlyReady: true, // Always set to true on creation
         };
         addOrUpdateCommission(commissionData); 
         toast({ title: 'Kommission erstellt', description: `Die Kommission "${commissionData.name}" wurde angelegt.` });
+        
+        setCommissionJustSaved(commissionData);
+        setIsPostSavePrintOpen(true);
     }
     
     setIsFormOpen(false);
@@ -416,14 +730,18 @@ export default function CommissioningPage() {
 
   const handleUpdateCommission = (oldCommission: Commission, updatedCommission: Commission) => {
       const allItemsReady = updatedCommission.items.length > 0 && updatedCommission.items.every(i => i.status === 'ready');
-      const newStatus: 'draft' | 'preparing' | 'ready' | 'withdrawn' = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
       
-      const commissionToSave = { ...updatedCommission, status: newStatus };
+      let newStatus: Commission['status'] = updatedCommission.status;
+      if(updatedCommission.status !== 'withdrawn') {
+        newStatus = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
+      }
 
-      // Check for the specific status transition to trigger the glow effect
-      const statusChangedToReady = (oldCommission.status === 'draft' || oldCommission.status === 'preparing') && newStatus === 'ready';
+      const commissionToSave: Commission = { ...updatedCommission, status: newStatus };
 
-      if (statusChangedToReady) {
+      const wasPreparing = oldCommission.status === 'draft' || oldCommission.status === 'preparing';
+      const isNowReady = newStatus === 'ready';
+
+      if (wasPreparing && isNowReady) {
         commissionToSave.isNewlyReady = true;
       }
 
@@ -441,12 +759,38 @@ export default function CommissioningPage() {
     setCommissionToDelete(null);
   };
 
+  const handleRequestSort = (key: SortKey) => {
+    setSortConfig(prev => {
+        if (prev.key === key) {
+            return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+        }
+        return { key, direction: 'asc' };
+    });
+  };
+
   const activeCommissions = React.useMemo(() => {
-    return (commissions || []).filter(c => c.status !== 'withdrawn').sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [commissions]);
+    if (!commissions) return [];
+    return [...commissions]
+      .filter(c => c.status !== 'withdrawn')
+      .sort((a, b) => {
+          const { key, direction } = sortConfig;
+          const dir = direction === 'asc' ? 1 : -1;
+          
+          switch(key) {
+              case 'name': return a.name.localeCompare(b.name) * dir;
+              case 'orderNumber': return a.orderNumber.localeCompare(b.orderNumber) * dir;
+              case 'status': return getStatusText(a.status).localeCompare(getStatusText(b.status)) * dir;
+              case 'createdAt':
+              default: return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir * -1; // Default to desc
+          }
+      });
+  }, [commissions, sortConfig]);
 
   const withdrawnCommissions = React.useMemo(() => {
-    return (commissions || []).filter(c => c.status === 'withdrawn').sort((a, b) => new Date(b.withdrawnAt || b.createdAt).getTime() - new Date(a.withdrawnAt || a.createdAt).getTime());
+    if (!commissions) return [];
+    return [...commissions]
+        .filter(c => c.status === 'withdrawn')
+        .sort((a,b) => (new Date(b.withdrawnAt || b.createdAt).getTime() - new Date(a.withdrawnAt || a.createdAt).getTime()));
   }, [commissions]);
   
   const handleReactivate = (commission: Commission) => {
@@ -478,14 +822,217 @@ export default function CommissioningPage() {
       setSelectedWithdrawn(new Set());
       setIsBulkDeleteOpen(false);
   };
+  
+  React.useEffect(() => {
+    if (!isContextLoading && commissions) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const commissionId = urlParams.get('commissionId');
+      if (commissionId) {
+        const foundCommission = commissions.find(c => c.id === commissionId);
+        if (foundCommission) {
+          if (urlParams.get('openDetails')) {
+            setDetailCommission(foundCommission);
+          } else if (urlParams.get('openPrepare')) {
+            setPreparingCommission(foundCommission);
+          } else if (urlParams.get('action') === 'withdraw') {
+            handleWithdraw(foundCommission);
+          }
+          // Clean up URL
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }
+    }
+  }, [isContextLoading, commissions]);
+
+  const handleDevices = React.useCallback(
+    (mediaDevices: MediaDeviceInfo[]) => {
+        const videoDevices = mediaDevices.filter(({ kind }) => kind === 'videoinput');
+        setDevices(videoDevices);
+        const backCamera = videoDevices.find(device => device.label.toLowerCase().includes('back'));
+        const newDeviceId = backCamera ? backCamera.deviceId : videoDevices[0]?.deviceId;
+        if (newDeviceId) {
+            setActiveDeviceId(newDeviceId);
+        }
+    },
+    []
+);
+
+   const checkTorchSupport = React.useCallback(async () => {
+        if (webcamRef.current?.stream) {
+            try {
+                const track = webcamRef.current.stream.getVideoTracks()[0];
+                if (!track) {
+                    setTorchSupported(false);
+                    return;
+                }
+                const capabilities = track.getCapabilities() as MediaTrackCapabilities & { torch?: boolean };
+                setTorchSupported(!!capabilities.torch);
+            } catch (e) {
+                console.error("Error checking torch support:", e);
+                setTorchSupported(false);
+            }
+        }
+    }, []);
+
+    const switchCamera = () => {
+        if (devices.length > 1 && activeDeviceId) {
+            const currentIndex = devices.findIndex(d => d.deviceId === activeDeviceId);
+            const nextIndex = (currentIndex + 1) % devices.length;
+            setActiveDeviceId(devices[nextIndex]?.deviceId);
+        }
+    };
+  
+  const openScanner = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        setHasCameraPermission(true);
+        const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+        handleDevices(mediaDevices);
+        stream.getTracks().forEach(track => track.stop());
+        setIsScannerOpen(true);
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+            variant: 'destructive',
+            title: 'Kamerazugriff verweigert',
+            description: 'Bitte aktivieren Sie den Kamerazugriff in Ihren Browsereinstellungen.',
+        });
+    }
+  };
+
+  const handleScan = React.useCallback((scannedData: string) => {
+    if (scannedData.startsWith('commission::')) {
+        const commissionId = scannedData.split('::')[1];
+        const foundCommission = commissions?.find(c => c.id === commissionId);
+        if (foundCommission) {
+            setScannedCommission(foundCommission);
+            setIsScannerOpen(false);
+            setIsActionDialogOpen(true);
+        } else {
+            toast({ title: 'Kommission nicht gefunden', variant: 'destructive'});
+        }
+    } else {
+        // Fuzzy search for transaction number in all active commissions
+        for (const commission of activeCommissions) {
+            for (const item of commission.items) {
+                if (item.source === 'external_order' && item.transactionNumber && scannedData.includes(item.transactionNumber)) {
+                    toast({ title: 'Lieferschein erkannt!', description: `Öffne Vorbereitung für Kommission "${commission.name}".`});
+                    setPreparingCommission(commission);
+                    setIsScannerOpen(false);
+                    return; // Stop after first match
+                }
+            }
+        }
+        toast({ title: 'Keine passende Kommission gefunden', description: 'Der gescannte Code konnte keiner externen Bestellung zugeordnet werden.', variant: 'destructive' });
+    }
+    lastScannedId.current = null; // Allow re-scanning after message
+  }, [activeCommissions, commissions, toast]);
+
+    const captureCode = React.useCallback(async () => {
+        if (!webcamRef.current) return;
+        const imageSrc = webcamRef.current.getScreenshot();
+        if (!imageSrc) return;
+
+        const image = new window.Image();
+        image.src = imageSrc;
+        await new Promise(resolve => image.onload = resolve);
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        
+        ctx.drawImage(image, 0, 0, image.width, image.height);
+        const imageData = ctx.getImageData(0, 0, image.width, image.height);
+
+        let codeFound = false;
+
+        // Respect the user's choice of scanner type
+        if (scannerType === 'qr') {
+            const qrCode = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+            if (qrCode && qrCode.data && lastScannedId.current !== qrCode.data) {
+                lastScannedId.current = qrCode.data;
+                codeFound = true;
+                handleScan(qrCode.data);
+            }
+        } else if (scannerType === 'barcode' && 'BarcodeDetector' in window) {
+            try {
+                // @ts-expect-error BarcodeDetector is not in global types
+                const barcodeDetector = new window.BarcodeDetector({ formats: ['code_128', 'ean_13', 'code_39'] });
+                const barcodes = await barcodeDetector.detect(imageData);
+                if (barcodes.length > 0 && barcodes[0] && lastScannedId.current !== barcodes[0].rawValue) {
+                    lastScannedId.current = barcodes[0].rawValue;
+                    codeFound = true;
+                    handleScan(barcodes[0].rawValue);
+                }
+            } catch (e) { console.warn('BarcodeDetector API not available or failed.', e); }
+        }
+
+        if (codeFound) {
+            setTimeout(() => { lastScannedId.current = null; }, 3000);
+        }
+    }, [handleScan, scannerType]);
+
+    React.useEffect(() => {
+        let intervalId: NodeJS.Timeout;
+        if (isScannerOpen && hasCameraPermission) {
+            intervalId = setInterval(captureCode, 500);
+        }
+        return () => clearInterval(intervalId);
+    }, [isScannerOpen, hasCameraPermission, captureCode]);
+
+    useEffect(() => {
+        if (webcamRef.current?.stream) {
+            checkTorchSupport();
+        }
+    }, [webcamRef.current?.stream, checkTorchSupport, activeDeviceId]);
+
+    const toggleTorch = async () => {
+        if (webcamRef.current?.stream && torchSupported) {
+            try {
+                const track = webcamRef.current.stream.getVideoTracks()[0];
+                if (!track) return;
+                await track.applyConstraints({
+                    advanced: [{ torch: !torchOn } as MediaTrackConstraintSet]
+                });
+                setTorchOn(!torchOn);
+            } catch (e) {
+                console.error("Failed to toggle torch:", e);
+                toast({ title: "Fehler", description: "Licht konnte nicht umgeschaltet werden.", variant: "destructive" });
+            }
+        }
+    };
 
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h1 className="text-lg font-semibold md:text-2xl">Kommissionierung</h1>
-        <div className="sm:ml-auto">
-          <Button size="sm" className="h-8 gap-1 w-full sm:w-auto" onClick={() => handleOpenForm(null)}>
+        <div className="flex items-center gap-2">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 gap-1">
+                        <ArrowUpDown className="h-4 w-4" /> Sortieren
+                        {sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4 text-muted-foreground" /> : <ArrowDown className="h-4 w-4 text-muted-foreground" />}
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Sortieren nach</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup value={sortConfig.key} onValueChange={(value) => handleRequestSort(value as SortKey)}>
+                        <DropdownMenuRadioItem value="createdAt">Erstelldatum</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="name">Name</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="orderNumber">Auftrags-Nr.</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="status">Status</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="sm" variant="outline" className="h-8 gap-1" onClick={openScanner}>
+                <ScanLine className="h-4 w-4" />
+                <span>Scannen</span>
+            </Button>
+          <Button size="sm" className="h-8 gap-1" onClick={() => handleOpenForm(null)}>
             <PlusCircle className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Neue Kommission</span>
           </Button>
@@ -494,7 +1041,7 @@ export default function CommissioningPage() {
       
        <Tabs defaultValue="active" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="active">Aktiv</TabsTrigger>
+            <TabsTrigger value="active">Aktiv ({activeCommissions.length})</TabsTrigger>
             <TabsTrigger value="withdrawn">Entnommen</TabsTrigger>
         </TabsList>
         <TabsContent value="active">
@@ -540,6 +1087,9 @@ export default function CommissioningPage() {
                                         <DropdownMenuItem onSelect={() => handleOpenForm(commission)}>
                                             <Pencil className="mr-2 h-4 w-4" /> Bearbeiten
                                         </DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}>
+                                            <Printer className="mr-2 h-4 w-4" /> Etikett drucken
+                                        </DropdownMenuItem>
                                         <DropdownMenuItem className="text-destructive" onSelect={() => setCommissionToDelete(commission)}>
                                             <Trash2 className="mr-2 h-4 w-4" /> Löschen
                                         </DropdownMenuItem>
@@ -561,11 +1111,18 @@ export default function CommissioningPage() {
                         </p>
                       </CardContent>
                       <CardFooter className="grid grid-cols-2 gap-2">
-                        <Button className="w-full" variant="outline" onClick={() => setPreparingCommission(commission)}>
-                            <ClipboardList className="mr-2 h-4 w-4"/>
-                            Vorbereiten
+                        <Button 
+                          className={cn("w-full", commission.items.length === 0 && "hidden")}
+                          variant="outline" 
+                          onClick={() => setPreparingCommission(commission)}
+                        >
+                              <ClipboardList className="mr-2 h-4 w-4"/>
+                              Vorbereiten
                         </Button>
-                        <Button className="w-full" onClick={() => handleWithdraw(commission)} disabled={commission.status !== 'ready'}>
+                        <Button 
+                            className={cn("w-full", commission.items.length === 0 && "col-span-2")}
+                            onClick={() => handleWithdraw(commission)} 
+                            disabled={commission.status !== 'ready' && !(commission.status === 'draft' && commission.items.length === 0)}>
                             <Archive className="mr-2 h-4 w-4"/>
                             Entnehmen
                         </Button>
@@ -603,6 +1160,7 @@ export default function CommissioningPage() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem onSelect={() => setDetailCommission(commission)}><Info className="mr-2 h-4 w-4" /> Details</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}><Printer className="mr-2 h-4 w-4"/> Etikett</DropdownMenuItem>
                                             <DropdownMenuItem onSelect={() => handleReactivate(commission)}><Undo className="mr-2 h-4 w-4"/> Wieder aktivieren</DropdownMenuItem>
                                             <DropdownMenuItem onSelect={() => setCommissionToDelete(commission)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/> Löschen</DropdownMenuItem>
                                         </DropdownMenuContent>
@@ -644,6 +1202,14 @@ export default function CommissioningPage() {
             onOpenChange={() => setDetailCommission(null)}
         />
       )}
+      
+      {printingCommission && (
+        <PrintCommissionLabelDialog 
+            commission={printingCommission}
+            onOpenChange={() => setPrintingCommission(null)}
+        />
+      )}
+
 
       <Dialog open={isFormOpen} onOpenChange={(open) => {
           if (!open) setEditingCommission(null);
@@ -657,8 +1223,7 @@ export default function CommissioningPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex-grow min-h-0">
-            <ScrollArea className="h-full -mx-6 px-6">
+          <ScrollArea className="flex-grow min-h-0 -mx-6 px-6">
                 <div className="grid md:grid-cols-2 gap-6 pt-4">
                   <div className="space-y-4">
                       <div className="space-y-2">
@@ -730,18 +1295,34 @@ export default function CommissioningPage() {
                                   <h4 className="font-medium text-sm flex items-center gap-2"><ShoppingCart className="h-4 w-4" />Externe Bestellung hinzufügen</h4>
                               </AccordionTrigger>
                               <AccordionContent>
-                                  <p className="text-xs text-muted-foreground mb-2">Fügt einen Platzhalter für eine Lieferung hinzu.</p>
-                                  <div className="space-y-2">
+                                  <div className="space-y-3">
                                       {wholesalers.map(wholesaler => (
-                                          <Button
-                                              key={wholesaler.id}
-                                              variant="outline"
-                                              className="w-full justify-start"
-                                              onClick={() => handleAddWholesalerPlaceholder(wholesaler.name)}
-                                          >
-                                              <PlusCircle className="mr-2 h-4 w-4" />
-                                              {wholesaler.name}
-                                          </Button>
+                                        <div key={wholesaler.id}>
+                                            {addingWholesaler === wholesaler.id ? (
+                                                <div className="p-3 border rounded-lg space-y-3">
+                                                    <Label htmlFor={`transaction-${wholesaler.id}`}>Vorgangsnummer für {wholesaler.name}</Label>
+                                                    <Input
+                                                        id={`transaction-${wholesaler.id}`}
+                                                        value={wholesalerTransactionNumber}
+                                                        onChange={(e) => setWholesalerTransactionNumber(e.target.value)}
+                                                        placeholder="Vorgangs- oder Kommissionsnummer"
+                                                    />
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button size="sm" variant="ghost" onClick={() => setAddingWholesaler(null)}>Abbrechen</Button>
+                                                        <Button size="sm" onClick={() => handleAddWholesalerPlaceholder(wholesaler.name)}>Hinzufügen</Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full justify-start"
+                                                    onClick={() => setAddingWholesaler(wholesaler.id)}
+                                                >
+                                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                                    {wholesaler.name}
+                                                </Button>
+                                            )}
+                                        </div>
                                       ))}
                                   </div>
                               </AccordionContent>
@@ -759,30 +1340,43 @@ export default function CommissioningPage() {
                           ) : (
                             <div className="p-4 space-y-3">
                                 {newCommissionItems.map(item => (
-                                    <div key={item.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50">
-                                        <div className="flex-1">
-                                            <p className="font-medium">{item.name}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {item.source === 'main_warehouse' ? 'Aus Hauptlager' : 'Externe Bestellung'}
-                                            </p>
-                                        </div>
-                                          <div className="flex items-center gap-2">
-                                            <Button type="button" variant="outline" size="icon" className="h-6 w-6" onClick={() => handleUpdateItemQuantity(item.id, item.quantity - 1)}>
-                                                <Minus className="h-3 w-3" />
+                                    <div key={item.id} className="flex flex-col gap-2 p-2 rounded-md hover:bg-muted/50">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1">
+                                                <p className="font-medium">{item.name}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {item.source === 'main_warehouse' ? 'Aus Hauptlager' : 'Externe Bestellung'}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button type="button" variant="outline" size="icon" className="h-6 w-6" onClick={() => handleUpdateItemQuantity(item.id, item.quantity - 1)}>
+                                                    <Minus className="h-3 w-3" />
+                                                </Button>
+                                                <Input 
+                                                    type="number" 
+                                                    value={item.quantity} 
+                                                    onChange={(e) => handleUpdateItemQuantity(item.id, parseInt(e.target.value) || 1)} 
+                                                    className="w-12 h-8 text-center"
+                                                />
+                                                <Button type="button" variant="outline" size="icon" className="h-6 w-6" onClick={() => handleUpdateItemQuantity(item.id, item.quantity + 1)}>
+                                                    <Plus className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItemFromNewCommission(item.id)}>
+                                                <X className="h-4 w-4" />
                                             </Button>
-                                            <Input 
-                                                type="number" 
-                                                value={item.quantity} 
-                                                onChange={(e) => handleUpdateItemQuantity(item.id, parseInt(e.target.value) || 1)} 
-                                                className="w-12 h-8 text-center"
-                                            />
-                                            <Button type="button" variant="outline" size="icon" className="h-6 w-6" onClick={() => handleUpdateItemQuantity(item.id, item.quantity + 1)}>
-                                                <Plus className="h-3 w-3" />
-                                            </Button>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItemFromNewCommission(item.id)}>
-                                            <X className="h-4 w-4" />
-                                        </Button>
+                                         {item.source === 'external_order' && (
+                                            <div className="pl-6">
+                                                <Label htmlFor={`tn-${item.id}`} className="text-xs text-muted-foreground">Vorgangs-Nr.</Label>
+                                                <Input
+                                                    id={`tn-${item.id}`}
+                                                    value={item.transactionNumber || ''}
+                                                    onChange={(e) => handleUpdateTransactionNumber(item.id, e.target.value)}
+                                                    className="h-8 text-xs"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -791,8 +1385,7 @@ export default function CommissioningPage() {
                   </div>
                 </div>
             </ScrollArea>
-          </div>
-
+          
           <DialogFooter className="mt-4 pt-4 border-t">
             <Button variant="secondary" onClick={() => setIsFormOpen(false)}>Abbrechen</Button>
             <Button onClick={handleSaveCommission}>{editingCommission ? 'Änderungen speichern' : 'Kommission anlegen'}</Button>
@@ -805,7 +1398,7 @@ export default function CommissioningPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Kommission löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Möchten Sie die Kommission &quot;{commissionToDelete?.name}&quot; wirklich endgültig löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+              Möchten Sie die Kommission &quot;{commissionToDelete?.name}&quot; wirklich endgültig löschen?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -834,6 +1427,118 @@ export default function CommissioningPage() {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={isPostSavePrintOpen} onOpenChange={setIsPostSavePrintOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Kommission erstellt</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Möchten Sie jetzt ein Etikett für die Kommission &quot;{commissionJustSaved?.name}&quot; drucken?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setCommissionJustSaved(null)}>Nein, danke</AlertDialogCancel>
+                <AlertDialogAction onClick={() => {
+                    if (commissionJustSaved) {
+                        setPrintingCommission(commissionJustSaved);
+                    }
+                    setIsPostSavePrintOpen(false);
+                    setCommissionJustSaved(null);
+                }}>Ja, Etikett drucken</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Kommission scannen</DialogTitle>
+            <DialogDescription>
+              Richten Sie die Kamera auf den QR-Code eines Kommissions-Etiketts oder den Barcode eines Lieferscheins.
+            </DialogDescription>
+          </DialogHeader>
+           <div className="flex items-center space-x-2 my-2 justify-center">
+              <Label htmlFor="scanner-type-switch">QR-Code</Label>
+              <Switch
+                  id="scanner-type-switch"
+                  checked={scannerType === 'barcode'}
+                  onCheckedChange={(checked) => setScannerType(checked ? 'barcode' : 'qr')}
+              />
+              <Label htmlFor="scanner-type-switch">Barcode</Label>
+          </div>
+          <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-lg border aspect-video">
+            {hasCameraPermission === true ? (
+              <Webcam
+                audio={false}
+                ref={webcamRef}
+                screenshotFormat="image/jpeg"
+                videoConstraints={{ deviceId: activeDeviceId, advanced: [{ autoFocus: 'continuous' } as MediaTrackConstraintSet] }}
+                className="h-full w-full object-cover"
+                onUserMedia={checkTorchSupport}
+              />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center bg-muted p-4">
+                <Alert variant="destructive">
+                  <AlertTitle>Kamerazugriff erforderlich</AlertTitle>
+                  <AlertDescription>
+                    Bitte erlauben Sie den Zugriff auf die Kamera, um diese Funktion zu nutzen.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+            {hasCameraPermission !== false && (
+              <>
+                <div className="absolute inset-0 rounded-lg border-[20px] border-black/20"></div>
+                <div className={cn(
+                    "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-destructive opacity-75",
+                    scannerType === 'qr' ? 'h-2/3 w-2/3' : 'h-1/3 w-5/6'
+                )}></div>
+              </>
+            )}
+          </div>
+           <div className="flex items-center justify-center gap-4">
+                {devices.length > 1 && (
+                    <Button variant="outline" onClick={switchCamera}>
+                        <RefreshCw className="mr-2 h-4 w-4" /> Kamera wechseln
+                    </Button>
+                )}
+                {torchSupported && (
+                    <Button variant="outline" onClick={toggleTorch}>
+                        {torchOn ? <ZapOff className="mr-2 h-4 w-4" /> : <Zap className="mr-2 h-4 w-4" />}
+                        Licht
+                    </Button>
+                )}
+            </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setIsScannerOpen(false)}>Schließen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isActionDialogOpen} onOpenChange={(open) => { if (!open) setScannedCommission(null); setIsActionDialogOpen(open); }}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Kommission gescannt: {scannedCommission?.name}</DialogTitle>
+                <DialogDescription>Wählen Sie eine Aktion aus.</DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
+                <Button variant="outline" size="lg" onClick={() => {
+                    setDetailCommission(scannedCommission);
+                    setIsActionDialogOpen(false);
+                }}>Details</Button>
+                 <Button variant="outline" size="lg" onClick={() => {
+                    setPreparingCommission(scannedCommission);
+                    setIsActionDialogOpen(false);
+                }}>Vorbereiten</Button>
+                <Button size="lg" onClick={() => {
+                    if (scannedCommission) handleWithdraw(scannedCommission);
+                    setIsActionDialogOpen(false);
+                }} disabled={scannedCommission?.status !== 'ready' && !(scannedCommission?.status === 'draft' && scannedCommission?.items.length === 0)}>
+                  <Archive className="mr-2 h-4 w-4" /> Entnehmen
+                </Button>
+            </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

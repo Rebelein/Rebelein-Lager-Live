@@ -732,9 +732,13 @@ export default function CommissioningPage() {
 
   const handleUpdateCommission = (oldCommission: Commission, updatedCommission: Commission) => {
       const allItemsReady = updatedCommission.items.length > 0 && updatedCommission.items.every(i => i.status === 'ready');
-      const newStatus: 'draft' | 'preparing' | 'ready' | 'withdrawn' = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
       
-      const commissionToSave = { ...updatedCommission, status: newStatus };
+      let newStatus: Commission['status'] = updatedCommission.status;
+      if(updatedCommission.status !== 'withdrawn') {
+        newStatus = allItemsReady ? 'ready' : (updatedCommission.items.length > 0 ? 'preparing' : 'draft');
+      }
+
+      const commissionToSave: Commission = { ...updatedCommission, status: newStatus };
 
       const wasPreparing = oldCommission.status === 'draft' || oldCommission.status === 'preparing';
       const isNowReady = newStatus === 'ready';
@@ -828,7 +832,13 @@ export default function CommissioningPage() {
       if (commissionId) {
         const foundCommission = commissions.find(c => c.id === commissionId);
         if (foundCommission) {
-          setDetailCommission(foundCommission);
+          if (urlParams.get('openDetails')) {
+            setDetailCommission(foundCommission);
+          } else if (urlParams.get('openPrepare')) {
+            setPreparingCommission(foundCommission);
+          } else if (urlParams.get('action') === 'withdraw') {
+            handleWithdraw(foundCommission);
+          }
           // Clean up URL
           window.history.replaceState({}, '', window.location.pathname);
         }
