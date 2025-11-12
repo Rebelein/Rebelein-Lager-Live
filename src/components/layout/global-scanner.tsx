@@ -105,29 +105,23 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
     lastScannedId.current = data;
     
     if (data.startsWith('item::')) {
-      const itemId = data.split('::')[1];
-      const item = items.find(i => i.id === itemId);
-      if (item?.itemType === 'item') {
-        setScannedItem(item);
-        setActionType('item');
-        onOpenChange(false);
-      }
+        const itemId = data.split('::')[1];
+        handleAction('/inventory-list', new URLSearchParams({ openStock: itemId }))
+        return;
     } else if (data.startsWith('machine::')) {
-      const machineId = data.split('::')[1];
-      const machine = items.find(i => i.id === machineId);
-      if (machine?.itemType === 'machine') {
-        setScannedItem(machine);
-        setActionType('machine');
-        onOpenChange(false);
-      }
+        const machineId = data.split('::')[1];
+        const machine = items.find(i => i.id === machineId);
+        if (machine?.itemType === 'machine') {
+            setScannedItem(machine);
+            setActionType('machine');
+        }
     } else if (data.startsWith('commission::')) {
-      const commissionId = data.split('::')[1];
-      const commission = commissions.find(c => c.id === commissionId);
-      if (commission) {
-        setScannedItem(commission);
-        setActionType('commission');
-        onOpenChange(false);
-      }
+        const commissionId = data.split('::')[1];
+        const commission = commissions.find(c => c.id === commissionId);
+        if (commission) {
+            setScannedItem(commission);
+            setActionType('commission');
+        }
     } else if (data.startsWith('compartment::')) {
         const [, mainLoc, subLoc] = data.split('::');
         const searchParams = new URLSearchParams();
@@ -143,7 +137,6 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
           if (item.source === 'external_order' && item.transactionNumber && data.includes(item.transactionNumber)) {
             setScannedItem(commission);
             setActionType('delivery_note');
-            onOpenChange(false);
             found = true;
             break;
           }
@@ -155,6 +148,7 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
         lastScannedId.current = null; // Allow rescanning
       }
     }
+    onOpenChange(false);
   }, [items, commissions, onOpenChange, toast, router]);
 
     const captureCode = React.useCallback(() => {
@@ -272,11 +266,6 @@ export function GlobalScanner({ open, onOpenChange }: GlobalScannerProps) {
                 <DialogDescription>Wählen Sie eine Aktion aus.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 pt-4">
-                {actionType === 'item' && (
-                    <Button size="lg" onClick={() => handleAction('/inventory-list', new URLSearchParams({ openStock: scannedItem!.id }))}>
-                        <PackagePlus className="mr-2 h-4 w-4"/> Bestand buchen
-                    </Button>
-                )}
                 {actionType === 'machine' && (
                   <>
                     <Button size="lg" onClick={() => handleAction('/machines', new URLSearchParams({ action: 'rent', machineId: scannedItem!.id }))}>
