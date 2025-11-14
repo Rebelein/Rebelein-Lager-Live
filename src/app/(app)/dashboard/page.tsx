@@ -9,7 +9,7 @@ import { de } from 'date-fns/locale';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2, ScanLine, ClipboardCheck } from 'lucide-react';
+import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2, ScanLine, ClipboardCheck, StickyNote } from 'lucide-react';
 import { getChangeLogActionText, isInventoryItem } from '@/lib/utils';
 import {
   Collapsible,
@@ -27,6 +27,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 
 const useIsDesktop = () => {
     const [isDesktop, setIsDesktop] = React.useState(false);
@@ -401,7 +403,11 @@ const MachinesCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
 const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 'default' | 'wide', onSizeChange: (size: 'small' | 'default' | 'wide') => void }) => {
     const { commissions, addOrUpdateCommission } = useAppContext();
     const router = useRouter();
+    const { toast } = useToast();
     
+    const [editingNote, setEditingNote] = React.useState<Commission | null>(null);
+    const [noteContent, setNoteContent] = React.useState('');
+
     const draftCommissions = React.useMemo(() => {
         return (commissions || []).filter(c => c.status === 'draft' || c.status === 'preparing');
     }, [commissions]);
@@ -413,6 +419,19 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
     const handleToggleGlow = (e: React.MouseEvent, commission: Commission) => {
         e.stopPropagation();
         addOrUpdateCommission({ ...commission, isNewlyReady: !commission.isNewlyReady });
+    };
+
+    const handleOpenNote = (e: React.MouseEvent, commission: Commission) => {
+        e.stopPropagation();
+        setNoteContent(commission.notes || '');
+        setEditingNote(commission);
+    };
+
+    const handleSaveNote = () => {
+        if (!editingNote) return;
+        addOrUpdateCommission({ ...editingNote, notes: noteContent });
+        toast({ title: 'Notiz gespeichert', description: `Notiz für Kommission "${editingNote.name}" wurde aktualisiert.` });
+        setEditingNote(null);
     };
 
     return (
@@ -429,6 +448,7 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
                                 <div key={c.id} className="p-2 border rounded-md cursor-pointer hover:bg-muted" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
                                     <p className="font-medium truncate">{c.name}</p>
                                     <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
+                                    {c.notes && <p className="text-xs text-muted-foreground italic truncate">&quot;{c.notes}&quot;</p>}
                                 </div>
                             )) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
                         </div>
@@ -443,9 +463,15 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
                                   <div className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
                                       <p className="font-medium truncate">{c.name}</p>
                                       <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
-                                       <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-7 w-7 text-muted-foreground hover:text-green-600" onClick={(e) => handleToggleGlow(e, c)}>
-                                            <CheckCircle2 className={cn("h-5 w-5", isNew && "text-green-600")} />
-                                        </Button>
+                                      {c.notes && <p className="text-xs text-muted-foreground italic truncate">&quot;{c.notes}&quot;</p>}
+                                       <div className='absolute top-0 right-0 flex'>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-yellow-500" onClick={(e) => handleOpenNote(e, c)}>
+                                                <StickyNote className={cn("h-5 w-5", c.notes && "text-yellow-500 fill-yellow-100")} />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-green-600" onClick={(e) => handleToggleGlow(e, c)}>
+                                                <CheckCircle2 className={cn("h-5 w-5", isNew && "text-green-600")} />
+                                            </Button>
+                                       </div>
                                   </div>
                                 </div>
                                 )
@@ -454,6 +480,30 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
                     </div>
                 </CardContent>
             </Card>
+            {editingNote && (
+                 <Dialog open={!!editingNote} onOpenChange={() => setEditingNote(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Notiz für: {editingNote.name}</DialogTitle>
+                            <DialogDescription>
+                                Fügen Sie eine Notiz zu dieser Kommission hinzu oder bearbeiten Sie die bestehende.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <Textarea
+                                value={noteContent}
+                                onChange={(e) => setNoteContent(e.target.value)}
+                                placeholder="Ihre Notiz hier..."
+                                className="min-h-[100px]"
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button variant="ghost" onClick={() => setEditingNote(null)}>Abbrechen</Button>
+                            <Button onClick={handleSaveNote}>Speichern</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
         </DraggableCardWrapper>
     );
 };
