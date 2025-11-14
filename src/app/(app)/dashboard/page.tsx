@@ -445,10 +445,15 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
                         <h4 className="font-semibold text-center text-sm border-b pb-2">Entwurf ({draftCommissions.length})</h4>
                         <div className="space-y-2 pt-2 text-sm overflow-y-auto flex-grow">
                             {draftCommissions.length > 0 ? draftCommissions.slice(0, 10).map(c => (
-                                <div key={c.id} className="p-2 border rounded-md cursor-pointer hover:bg-muted" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
+                                <div key={c.id} className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
                                     <p className="font-medium truncate">{c.name}</p>
                                     <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
                                     {c.notes && <p className="text-xs text-muted-foreground italic truncate">&quot;{c.notes}&quot;</p>}
+                                    <div className='absolute top-0 right-0 flex'>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-yellow-500" onClick={(e) => handleOpenNote(e, c)}>
+                                            <StickyNote className={cn("h-5 w-5", c.notes && "text-yellow-500 fill-yellow-100")} />
+                                        </Button>
+                                    </div>
                                 </div>
                             )) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
                         </div>
