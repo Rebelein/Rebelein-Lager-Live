@@ -132,7 +132,7 @@ function CopyOrderDialog({ order, onOpenChange }: { order: { orderNumber: string
 
 
 export default function OrdersPage() {
-  const { items, wholesalers, createOrder, confirmOrder, currentUser, orders, receiveOrderItem, removeItemFromDraftOrder, locations, addItemsToOrder, cancelArrangedOrder, loadCommissionedItem, appSettings, removeSingleItemFromArrangedOrder } = useAppContext()
+  const { items, wholesalers, createOrder, confirmOrder, currentUser, orders, receiveOrderItem, removeItemFromDraftOrder, locations, addItemsToOrder, cancelArrangedOrder, loadCommissionedItem, appSettings, removeSingleItemFromArrangedOrder, updateDraftOrderItemQuantity } = useAppContext()
   const { toast } = useToast()
   const [isReceiveModalOpen, setIsReceiveModalOpen] = React.useState(false);
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = React.useState(false);
@@ -780,8 +780,17 @@ export default function OrdersPage() {
                                   <p className="font-medium break-words">{item.itemName}</p>
                                   <p className="text-sm text-muted-foreground truncate">{item.wholesalerItemNumber || item.itemNumber}</p>
                                 </div>
-                                <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
-                                    <span className="font-medium">{item.quantity} Stk.</span>
+                                <div className="flex items-center justify-between sm:justify-end gap-2 ml-0 sm:ml-4 mt-2 sm:mt-0">
+                                    <div className="flex items-center gap-1">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateDraftOrderItemQuantity(order.id, item.itemId, item.quantity - 1)}><Minus className="h-4 w-4" /></Button>
+                                        <Input
+                                            type="number"
+                                            value={item.quantity}
+                                            onChange={(e) => updateDraftOrderItemQuantity(order.id, item.itemId, parseInt(e.target.value) || 1)}
+                                            className="w-14 h-8 text-center"
+                                        />
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateDraftOrderItemQuantity(order.id, item.itemId, item.quantity + 1)}><Plus className="h-4 w-4" /></Button>
+                                    </div>
                                     <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(order.id, item.itemId)}>
                                         <X className="h-4 w-4 text-destructive" />
                                     </Button>

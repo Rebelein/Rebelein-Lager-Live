@@ -49,6 +49,7 @@ interface AppContextType {
   receiveOrderItem: (orderId: string, itemId: string, quantity: number, commissionOnly: boolean) => void;
   loadCommissionedItem: (orderId: string, itemId: string) => void;
   removeItemFromDraftOrder: (orderId: string, itemId: string) => void;
+  updateDraftOrderItemQuantity: (orderId: string, itemId: string, newQuantity: number) => void;
   cancelArrangedOrder: (itemIds: string[], locationId: string) => void;
   removeSingleItemFromArrangedOrder: (itemId: string, locationId: string) => void;
   removeItemFromLocation: (itemId: string, locationId: string) => void;
@@ -675,6 +676,18 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     }
 }, [firestore, orders, items, dbConnectionStatus]);
 
+const updateDraftOrderItemQuantity = useCallback((orderId: string, itemId: string, newQuantity: number) => {
+    if (!firestore || dbConnectionStatus !== 'connected' || newQuantity < 1) return;
+    const order = orders.find(o => o.id === orderId);
+    if (!order || order.status !== 'draft') return;
+    
+    const orderRef = doc(firestore, 'orders', orderId);
+    const updatedItems = order.items.map(item => 
+        item.itemId === itemId ? { ...item, quantity: newQuantity } : item
+    );
+    updateDocumentNonBlocking(orderRef, { items: updatedItems });
+}, [firestore, orders, dbConnectionStatus]);
+
     const removeSingleItemFromArrangedOrder = useCallback((itemId: string, locationId: string) => {
         if (!currentUser || !firestore || dbConnectionStatus !== 'connected') return;
 
@@ -1287,6 +1300,7 @@ const removeItemFromDraftOrder = useCallback((orderId: string, itemId: string) =
     receiveOrderItem,
     loadCommissionedItem,
     removeItemFromDraftOrder,
+    updateDraftOrderItemQuantity,
     cancelArrangedOrder,
     removeSingleItemFromArrangedOrder,
     removeItemFromLocation,
