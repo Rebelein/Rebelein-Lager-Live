@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import * as React from 'react'
@@ -42,11 +43,93 @@ import { Slider } from '@/components/ui/slider'
 import * as pdfjsLib from 'pdfjs-dist';
 import Tesseract from 'tesseract.js';
 import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 // Configure the worker script path
 if (typeof window !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 }
+
+function CopyOrderDialog({ order, onOpenChange }: { order: { orderNumber: string, items: (OrderItem[] | InventoryItem[]), isDraft: boolean } | null, onOpenChange: (open: boolean) => void }) {
+    const { toast } = useToast();
+    const [copiedItems, setCopiedItems] = React.useState<Set<string>>(new Set());
+
+    const copyToClipboard = (textToCopy: string, itemId: string, itemName: string) => {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({
+                title: 'Artikelnummer kopiert',
+                description: `Nummer für "${itemName}" wurde in die Zwischenablage kopiert.`
+            });
+            setCopiedItems(prev => new Set(prev).add(itemId));
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            toast({
+                title: 'Fehler',
+                description: 'Artikelnummer konnte nicht kopiert werden.',
+                variant: 'destructive'
+            });
+        });
+    };
+    
+    React.useEffect(() => {
+        // Reset copied items when the dialog is opened with a new order
+        if (order) {
+            setCopiedItems(new Set());
+        }
+    }, [order]);
+
+
+    if (!order) return null;
+
+    return (
+        <Dialog open={!!order} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Artikelnummer kopieren</DialogTitle>
+                    <DialogDescription>
+                        Klicken Sie auf einen Artikel, um die Artikelnummer zu kopieren. Bestell-Nr: {order.orderNumber}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto my-4 pr-2">
+                    <div className="space-y-2">
+                        {order.items.map((item, index) => {
+                            const isDraftItem = order.isDraft;
+                            const itemId = (item as any).id || (item as any).itemId;
+                            const itemNumber = isDraftItem
+                                ? (item as OrderItem).wholesalerItemNumber || (item as OrderItem).itemNumber
+                                : ('itemType' in item && item.itemType === 'item' ? ((item as InventoryItem).suppliers?.find((s: any) => s.wholesalerId === (item as InventoryItem).preferredWholesalerId)?.wholesalerItemNumber || (item as InventoryItem).manufacturerItemNumbers[0]?.number) : '');
+
+                            const itemName = isDraftItem ? (item as OrderItem).itemName : (item as InventoryItem).name;
+                            const isCopied = copiedItems.has(itemId);
+                            
+                            return (
+                                <Button
+                                    key={itemId || index}
+                                    variant="outline"
+                                    className={cn(
+                                        "w-full h-auto justify-start py-2 transition-colors duration-200",
+                                        isCopied && "bg-green-100 dark:bg-green-900/50 border-green-500 hover:bg-green-100/90"
+                                    )}
+                                    onClick={() => copyToClipboard(itemNumber || '', itemId, itemName)}
+                                >
+                                    <div className="flex-1 flex flex-col text-left">
+                                        <span className="font-semibold">{itemName}</span>
+                                        <span className="text-xs text-muted-foreground">{itemNumber}</span>
+                                    </div>
+                                    {isCopied && <Check className="h-5 w-5 text-green-600" />}
+                                </Button>
+                            )
+                        })}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="secondary" onClick={() => onOpenChange(false)}>Schließen</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 export default function OrdersPage() {
   const { items, wholesalers, createOrder, confirmOrder, currentUser, orders, receiveOrderItem, removeItemFromDraftOrder, locations, addItemsToOrder, cancelArrangedOrder, loadCommissionedItem, appSettings, removeSingleItemFromArrangedOrder } = useAppContext()
@@ -211,22 +294,6 @@ export default function OrdersPage() {
  const handleOpenCopyDialog = (orderNumber: string, items: (InventoryItem[] | OrderItem[]), isDraft: boolean) => {
     setCopyModalContent({ orderNumber, items, isDraft });
     setIsCopyModalOpen(true);
-  };
-
-  const copyToClipboard = (textToCopy: string, itemName: string) => {
-      navigator.clipboard.writeText(textToCopy).then(() => {
-          toast({
-              title: 'Artikelnummer kopiert',
-              description: `Nummer für "${itemName}" wurde in die Zwischenablage kopiert.`
-          });
-      }).catch(err => {
-          console.error('Failed to copy: ', err);
-          toast({
-              title: 'Fehler',
-              description: 'Artikelnummer konnte nicht kopiert werden.',
-              variant: 'destructive'
-          });
-      });
   };
 
   const handleOpenCreateOrderModal = (wholesalerId: string, itemsToOrder: InventoryItem[], location: Location) => {
@@ -833,45 +900,7 @@ export default function OrdersPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isCopyModalOpen} onOpenChange={setIsCopyModalOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Artikelnummer kopieren</DialogTitle>
-                <DialogDescription>
-                    Klicken Sie auf einen Artikel, um die Artikelnummer zu kopieren. Bestell-Nr: {copyModalContent?.orderNumber}
-                </DialogDescription>
-            </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto my-4 pr-2">
-                <div className="space-y-2">
-                    {copyModalContent?.items.map((item, index) => {
-                        const isDraftItem = copyModalContent.isDraft;
-                        const itemNumber = isDraftItem
-                            ? (item as OrderItem).wholesalerItemNumber || (item as OrderItem).itemNumber
-                            : ('itemType' in item && item.itemType === 'item' ? ((item as InventoryItem).suppliers?.find((s: any) => s.wholesalerId === (item as InventoryItem).preferredWholesalerId)?.wholesalerItemNumber || (item as InventoryItem).manufacturerItemNumbers[0]?.number) : '');
-
-                        const itemName = isDraftItem ? (item as OrderItem).itemName : (item as InventoryItem).name;
-                        
-                        return (
-                            <Button
-                                key={(item as any).id || (item as any).itemId || index}
-                                variant="outline"
-                                className="w-full h-auto justify-start py-2"
-                                onClick={() => copyToClipboard(itemNumber || '', itemName)}
-                            >
-                                <div className="flex flex-col text-left">
-                                    <span className="font-semibold">{itemName}</span>
-                                    <span className="text-xs text-muted-foreground">{itemNumber}</span>
-                                </div>
-                            </Button>
-                        )
-                    })}
-                </div>
-            </div>
-            <DialogFooter>
-                <Button variant="secondary" onClick={() => setIsCopyModalOpen(false)}>Schließen</Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CopyOrderDialog order={copyModalContent} onOpenChange={setIsCopyModalOpen} />
       
       <Dialog open={isReceiveModalOpen} onOpenChange={setIsReceiveModalOpen}>
         <DialogContent>
