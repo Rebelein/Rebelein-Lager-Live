@@ -295,15 +295,15 @@ function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdra
                         </div>
                     </ScrollArea>
                 </div>
-                <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between sm:items-center">
-                    <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
-                    <div className="flex items-center gap-2">
+                <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                    <DialogClose asChild><Button variant="secondary" className="w-full sm:w-auto">Schließen</Button></DialogClose>
+                    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
                         {commission.status !== 'ready' && commission.status !== 'withdrawn' && (
                             <Button variant="outline" onClick={() => { onOpenChange(false); onPrepare(commission); }}>
                                 <ClipboardList className="mr-2 h-4 w-4" /> Vorbereiten
                             </Button>
                         )}
-                        <Button onClick={() => { onOpenChange(false); onWithdraw(commission); }} disabled={commission.status !== 'ready'}>
+                        <Button onClick={() => { onOpenChange(false); onWithdraw(commission); }} disabled={commission.status !== 'ready' && !(commission.items.length === 0 && commission.status === 'draft')}>
                             <Archive className="mr-2 h-4 w-4" /> Entnehmen
                         </Button>
                     </div>
@@ -1333,7 +1333,7 @@ export default function CommissioningPage() {
           <CommissionDetailDialog
             commission={detailCommission}
             onOpenChange={() => setDetailCommission(null)}
-            onPrepare={() => setPreparingCommission(detailCommission)}
+            onPrepare={setPreparingCommission}
             onWithdraw={handleWithdraw}
         />
       )}

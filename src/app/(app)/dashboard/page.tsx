@@ -209,15 +209,15 @@ function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdra
                         </div>
                     </ScrollArea>
                 </div>
-                <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between sm:items-center">
-                    <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
-                     <div className="flex items-center gap-2">
+                 <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                    <DialogClose asChild><Button variant="secondary" className="w-full sm:w-auto">Schließen</Button></DialogClose>
+                    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
                         {commission.status !== 'ready' && commission.status !== 'withdrawn' && (
                             <Button variant="outline" onClick={() => { onOpenChange(false); onPrepare(commission); }}>
                                 <ClipboardList className="mr-2 h-4 w-4" /> Vorbereiten
                             </Button>
                         )}
-                        <Button onClick={() => { onOpenChange(false); onWithdraw(commission); }} disabled={commission.status !== 'ready'}>
+                        <Button onClick={() => { onOpenChange(false); onWithdraw(commission); }} disabled={commission.status !== 'ready' && !(commission.items.length === 0 && commission.status === 'draft')}>
                             <Archive className="mr-2 h-4 w-4" /> Entnehmen
                         </Button>
                     </div>
@@ -234,7 +234,8 @@ export default function DashboardPage() {
     const [expandedCardId, setExpandedCardId] = React.useState<string | null>(null);
     const isDesktop = useIsDesktop();
     const [detailCommission, setDetailCommission] = React.useState<Commission | null>(null);
-    const [preparingCommission, setPreparingCommission] = React.useState<Commission | null>(null);
+    const { toast } = useToast();
+    const router = useRouter();
 
     const stats = React.useMemo(() => {
         if (!items || !locations) return { lowStockItems: [], arrangedItems: [], orderedItems: [], totalItems: 0, totalStock: 0 };
@@ -324,6 +325,10 @@ export default function DashboardPage() {
     const handleWithdraw = (commission: Commission) => {
         addOrUpdateCommission({ ...commission, status: 'withdrawn', withdrawnAt: new Date().toISOString() });
         toast({ title: 'Kommission entnommen', description: `Die Kommission "${commission.name}" wurde als entnommen markiert.` });
+    };
+
+    const handlePrepare = (commission: Commission) => {
+        router.push(`/commissioning?commissionId=${commission.id}&openPrepare=true`);
     };
 
     if (currentUser?.isScannerMode) {
@@ -449,16 +454,7 @@ export default function DashboardPage() {
         <CommissionDetailDialog 
           commission={detailCommission} 
           onOpenChange={() => setDetailCommission(null)} 
-          onPrepare={commission => {
-            setDetailCommission(null);
-            // This is a placeholder. You would have a separate dialog for preparation.
-            // For now, we'll just log it. Or maybe we can find the commissioning page logic.
-            // The `commissioning` page has the preparation dialog. 
-            // We can navigate to it or implement a new one.
-            // For now, let's assume we want to open a new dialog here.
-            // TODO: Implement preparation dialog opening.
-            toast({title: "Vorbereitung gestartet (simuliert)"});
-          }}
+          onPrepare={handlePrepare}
           onWithdraw={handleWithdraw}
         />
       </DndContext>
@@ -614,7 +610,7 @@ const CommissionsCard = ({ id, size, onSizeChange, isExpanded, onToggleExpand, o
                                 <p className="font-medium truncate">{c.name}</p>
                                 <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
                                 {c.notes && <p className="text-xs text-muted-foreground italic truncate">&quot;{c.notes}&quot;</p>}
-                                 <div className='absolute top-0 right-0 flex'>
+                                <div className='absolute top-0 right-0 flex'>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-yellow-500" onClick={(e) => handleOpenNote(e, c)}>
                                         <StickyNote className={cn("h-5 w-5", c.notes && "text-yellow-500 fill-yellow-100")} />
                                     </Button>
@@ -832,5 +828,6 @@ const TurnoverCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
 }
 
     
+
 
 
