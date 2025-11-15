@@ -317,7 +317,7 @@ export default function OrdersPage() {
         const header = [];
         header[columns.itemNumber.index] = 'Artikelnummer';
         header[columns.quantity.index] = 'Menge';
-        csvContent += header.join(delimiter) + '\n';
+        csvContent += header.join(delimiter) + '\r\n';
     }
 
     const items = 'items' in order ? order.items : order.itemsToOrder;
@@ -334,7 +334,7 @@ export default function OrdersPage() {
         const row = [];
         row[columns.itemNumber.index] = itemNumber;
         row[columns.quantity.index] = quantity;
-        csvContent += row.join(delimiter) + '\n';
+        csvContent += row.join(delimiter) + '\r\n';
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
