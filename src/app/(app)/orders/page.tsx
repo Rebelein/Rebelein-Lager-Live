@@ -44,6 +44,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import Tesseract from 'tesseract.js';
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
 // Configure the worker script path
 if (typeof window !== 'undefined') {
@@ -740,7 +741,7 @@ export default function OrdersPage() {
             </div>
         </div>
         <TabsContent value="suggestions">
-            <div className="flex flex-col gap-6 mt-4">
+            <Accordion type="multiple" className="w-full space-y-4 mt-4">
             {arrangedItemsCount === 0 ? (
                 <Card>
                 <CardContent className="pt-6">
@@ -750,62 +751,66 @@ export default function OrdersPage() {
             ) : (
               <>
                 {draftOrders.map(order => (
-                     <Card key={order.id}>
-                       <CardHeader>
-                            <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
-                                <div className="flex-1 min-w-0">
-                                    <CardTitle className="break-words">{order.wholesalerName}</CardTitle>
-                                    <CardDescription>
-                                        {order.items.length} Artikel
-                                        <span className="font-semibold text-foreground ml-2">Bestell-Nr: {order.orderNumber}</span>
-                                    </CardDescription>
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button variant="outline" size="sm" onClick={() => handleDownloadCsv(order)}>
-                                      <FileDown className="mr-2 h-4 w-4" />
-                                      CSV
-                                  </Button>
-                                  <Button variant="outline" size="sm" onClick={() => handleOpenCopyDialog(order.orderNumber, order.items, true)}>
-                                      <ClipboardCopy className="mr-2 h-4 w-4" />
-                                      Liste kopieren
-                                  </Button>
-                                </div>
-                            </div>
-                        </CardHeader>
-                      <CardContent>
-                          <div className="divide-y">
-                            {order.items.map(item => (
-                              <div key={item.itemId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium break-words">{item.itemName}</p>
-                                  <p className="text-sm text-muted-foreground truncate">{item.wholesalerItemNumber || item.itemNumber}</p>
-                                </div>
-                                <div className="flex items-center justify-between sm:justify-end gap-2 ml-0 sm:ml-4 mt-2 sm:mt-0">
-                                    <div className="flex items-center gap-1">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateDraftOrderItemQuantity(order.id, item.itemId, item.quantity - 1)}><Minus className="h-4 w-4" /></Button>
-                                        <Input
-                                            type="number"
-                                            value={item.quantity}
-                                            onChange={(e) => updateDraftOrderItemQuantity(order.id, item.itemId, parseInt(e.target.value) || 1)}
-                                            className="w-14 h-8 text-center"
-                                        />
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateDraftOrderItemQuantity(order.id, item.itemId, item.quantity + 1)}><Plus className="h-4 w-4" /></Button>
+                    <AccordionItem value={order.id} key={order.id} className="border-b-0">
+                        <Card>
+                             <AccordionTrigger className="p-4 sm:p-6 hover:no-underline rounded-lg data-[state=open]:rounded-b-none">
+                                <div className="flex flex-col sm:flex-row justify-between items-start gap-2 w-full">
+                                    <div className="flex-1 min-w-0 text-left">
+                                        <CardTitle className="break-words">{order.wholesalerName}</CardTitle>
+                                        <CardDescription>
+                                            {order.items.length} Artikel
+                                            <span className="font-semibold text-foreground ml-2">Bestell-Nr: {order.orderNumber}</span>
+                                        </CardDescription>
                                     </div>
-                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(order.id, item.itemId)}>
-                                        <X className="h-4 w-4 text-destructive" />
-                                    </Button>
+                                    <div className="flex gap-2 self-start sm:self-center">
+                                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDownloadCsv(order); }}>
+                                          <FileDown className="mr-2 h-4 w-4" />
+                                          CSV
+                                      </Button>
+                                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenCopyDialog(order.orderNumber, order.items, true); }}>
+                                          <ClipboardCopy className="mr-2 h-4 w-4" />
+                                          Liste kopieren
+                                      </Button>
+                                    </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                      </CardContent>
-                       <CardFooter className="justify-end">
-                       <Button onClick={() => handleConfirmOrder(order.id)}>
-                            <ShoppingCart className="mr-2 h-4 w-4" />
-                            Als bestellt markieren
-                        </Button>
-                    </CardFooter>
-                    </Card>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <CardContent className="pt-0">
+                                  <div className="divide-y">
+                                    {order.items.map(item => (
+                                      <div key={item.itemId} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-medium break-words">{item.itemName}</p>
+                                          <p className="text-sm text-muted-foreground truncate">{item.wholesalerItemNumber || item.itemNumber}</p>
+                                        </div>
+                                        <div className="flex items-center justify-between sm:justify-end gap-2 ml-0 sm:ml-4 mt-2 sm:mt-0">
+                                            <div className="flex items-center gap-1">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateDraftOrderItemQuantity(order.id, item.itemId, item.quantity - 1)}><Minus className="h-4 w-4" /></Button>
+                                                <Input
+                                                    type="number"
+                                                    value={item.quantity}
+                                                    onChange={(e) => updateDraftOrderItemQuantity(order.id, item.itemId, parseInt(e.target.value) || 1)}
+                                                    className="w-14 h-8 text-center"
+                                                />
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateDraftOrderItemQuantity(order.id, item.itemId, item.quantity + 1)}><Plus className="h-4 w-4" /></Button>
+                                            </div>
+                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(order.id, item.itemId)}>
+                                                <X className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                              </CardContent>
+                               <CardFooter className="justify-end rounded-b-lg">
+                               <Button onClick={() => handleConfirmOrder(order.id)}>
+                                    <ShoppingCart className="mr-2 h-4 w-4" />
+                                    Als bestellt markieren
+                                </Button>
+                            </CardFooter>
+                        </AccordionContent>
+                        </Card>
+                    </AccordionItem>
                 ))}
                 
                 {Object.entries(arrangedItemsByLocation).map(([locationId, locationItems]) => {
@@ -820,55 +825,59 @@ export default function OrdersPage() {
                           const wholesaler = wholesalers.find(w => w.id === wholesalerId);
                           const wholesalerName = wholesaler?.name || 'Unbekannter Großhändler';
                           return (
-                              <Card key={`${locationId}-${wholesalerId}`} className="mb-4">
-                                <CardHeader>
-                                    <div className="flex justify-between items-start gap-2">
-                                        <div className="flex-1 min-w-0">
-                                            <CardTitle className="break-words">{wholesalerName}</CardTitle>
-                                            <CardDescription>{itemsToOrder.length} Artikel</CardDescription>
-                                        </div>
-                                        <div className="flex gap-2">
-                                          {wholesaler?.csvExportFormat && (
-                                              <Button variant="outline" size="sm" onClick={() => handleDownloadCsv({wholesalerId, itemsToOrder})}>
-                                                  <FileDown className="mr-2 h-4 w-4" />
-                                                  CSV
-                                              </Button>
-                                          )}
-                                          <Button variant="destructive" size="icon" onClick={() => handleOpenCancelConfirm(wholesalerId, itemsToOrder, locationId)}>
-                                              <Trash2 className="h-4 w-4" />
-                                              <span className="sr-only">Vorschlag löschen</span>
-                                          </Button>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                              <CardContent>
-                                <div className="divide-y">
-                                    {itemsToOrder.map(item => {
-                                        const supplierInfo = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId)
-                                        return (
-                                            <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
-                                              <div className="flex-1 min-w-0">
-                                                  <p className="font-medium break-words">{item.name}</p>
-                                                  <p className="text-sm text-muted-foreground truncate">{supplierInfo?.wholesalerItemNumber || (Array.isArray(item.manufacturerItemNumbers) && item.manufacturerItemNumbers[0]?.number) || ''}</p>
-                                              </div>
-                                              <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
-                                                <span className="font-medium">{item.reorderStatus[locationId]?.quantity} Stk.</span>
-                                                <Button variant="ghost" size="icon" onClick={() => handleOpenCancelSingleItem(item.id, locationId)}>
-                                                    <X className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                              </div>
+                            <AccordionItem value={`${locationId}-${wholesalerId}`} key={`${locationId}-${wholesalerId}`} className="border-b-0 mb-4">
+                                <Card>
+                                     <AccordionTrigger className="p-4 sm:p-6 hover:no-underline rounded-lg data-[state=open]:rounded-b-none">
+                                        <div className="flex justify-between items-start gap-2 w-full">
+                                            <div className="flex-1 min-w-0 text-left">
+                                                <CardTitle className="break-words">{wholesalerName}</CardTitle>
+                                                <CardDescription>{itemsToOrder.length} Artikel</CardDescription>
                                             </div>
-                                        )
-                                    })}
-                                </div>
-                              </CardContent>
-                              <CardFooter className="justify-end">
-                                <Button onClick={() => handleOpenCreateOrderModal(wholesalerId, itemsToOrder, location)}>
-                                    <ShoppingCart className="mr-2 h-4 w-4" />
-                                    {location.isVehicle ? 'Materialanforderung erstellen' : 'Bestellung vorbereiten'}
-                                </Button>
-                              </CardFooter>
-                              </Card>
+                                            <div className="flex gap-2 self-start sm:self-center">
+                                              {wholesaler?.csvExportFormat && (
+                                                  <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDownloadCsv({wholesalerId, itemsToOrder}); }}>
+                                                      <FileDown className="mr-2 h-4 w-4" />
+                                                      CSV
+                                                  </Button>
+                                              )}
+                                              <Button variant="destructive" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenCancelConfirm(wholesalerId, itemsToOrder, locationId); }}>
+                                                  <Trash2 className="h-4 w-4" />
+                                                  <span className="sr-only">Vorschlag löschen</span>
+                                              </Button>
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                     <AccordionContent>
+                                      <CardContent className="pt-0">
+                                        <div className="divide-y">
+                                            {itemsToOrder.map(item => {
+                                                const supplierInfo = item.suppliers.find(s => s.wholesalerId === item.preferredWholesalerId)
+                                                return (
+                                                    <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
+                                                      <div className="flex-1 min-w-0">
+                                                          <p className="font-medium break-words">{item.name}</p>
+                                                          <p className="text-sm text-muted-foreground truncate">{supplierInfo?.wholesalerItemNumber || (Array.isArray(item.manufacturerItemNumbers) && item.manufacturerItemNumbers[0]?.number) || ''}</p>
+                                                      </div>
+                                                      <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
+                                                        <span className="font-medium">{item.reorderStatus[locationId]?.quantity} Stk.</span>
+                                                        <Button variant="ghost" size="icon" onClick={() => handleOpenCancelSingleItem(item.id, locationId)}>
+                                                            <X className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                      </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                      </CardContent>
+                                      <CardFooter className="justify-end rounded-b-lg">
+                                        <Button onClick={() => handleOpenCreateOrderModal(wholesalerId, itemsToOrder, location)}>
+                                            <ShoppingCart className="mr-2 h-4 w-4" />
+                                            {location.isVehicle ? 'Materialanforderung erstellen' : 'Bestellung vorbereiten'}
+                                        </Button>
+                                      </CardFooter>
+                                    </AccordionContent>
+                                </Card>
+                            </AccordionItem>
                           )
                       })}
                     </div>
@@ -876,7 +885,7 @@ export default function OrdersPage() {
                 })}
               </>
             )}
-            </div>
+            </Accordion>
         </TabsContent>
         <TabsContent value="open">
              <div className="flex flex-col gap-6 mt-4">
