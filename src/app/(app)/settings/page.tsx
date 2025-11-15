@@ -16,6 +16,7 @@ import { Loader2, Trash2, PlusCircle, Pencil, User, Bot, Link2, PackageSearch, S
 import { testAiConnection } from './actions';
 import type { AppSettings, Wholesaler, CsvExportFormat } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const availableModels = {
     google: [
