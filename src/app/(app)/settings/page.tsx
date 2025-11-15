@@ -41,7 +41,8 @@ const availableModels = {
         { id: 'mistralai/mistral-7b-instruct:free', name: 'Mistral 7B Instruct (Free)' },
         { id: 'google/gemini-pro-1.5', name: 'Google Gemini Pro 1.5' },
         { id: 'google/gemini-flash-1.5', name: 'Google Gemini Flash 1.5' },
-    ]
+    ],
+    lokale_ki: []
 }
 
 function MaskEditorDialog({
@@ -263,6 +264,7 @@ export default function SettingsPage() {
     const [articleGoogleApiKey, setArticleGoogleApiKey] = React.useState('');
     const [articleOpenRouterApiKey, setArticleOpenRouterApiKey] = React.useState('');
     const [articleSelectedModel, setArticleSelectedModel] = React.useState('');
+    const [articleServerUrl, setArticleServerUrl] = React.useState('');
     const [isTestingArticleConnection, setIsTestingArticleConnection] = React.useState(false);
 
     // State for Delivery Note AI
@@ -270,6 +272,7 @@ export default function SettingsPage() {
     const [deliveryNoteGoogleApiKey, setDeliveryNoteGoogleApiKey] = React.useState('');
     const [deliveryNoteOpenRouterApiKey, setDeliveryNoteOpenRouterApiKey] = React.useState('');
     const [deliveryNoteSelectedModel, setDeliveryNoteSelectedModel] = React.useState('');
+    const [deliveryNoteServerUrl, setDeliveryNoteServerUrl] = React.useState('');
     const [isTestingDeliveryNoteConnection, setIsTestingDeliveryNoteConnection] = React.useState(false);
     
     // State for Commission Settings
@@ -282,18 +285,22 @@ export default function SettingsPage() {
     React.useEffect(() => {
         if (appSettings) {
             if (appSettings.ai) {
-                const { provider, model, apiKey } = appSettings.ai;
+                const { provider, model, apiKey, serverUrl } = appSettings.ai;
                 setArticleAiProvider(provider || 'google');
                 setArticleSelectedModel(model || '');
+                setArticleServerUrl(serverUrl || '');
                 if (provider === 'google') setArticleGoogleApiKey(apiKey || '');
                 else if (provider === 'openrouter') setArticleOpenRouterApiKey(apiKey || '');
+                else if (provider === 'lokale_ki') setArticleOpenRouterApiKey(apiKey || ''); // local can also use a key
             }
             if (appSettings.deliveryNoteAi) {
-                const { provider, model, apiKey } = appSettings.deliveryNoteAi;
+                const { provider, model, apiKey, serverUrl } = appSettings.deliveryNoteAi;
                 setDeliveryNoteAiProvider(provider || 'google');
                 setDeliveryNoteSelectedModel(model || '');
+                setDeliveryNoteServerUrl(serverUrl || '');
                 if (provider === 'google') setDeliveryNoteGoogleApiKey(apiKey || '');
                 else if (provider === 'openrouter') setDeliveryNoteOpenRouterApiKey(apiKey || '');
+                else if (provider === 'lokale_ki') setDeliveryNoteOpenRouterApiKey(apiKey || ''); // local can also use a key
             }
             if (appSettings.commission) {
                 setCommissionPrinterEmail(appSettings.commission.printerEmail || '');
@@ -303,25 +310,25 @@ export default function SettingsPage() {
 
 
     const handleSaveAiSettings = () => {
-        let articleApiKey = '';
-        if (articleAiProvider === 'google') articleApiKey = articleGoogleApiKey;
-        if (articleAiProvider === 'openrouter') articleApiKey = articleOpenRouterApiKey;
-        
-        let deliveryNoteApiKey = '';
-        if (deliveryNoteAiProvider === 'google') deliveryNoteApiKey = deliveryNoteGoogleApiKey;
-        if (deliveryNoteAiProvider === 'openrouter') deliveryNoteApiKey = deliveryNoteOpenRouterApiKey;
+        const getApiKey = (provider: string, googleKey: string, openRouterKey: string) => {
+            if (provider === 'google') return googleKey;
+            if (provider === 'openrouter' || provider === 'lokale_ki') return openRouterKey;
+            return '';
+        }
 
         const settings: AppSettings = {
             ...appSettings,
             ai: {
-                provider: articleAiProvider as 'google' | 'openrouter',
+                provider: articleAiProvider as any,
                 model: articleSelectedModel,
-                apiKey: articleApiKey,
+                apiKey: getApiKey(articleAiProvider, articleGoogleApiKey, articleOpenRouterApiKey),
+                serverUrl: articleAiProvider === 'lokale_ki' ? articleServerUrl : undefined,
             },
             deliveryNoteAi: {
-                provider: deliveryNoteAiProvider as 'google' | 'openrouter',
+                provider: deliveryNoteAiProvider as any,
                 model: deliveryNoteSelectedModel,
-                apiKey: deliveryNoteApiKey,
+                apiKey: getApiKey(deliveryNoteAiProvider, deliveryNoteGoogleApiKey, deliveryNoteOpenRouterApiKey),
+                serverUrl: deliveryNoteAiProvider === 'lokale_ki' ? deliveryNoteServerUrl : undefined,
             },
             commission: {
                 printerEmail: commissionPrinterEmail,
@@ -338,15 +345,16 @@ export default function SettingsPage() {
         const isArticle = type === 'article';
         const provider = isArticle ? articleAiProvider : deliveryNoteAiProvider;
         const model = isArticle ? articleSelectedModel : deliveryNoteSelectedModel;
+        const serverUrl = isArticle ? articleServerUrl : deliveryNoteServerUrl;
         const apiKey = isArticle 
-            ? (provider === 'google' ? articleGoogleApiKey : articleOpenRouterApiKey)
-            : (provider === 'google' ? deliveryNoteGoogleApiKey : deliveryNoteOpenRouterApiKey);
+            ? getApiKey(provider, articleGoogleApiKey, articleOpenRouterApiKey)
+            : getApiKey(provider, deliveryNoteGoogleApiKey, deliveryNoteOpenRouterApiKey);
 
         if (isArticle) setIsTestingArticleConnection(true);
         else setIsTestingDeliveryNoteConnection(true);
 
         try {
-            const result = await testAiConnection({ provider, apiKey, model });
+            const result = await testAiConnection({ provider, apiKey, model, serverUrl });
 
             if (result.success) {
                 toast({
@@ -365,6 +373,12 @@ export default function SettingsPage() {
         } finally {
             if (isArticle) setIsTestingArticleConnection(false);
             else setIsTestingDeliveryNoteConnection(false);
+        }
+
+        function getApiKey(provider: string, googleKey: string, openRouterKey: string): string {
+            if (provider === 'google') return googleKey;
+            if (provider === 'openrouter' || provider === 'lokale_ki') return openRouterKey;
+            return '';
         }
     };
 
@@ -503,15 +517,16 @@ export default function SettingsPage() {
                                             <SelectContent>
                                                 <SelectItem value="google">Google Gemini</SelectItem>
                                                 <SelectItem value="openrouter">OpenRouter</SelectItem>
+                                                <SelectItem value="lokale_ki">Lokale KI</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="article-ai-model">Modell</Label>
-                                        {articleAiProvider === 'openrouter' ? (
+                                        {(articleAiProvider === 'openrouter' || articleAiProvider === 'lokale_ki') ? (
                                             <Input id="article-ai-model" value={articleSelectedModel || ''} onChange={e => setArticleSelectedModel(e.target.value)} placeholder="z.B. google/gemini-pro-1.5" />
                                         ) : (
-                                            <Select value={articleSelectedModel} onValueChange={setArticleSelectedModel} disabled={!articleAiProvider}>
+                                            <Select value={articleSelectedModel} onValueChange={setArticleSelectedModel} disabled={!articleAiProvider || articleAiProvider === 'lokale_ki'}>
                                                 <SelectTrigger id="article-ai-model"><SelectValue placeholder="Modell auswählen..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {articleAiProvider === 'google' && availableModels.google.map(model => (
@@ -528,10 +543,16 @@ export default function SettingsPage() {
                                         <Input id="article-google-api-key" type="password" value={articleGoogleApiKey || ''} onChange={e => setArticleGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
                                     </div>
                                 )}
-                                {articleAiProvider === 'openrouter' && (
+                                {(articleAiProvider === 'openrouter' || articleAiProvider === 'lokale_ki') && (
                                     <div className="space-y-2">
-                                        <Label htmlFor="article-openrouter-api-key">OpenRouter API Key</Label>
-                                        <Input id="article-openrouter-api-key" type="password" value={articleOpenRouterApiKey || ''} onChange={e => setArticleOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
+                                        <Label htmlFor="article-openrouter-api-key">API Key (optional für lokale KI)</Label>
+                                        <Input id="article-openrouter-api-key" type="password" value={articleOpenRouterApiKey || ''} onChange={e => setArticleOpenRouterApiKey(e.target.value)} placeholder="API Key eingeben"/>
+                                    </div>
+                                )}
+                                {articleAiProvider === 'lokale_ki' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="article-server-url">Server URL</Label>
+                                        <Input id="article-server-url" value={articleServerUrl || ''} onChange={e => setArticleServerUrl(e.target.value)} placeholder="z.B. http://192.168.1.100:11434/v1" />
                                     </div>
                                 )}
                             </CardContent>
@@ -556,15 +577,16 @@ export default function SettingsPage() {
                                             <SelectContent>
                                                 <SelectItem value="google">Google Gemini</SelectItem>
                                                 <SelectItem value="openrouter">OpenRouter</SelectItem>
+                                                <SelectItem value="lokale_ki">Lokale KI</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="delivery-ai-model">Modell</Label>
-                                        {deliveryNoteAiProvider === 'openrouter' ? (
+                                        {(deliveryNoteAiProvider === 'openrouter' || deliveryNoteAiProvider === 'lokale_ki') ? (
                                             <Input id="delivery-ai-model" value={deliveryNoteSelectedModel || ''} onChange={e => setDeliveryNoteSelectedModel(e.target.value)} placeholder="z.B. google/gemini-flash-1.5" />
                                         ) : (
-                                            <Select value={deliveryNoteSelectedModel} onValueChange={setDeliveryNoteSelectedModel} disabled={!deliveryNoteAiProvider}>
+                                            <Select value={deliveryNoteSelectedModel} onValueChange={setDeliveryNoteSelectedModel} disabled={!deliveryNoteAiProvider || deliveryNoteAiProvider === 'lokale_ki'}>
                                                 <SelectTrigger id="delivery-ai-model"><SelectValue placeholder="Modell auswählen..." /></SelectTrigger>
                                                 <SelectContent>
                                                     {deliveryNoteAiProvider === 'google' && availableModels.google.map(model => (
@@ -581,10 +603,16 @@ export default function SettingsPage() {
                                         <Input id="delivery-google-api-key" type="password" value={deliveryNoteGoogleApiKey || ''} onChange={e => setDeliveryNoteGoogleApiKey(e.target.value)} placeholder="Ihren Gemini API Key eingeben"/>
                                     </div>
                                 )}
-                                {deliveryNoteAiProvider === 'openrouter' && (
+                                {(deliveryNoteAiProvider === 'openrouter' || deliveryNoteAiProvider === 'lokale_ki') && (
                                     <div className="space-y-2">
-                                        <Label htmlFor="delivery-openrouter-api-key">OpenRouter API Key</Label>
-                                        <Input id="delivery-openrouter-api-key" type="password" value={deliveryNoteOpenRouterApiKey || ''} onChange={e => setDeliveryNoteOpenRouterApiKey(e.target.value)} placeholder="Ihren OpenRouter API Key eingeben"/>
+                                        <Label htmlFor="delivery-openrouter-api-key">API Key (optional für lokale KI)</Label>
+                                        <Input id="delivery-openrouter-api-key" type="password" value={deliveryNoteOpenRouterApiKey || ''} onChange={e => setDeliveryNoteOpenRouterApiKey(e.target.value)} placeholder="API Key eingeben"/>
+                                    </div>
+                                )}
+                                {deliveryNoteAiProvider === 'lokale_ki' && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="delivery-server-url">Server URL</Label>
+                                        <Input id="delivery-server-url" value={deliveryNoteServerUrl || ''} onChange={e => setDeliveryNoteServerUrl(e.target.value)} placeholder="z.B. http://192.168.1.100:11434/v1" />
                                     </div>
                                 )}
                             </CardContent>

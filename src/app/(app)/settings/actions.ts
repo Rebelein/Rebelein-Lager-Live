@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { config } from 'dotenv';
@@ -10,6 +11,7 @@ interface TestConnectionParams {
     provider: string;
     apiKey: string;
     model: string;
+    serverUrl?: string;
 }
 
 export async function testAiConnection(params: TestConnectionParams): Promise<{ success: boolean, error?: string }> {
@@ -17,13 +19,21 @@ export async function testAiConnection(params: TestConnectionParams): Promise<{ 
         if (!params.model) {
             throw new Error("Kein Modell ausgewählt.");
         }
-        if (!params.apiKey) {
+        if (!params.apiKey && params.provider !== 'lokale_ki') {
             throw new Error("API-Schlüssel fehlt.");
         }
         
-        if (params.provider === 'openrouter') {
+        if (params.provider === 'openrouter' || params.provider === 'lokale_ki') {
+             const baseURL = params.provider === 'lokale_ki' 
+                ? params.serverUrl
+                : 'https://openrouter.ai/api/v1';
+
+            if (!baseURL) {
+                throw new Error("Server-URL für lokale KI fehlt.");
+            }
+
             const openai = new OpenAI({
-                baseURL: 'https://openrouter.ai/api/v1',
+                baseURL: baseURL,
                 apiKey: params.apiKey,
                 defaultHeaders: {
                     'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://rebelein-lager.web.app', 

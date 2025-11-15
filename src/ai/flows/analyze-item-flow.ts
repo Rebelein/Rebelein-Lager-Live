@@ -1,4 +1,5 @@
 
+
 'use server';
 /**
  * @fileOverview An AI flow to analyze an inventory item from a URL or an image.
@@ -18,7 +19,8 @@ const AnalyzeItemInputSchema = z.object({
   photoDataUri: z.string().optional().describe("A photo of the item as a data URI."),
   model: z.string().optional().describe("The specific AI model to use for this request."),
   apiKey: z.string().optional().describe("The API key for the selected provider."),
-  provider: z.string().optional().describe("The AI provider ('google' or 'openrouter')."),
+  provider: z.string().optional().describe("The AI provider ('google' or 'openrouter' or 'lokale_ki')."),
+  serverUrl: z.string().optional().describe("The server URL for a local AI provider."),
 });
 export type AnalyzeItemInput = z.infer<typeof AnalyzeItemInputSchema>;
 
@@ -59,9 +61,15 @@ You must identify the following fields. If you cannot find a specific piece of i
 5.  **barcode**: The EAN number. On "sanitaer-heinze.com" this is labeled "EAN".
 `;
     
-    if (input.provider === 'openrouter' && input.apiKey && input.model) {
+    if ((input.provider === 'openrouter' || input.provider === 'lokale_ki') && input.model) {
+        const baseURL = input.provider === 'lokale_ki' ? input.serverUrl : 'https://openrouter.ai/api/v1';
+
+        if (!baseURL) {
+            throw new Error(`Server URL for provider ${input.provider} is missing.`);
+        }
+
         const openAiClient = new OpenAI({
-            baseURL: 'https://openrouter.ai/api/v1',
+            baseURL: baseURL,
             apiKey: input.apiKey,
             defaultHeaders: {
                 'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://rebelein-lager.web.app', 
@@ -102,8 +110,8 @@ You must identify the following fields. If you cannot find a specific piece of i
                 }
                 return AnalyzeItemOutputSchema.parse(parsedOutput);
             } catch (e) {
-                console.error("Failed to parse OpenRouter JSON response:", e);
-                throw new Error("Failed to parse AI response from OpenRouter.");
+                console.error("Failed to parse AI JSON response:", e);
+                throw new Error("Failed to parse AI response.");
             }
         } catch (error: unknown) {
              if ((error as Error).message && ((error as Error).message.includes('No endpoints found that support image input') || (error as { status?: number }).status === 404)) {

@@ -1,4 +1,5 @@
 
+
 'use server';
 /**
  * @fileOverview An AI flow to analyze a delivery note's text and match it against an order.
@@ -53,7 +54,8 @@ const AnalyzeDeliveryNoteInputSchema = z.object({
   orderItems: z.array(OrderItemSchema).describe("A list of ALL items from ALL open orders."),
   model: z.string().optional().describe("The specific AI model to use."),
   apiKey: z.string().optional().describe("The API key for the selected provider."),
-  provider: z.string().optional().describe("The AI provider ('google' or 'openrouter')."),
+  provider: z.string().optional().describe("The AI provider ('google', 'openrouter', or 'lokale_ki')."),
+  serverUrl: z.string().optional().describe("The server URL for a local AI provider."),
 });
 export type AnalyzeDeliveryNoteInput = z.infer<typeof AnalyzeDeliveryNoteInputSchema>;
 
@@ -97,9 +99,15 @@ Analyze the delivery note text below and return the structured JSON with the res
 --- END DELIVERY NOTE TEXT ---
 `;
     
-    if (input.provider === 'openrouter' && input.apiKey && input.model) {
+    if ((input.provider === 'openrouter' || input.provider === 'lokale_ki') && input.model) {
+        const baseURL = input.provider === 'lokale_ki' ? input.serverUrl : 'https://openrouter.ai/api/v1';
+
+        if (!baseURL) {
+            throw new Error(`Server URL for provider ${input.provider} is missing.`);
+        }
+        
         const openAiClient = new OpenAI({
-            baseURL: 'https://openrouter.ai/api/v1',
+            baseURL: baseURL,
             apiKey: input.apiKey,
             defaultHeaders: {
                 'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://rebelein-lager.web.app', 
@@ -157,8 +165,8 @@ ${input.deliveryNoteText}
                 const parsedOutput = JSON.parse(responseJson);
                 return AnalyzeDeliveryNoteOutputSchema.parse(parsedOutput);
             } catch (e) {
-                console.error("Failed to parse OpenRouter JSON response:", e);
-                throw new Error("Failed to parse AI response from OpenRouter.");
+                console.error("Failed to parse AI JSON response:", e);
+                throw new Error("Failed to parse AI response.");
             }
         } catch (error: unknown) {
             throw error;
