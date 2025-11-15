@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -9,26 +10,27 @@ import { de } from 'date-fns/locale';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2, ScanLine, ClipboardCheck, StickyNote, Expand, X } from 'lucide-react';
-import { getChangeLogActionText, isInventoryItem } from '@/lib/utils';
+import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2, ScanLine, ClipboardCheck, StickyNote, Expand, X, Info, Circle } from 'lucide-react';
+import { getChangeLogActionText, getOrderStatusBadgeVariant, getOrderStatusText, isInventoryItem } from '@/lib/utils';
 import {
   Collapsible,
   CollapsibleContent,
 } from "@/components/ui/collapsible"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { InventoryItem, DashboardCardLayout, ChangeLogEntry, Commission } from '@/lib/types';
+import type { InventoryItem, DashboardCardLayout, ChangeLogEntry, Commission, CommissionItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { DndContext, PointerSensor, useSensor, useSensors, DragEndEvent, closestCenter } from '@dnd-kit/core';
-import { SortableContext, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const useIsDesktop = () => {
     const [isDesktop, setIsDesktop] = React.useState(false);
@@ -96,12 +98,132 @@ const ScannerModeDashboard = () => {
 };
 
 
+function CommissionDetailDialog({ commission, onOpenChange }: { commission: Commission | null, onOpenChange: (open: boolean) => void}) {
+    if (!commission) {
+        return null;
+    }
+    
+    const itemsFromWarehouse = commission.items.filter(item => item.source === 'main_warehouse');
+    const itemsFromOrders = commission.items.filter(item => item.source === 'external_order');
+
+    const getItemStatusIcon = (status: CommissionItem['status']) => {
+        switch (status) {
+            case 'pending': return <Circle className="h-5 w-5 text-muted-foreground" />;
+            case 'ready': return <CheckCircle2 className="h-5 w-5 text-primary" />;
+            default: return null;
+        }
+    };
+
+    return (
+        <Dialog open={!!commission} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
+                <DialogHeader>
+                    <div className="flex items-start justify-between">
+                         <div>
+                            <DialogTitle className="text-2xl">{commission.name}</DialogTitle>
+                            <DialogDescription>Auftrags-Nr: {commission.orderNumber}</DialogDescription>
+                         </div>
+                         <Badge variant={getOrderStatusBadgeVariant(commission.status)} className="w-fit">{getOrderStatusText(commission.status)}</Badge>
+                    </div>
+                </DialogHeader>
+                <div className="flex-1 min-h-0">
+                    <ScrollArea className="h-full pr-6 -mr-6">
+                        <div className="flex flex-col gap-6 py-4">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-base">Details</CardTitle>
+                                </CardHeader>
+                                <CardContent className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                                    <div className="flex flex-col">
+                                        <span className="text-muted-foreground">Erstellt am</span>
+                                        <span className="font-semibold">{format(new Date(commission.createdAt), 'dd.MM.yyyy, HH:mm', { locale: de })}</span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-muted-foreground">Erstellt von</span>
+                                        <span className="font-semibold">{commission.createdBy}</span>
+                                    </div>
+                                    {commission.withdrawnAt && (
+                                        <div className="flex flex-col">
+                                            <span className="text-muted-foreground">Entnommen am</span>
+                                            <span className="font-semibold">{format(new Date(commission.withdrawnAt), 'dd.MM.yyyy, HH:mm', { locale: de })}</span>
+                                        </div>
+                                    )}
+                                    {commission.notes && (
+                                        <div className="flex flex-col sm:col-span-2 md:col-span-3">
+                                            <span className="text-muted-foreground">Notizen</span>
+                                            <p className="font-semibold italic bg-muted/50 p-3 rounded-md mt-1">&quot;{commission.notes}&quot;</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                            
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-base">Material aus Lager</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {itemsFromWarehouse.length > 0 ? (
+                                        <ul className="space-y-3">
+                                            {itemsFromWarehouse.map(item => (
+                                                <li key={item.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                                                    {getItemStatusIcon(item.status)}
+                                                    <div className="flex-1">
+                                                        <p className="font-semibold">{item.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{item.itemNumber}</p>
+                                                    </div>
+                                                    <div className="font-bold">{item.quantity} Stk.</div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        ) : (
+                                            <p className="text-muted-foreground text-center py-8">Kein Material aus dem Lager.</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-base">Externe Bestellungen</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {itemsFromOrders.length > 0 ? (
+                                        <ul className="space-y-3">
+                                            {itemsFromOrders.map(item => (
+                                                <li key={item.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                                                    {getItemStatusIcon(item.status)}
+                                                    <div className="flex-1">
+                                                        <p className="font-semibold">{item.name}</p>
+                                                        <p className="text-xs text-muted-foreground">Vorgang: {item.transactionNumber || 'N/A'}</p>
+                                                    </div>
+                                                    <div className="font-bold">{item.quantity} Stk.</div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        ) : (
+                                            <p className="text-muted-foreground text-center py-8">Keine externen Bestellungen.</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
+                    </ScrollArea>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export default function DashboardPage() {
     const { items, allChangelog, locations, dashboardLayout, setDashboardLayout, currentUser, allDashboardCards } = useAppContext();
     const [activeDragId, setActiveDragId] = React.useState<string | null>(null);
     const [isManageCardsOpen, setIsManageCardsOpen] = React.useState(false);
     const [expandedCardId, setExpandedCardId] = React.useState<string | null>(null);
     const isDesktop = useIsDesktop();
+    const [detailCommission, setDetailCommission] = React.useState<Commission | null>(null);
 
 
     const stats = React.useMemo(() => {
@@ -206,7 +328,7 @@ export default function DashboardPage() {
         };
         switch (id) {
             case 'machines': return <MachinesCard key={key} {...cardProps} />;
-            case 'commissions': return <CommissionsCard key={key} {...cardProps} />;
+            case 'commissions': return <CommissionsCard key={key} {...cardProps} onCommissionClick={setDetailCommission} />;
             case 'lowStock': return <StatCard key={key} {...cardProps} title="Artikel unter Mindestbestand" value={stats.lowStockItems.length} icon={AlertCircle} description="Benötigen Aufmerksamkeit">{stats.lowStockItems.length > 0 ? (<div className="space-y-2 text-sm max-h-56 overflow-y-auto pr-2">{stats.lowStockItems.map(({item, locationName}) => (<div key={`${item.id}-${locationName}`} className="flex justify-between"><span>{item.name}</span><span className="text-muted-foreground">{locationName}</span></div>))}</div>) : (<p className="text-sm text-muted-foreground">Alle Bestände sind im grünen Bereich.</p>)}</StatCard>;
             case 'arranged': return <StatCard key={key} {...cardProps} title="Angeordnete Bestellungen" value={stats.arrangedItems.length} icon={FileClock} description="Warten auf Bestellung">{stats.arrangedItems.length > 0 ? (<div className="space-y-2 text-sm max-h-56 overflow-y-auto pr-2">{stats.arrangedItems.map(({item, locationName, quantity}) => (<div key={`${item.id}-${locationName}`} className="flex justify-between"><span>{quantity}x {item.name}</span><span className="text-muted-foreground">{locationName}</span></div>))}</div>) : (<p className="text-sm text-muted-foreground">Keine Bestellungen angeordnet.</p>)}</StatCard>;
             case 'ordered': return <StatCard key={key} {...cardProps} title="Bestellte Artikel" value={stats.orderedItems.length} icon={Truck} description="Warten auf Lieferung">{stats.orderedItems.length > 0 ? (<div className="space-y-2 text-sm max-h-56 overflow-y-auto pr-2">{stats.orderedItems.map(({item, locationName, quantity}) => (<div key={`${item.id}-${locationName}`} className="flex justify-between"><span>{quantity}x {item.name}</span><span className="text-muted-foreground">{locationName}</span></div>))}</div>) : (<p className="text-sm text-muted-foreground">Aktuell keine offenen Bestellungen.</p>)}</StatCard>;
@@ -309,6 +431,7 @@ export default function DashboardPage() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        <CommissionDetailDialog commission={detailCommission} onOpenChange={() => setDetailCommission(null)} />
       </DndContext>
     );
 }
@@ -414,7 +537,7 @@ const MachinesCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
     );
 }
 
-const CommissionsCard = ({ id, size, onSizeChange, isExpanded, onToggleExpand }: { id: string; size: 'small' | 'default' | 'wide', onSizeChange: (size: 'small' | 'default' | 'wide') => void, isExpanded: boolean, onToggleExpand: () => void }) => {
+const CommissionsCard = ({ id, size, onSizeChange, isExpanded, onToggleExpand, onCommissionClick }: { id: string; size: 'small' | 'default' | 'wide', onSizeChange: (size: 'small' | 'default' | 'wide') => void, isExpanded: boolean, onToggleExpand: () => void, onCommissionClick: (commission: Commission) => void }) => {
     const { commissions, addOrUpdateCommission } = useAppContext();
     const router = useRouter();
     const { toast } = useToast();
@@ -458,7 +581,7 @@ const CommissionsCard = ({ id, size, onSizeChange, isExpanded, onToggleExpand }:
                         const isNew = c.isNewlyReady;
                         return (
                         <div key={c.id} className={cn("p-0.5 rounded-lg", isNew && title === 'Bereitgestellt' && "bg-green-500 animate-glow-green")}>
-                            <div className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
+                            <div className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => onCommissionClick(c)}>
                                 <p className="font-medium truncate">{c.name}</p>
                                 <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
                                 {c.notes && <p className="text-xs text-muted-foreground italic truncate">&quot;{c.notes}&quot;</p>}
@@ -680,3 +803,4 @@ const TurnoverCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
 }
 
     
+
