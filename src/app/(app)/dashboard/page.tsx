@@ -9,7 +9,7 @@ import { de } from 'date-fns/locale';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2, ScanLine, ClipboardCheck, StickyNote } from 'lucide-react';
+import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2, ScanLine, ClipboardCheck, StickyNote, Expand, X } from 'lucide-react';
 import { getChangeLogActionText, isInventoryItem } from '@/lib/utils';
 import {
   Collapsible,
@@ -100,6 +100,7 @@ export default function DashboardPage() {
     const { items, allChangelog, locations, dashboardLayout, setDashboardLayout, currentUser, allDashboardCards } = useAppContext();
     const [activeDragId, setActiveDragId] = React.useState<string | null>(null);
     const [isManageCardsOpen, setIsManageCardsOpen] = React.useState(false);
+    const [expandedCardId, setExpandedCardId] = React.useState<string | null>(null);
     const isDesktop = useIsDesktop();
 
 
@@ -200,6 +201,8 @@ export default function DashboardPage() {
             id,
             size,
             onSizeChange: (newSize: 'small' | 'default' | 'wide') => handleSizeChange(id, newSize),
+            isExpanded: expandedCardId === id,
+            onToggleExpand: () => setExpandedCardId(expandedCardId === id ? null : id)
         };
         switch (id) {
             case 'machines': return <MachinesCard key={key} {...cardProps} />;
@@ -218,6 +221,9 @@ export default function DashboardPage() {
     };
     
     const getGridSpan = (id: string, size: 'small' | 'default' | 'wide') => {
+        if (expandedCardId) {
+            return { col: 'lg:col-span-3', row: 'lg:row-span-3' };
+        }
         const isActivityCard = id.includes('activities');
         const isCommissionOrMachineCard = id === 'commissions' || id === 'machines';
         switch(size) {
@@ -235,6 +241,10 @@ export default function DashboardPage() {
         return <div>Loading...</div>
     }
 
+    const visibleCards = expandedCardId 
+        ? dashboardLayout.layout.filter(l => l.id === expandedCardId) 
+        : dashboardLayout.layout.filter(l => !l.hidden);
+
     return (
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex flex-col gap-6">
@@ -251,9 +261,13 @@ export default function DashboardPage() {
                 </div>
             </div>
             
-            <div className={cn("gap-4", isDesktop ? "grid lg:grid-cols-3 auto-rows-fr" : "flex flex-col")}>
-                <SortableContext items={dashboardLayout.layout.map(item => item.id)} disabled={!dashboardLayout.isEditing || !isDesktop}>
-                    {dashboardLayout.layout.filter(l => !l.hidden).map((cardLayout) => {
+            <div className={cn(
+                "gap-4", 
+                isDesktop ? "grid lg:grid-cols-3 auto-rows-fr" : "flex flex-col",
+                expandedCardId && "grid lg:grid-cols-1 lg:grid-rows-1 h-[80vh]"
+            )}>
+                <SortableContext items={dashboardLayout.layout.map(item => item.id)} disabled={!dashboardLayout.isEditing || !isDesktop || !!expandedCardId}>
+                    {visibleCards.map((cardLayout) => {
                         const cardComponent = getCardComponent(cardLayout);
                         if (!cardComponent) return null;
                         
@@ -400,7 +414,7 @@ const MachinesCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
     );
 }
 
-const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 'default' | 'wide', onSizeChange: (size: 'small' | 'default' | 'wide') => void }) => {
+const CommissionsCard = ({ id, size, onSizeChange, isExpanded, onToggleExpand }: { id: string; size: 'small' | 'default' | 'wide', onSizeChange: (size: 'small' | 'default' | 'wide') => void, isExpanded: boolean, onToggleExpand: () => void }) => {
     const { commissions, addOrUpdateCommission } = useAppContext();
     const router = useRouter();
     const { toast } = useToast();
@@ -433,56 +447,56 @@ const CommissionsCard = ({ id, size, onSizeChange }: { id: string; size: 'small'
         toast({ title: 'Notiz gespeichert', description: `Notiz für Kommission "${editingNote.name}" wurde aktualisiert.` });
         setEditingNote(null);
     };
+    
+    const CommissionSection = ({ title, commissionsList }: { title: string, commissionsList: Commission[] }) => {
+        const itemsToShow = isExpanded ? commissionsList : commissionsList.slice(0, 10);
+        return (
+            <div className="space-y-2 flex flex-col">
+                <h4 className="font-semibold text-center text-sm border-b pb-2">{title} ({commissionsList.length})</h4>
+                <div className={cn("space-y-2 pt-2 text-sm flex-grow", isExpanded && "overflow-y-auto")}>
+                    {itemsToShow.length > 0 ? itemsToShow.map(c => {
+                        const isNew = c.isNewlyReady;
+                        return (
+                        <div key={c.id} className={cn("p-0.5 rounded-lg", isNew && title === 'Bereitgestellt' && "bg-green-500 animate-glow-green")}>
+                            <div className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
+                                <p className="font-medium truncate">{c.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
+                                {c.notes && <p className="text-xs text-muted-foreground italic truncate">&quot;{c.notes}&quot;</p>}
+                                <div className='absolute top-0 right-0 flex'>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-yellow-500" onClick={(e) => handleOpenNote(e, c)}>
+                                        <StickyNote className={cn("h-5 w-5", c.notes && "text-yellow-500 fill-yellow-100")} />
+                                    </Button>
+                                    {title === 'Bereitgestellt' && (
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-green-600" onClick={(e) => handleToggleGlow(e, c)}>
+                                            <CheckCircle2 className={cn("h-5 w-5", isNew && "text-green-600")} />
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        )
+                    }) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
+                </div>
+            </div>
+        )
+    };
+
 
     return (
         <DraggableCardWrapper id={id} currentSize={size} onSizeChange={onSizeChange}>
             <Card className="h-full flex flex-col">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><PackageSearch className="h-5 w-5 text-primary" /> Kommissionen</CardTitle>
+                <CardHeader className="flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <PackageSearch className="h-5 w-5 text-primary" />
+                        <CardTitle>Kommissionen</CardTitle>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleExpand}>
+                       {isExpanded ? <X className="h-5 w-5" /> : <Expand className="h-5 w-5" />}
+                    </Button>
                 </CardHeader>
                 <CardContent className="flex-grow grid grid-cols-2 gap-4 overflow-hidden">
-                    <div className="space-y-2 flex flex-col">
-                        <h4 className="font-semibold text-center text-sm border-b pb-2">Entwurf ({draftCommissions.length})</h4>
-                        <div className="space-y-2 pt-2 text-sm overflow-y-auto flex-grow">
-                            {draftCommissions.length > 0 ? draftCommissions.slice(0, 10).map(c => (
-                                <div key={c.id} className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
-                                    <p className="font-medium truncate">{c.name}</p>
-                                    <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
-                                    {c.notes && <p className="text-xs text-muted-foreground italic truncate">&quot;{c.notes}&quot;</p>}
-                                    <div className='absolute top-0 right-0 flex'>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-yellow-500" onClick={(e) => handleOpenNote(e, c)}>
-                                            <StickyNote className={cn("h-5 w-5", c.notes && "text-yellow-500 fill-yellow-100")} />
-                                        </Button>
-                                    </div>
-                                </div>
-                            )) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
-                        </div>
-                    </div>
-                    <div className="space-y-2 flex flex-col">
-                        <h4 className="font-semibold text-center text-sm border-b pb-2">Bereitgestellt ({readyCommissions.length})</h4>
-                        <div className="space-y-2 pt-2 text-sm overflow-y-auto flex-grow">
-                            {readyCommissions.length > 0 ? readyCommissions.slice(0, 10).map(c => {
-                                const isNew = c.isNewlyReady;
-                                return (
-                                <div key={c.id} className={cn("p-0.5 rounded-lg", isNew && "bg-green-500 animate-glow-green")}>
-                                  <div className="p-2 border rounded-md cursor-pointer hover:bg-muted bg-card relative" onClick={() => router.push(`/commissioning?commissionId=${c.id}`)}>
-                                      <p className="font-medium truncate">{c.name}</p>
-                                      <p className="text-xs text-muted-foreground truncate">{c.orderNumber}</p>
-                                      {c.notes && <p className="text-xs text-muted-foreground italic truncate">&quot;{c.notes}&quot;</p>}
-                                       <div className='absolute top-0 right-0 flex'>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-yellow-500" onClick={(e) => handleOpenNote(e, c)}>
-                                                <StickyNote className={cn("h-5 w-5", c.notes && "text-yellow-500 fill-yellow-100")} />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-green-600" onClick={(e) => handleToggleGlow(e, c)}>
-                                                <CheckCircle2 className={cn("h-5 w-5", isNew && "text-green-600")} />
-                                            </Button>
-                                       </div>
-                                  </div>
-                                </div>
-                                )
-                            }) : <p className="text-xs text-muted-foreground text-center">Keine</p>}
-                        </div>
-                    </div>
+                    <CommissionSection title="Entwurf" commissionsList={draftCommissions} />
+                    <CommissionSection title="Bereitgestellt" commissionsList={readyCommissions} />
                 </CardContent>
             </Card>
             {editingNote && (
