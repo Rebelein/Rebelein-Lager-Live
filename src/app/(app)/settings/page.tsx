@@ -12,9 +12,9 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { navItems } from '@/lib/nav-items';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Trash2, PlusCircle, Pencil, User, Bot, Link2, PackageSearch } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Pencil, User, Bot, Link2, PackageSearch, Smartphone } from 'lucide-react';
 import { testAiConnection } from './actions';
-import type { AppSettings, Wholesaler } from '@/lib/types';
+import type { AppSettings, Wholesaler, CsvExportFormat } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 const availableModels = {
@@ -32,33 +32,98 @@ const availableModels = {
     lokale_ki: []
 }
 
-function WholesalerDialog({ wholesaler, onSave, onOpenChange, open }: { wholesaler: Wholesaler | null, onSave: (name: string) => void, onOpenChange: (open: boolean) => void, open: boolean }) {
+function WholesalerDialog({ wholesaler, onSave, onOpenChange, open }: { wholesaler: Wholesaler | null, onSave: (wholesalerData: Partial<Wholesaler>) => void, onOpenChange: (open: boolean) => void, open: boolean }) {
     const [name, setName] = React.useState('');
+    const [csvFormat, setCsvFormat] = React.useState<CsvExportFormat>({
+        delimiter: ';',
+        includeHeader: true,
+        columns: {
+            itemNumber: { index: 0, type: 'wholesaler' },
+            quantity: { index: 1 },
+        },
+    });
 
     React.useEffect(() => {
         if (wholesaler) {
             setName(wholesaler.name);
+            setCsvFormat(wholesaler.csvExportFormat || {
+                delimiter: ';',
+                includeHeader: true,
+                columns: {
+                    itemNumber: { index: 0, type: 'wholesaler' },
+                    quantity: { index: 1 },
+                },
+            });
         } else {
             setName('');
+            setCsvFormat({
+                delimiter: ';',
+                includeHeader: true,
+                columns: {
+                    itemNumber: { index: 0, type: 'wholesaler' },
+                    quantity: { index: 1 },
+                },
+            });
         }
     }, [wholesaler, open]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(name);
+        onSave({ name, csvExportFormat: csvFormat });
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-w-xl">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>{wholesaler ? 'Großhändler bearbeiten' : 'Neuen Großhändler anlegen'}</DialogTitle>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="wholesaler-name" className="text-right">Name</Label>
-                            <Input id="wholesaler-name" value={name} onChange={e => setName(e.target.value)} className="col-span-3" required />
+                    <div className="grid gap-6 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="wholesaler-name">Name</Label>
+                            <Input id="wholesaler-name" value={name} onChange={e => setName(e.target.value)} required />
+                        </div>
+                        <Separator />
+                        <div>
+                            <h4 className="text-md font-medium mb-2">CSV-Bestellformat</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="delimiter">Trennzeichen</Label>
+                                    <Select value={csvFormat.delimiter} onValueChange={(val) => setCsvFormat(p => ({...p, delimiter: val as any}))}>
+                                        <SelectTrigger id="delimiter"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value=";">Semikolon</SelectItem>
+                                            <SelectItem value=",">Komma</SelectItem>
+                                            <SelectItem value="\t">Tabulator</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                 <div className="space-y-2 pt-8">
+                                    <div className="flex items-center space-x-2">
+                                        <Switch id="includeHeader" checked={csvFormat.includeHeader} onCheckedChange={(checked) => setCsvFormat(p => ({...p, includeHeader: checked}))} />
+                                        <Label htmlFor="includeHeader">Kopfzeile exportieren</Label>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="itemNumber-index">Spalte für Artikelnummer</Label>
+                                    <Input id="itemNumber-index" type="number" value={csvFormat.columns.itemNumber.index} onChange={(e) => setCsvFormat(p => ({...p, columns: {...p.columns, itemNumber: {...p.columns.itemNumber, index: parseInt(e.target.value) || 0}} }))} min="0"/>
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="itemNumber-type">Typ der Artikelnummer</Label>
+                                     <Select value={csvFormat.columns.itemNumber.type} onValueChange={(val) => setCsvFormat(p => ({...p, columns: {...p.columns, itemNumber: {...p.columns.itemNumber, type: val as any}} }))}>
+                                        <SelectTrigger id="itemNumber-type"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="wholesaler">Großhändler-Art.Nr.</SelectItem>
+                                            <SelectItem value="manufacturer">Hersteller-Art.Nr.</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="quantity-index">Spalte für Menge</Label>
+                                    <Input id="quantity-index" type="number" value={csvFormat.columns.quantity.index} onChange={(e) => setCsvFormat(p => ({...p, columns: {...p.columns, quantity: {...p.columns.quantity, index: parseInt(e.target.value) || 0}} }))} min="0"/>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <DialogFooter>
@@ -262,12 +327,12 @@ export default function SettingsPage() {
         }
     };
     
-    const handleSaveWholesaler = (name: string) => {
+    const handleSaveWholesaler = (wholesalerData: Partial<Wholesaler>) => {
         if (editingWholesaler) {
-            setWholesalers(wholesalers.map(w => w.id === editingWholesaler.id ? { ...w, name } : w));
+            setWholesalers(wholesalers.map(w => w.id === editingWholesaler.id ? { ...w, ...wholesalerData } as Wholesaler : w));
             toast({ title: 'Großhändler aktualisiert' });
         } else {
-            const newWholesaler: Wholesaler = { id: new Date().toISOString(), name, masks: [] };
+            const newWholesaler: Wholesaler = { id: new Date().toISOString(), name: wholesalerData.name!, masks: [], ...wholesalerData };
             setWholesalers([...wholesalers, newWholesaler]);
             toast({ title: 'Großhändler hinzugefügt' });
         }
@@ -480,7 +545,7 @@ export default function SettingsPage() {
                         <Card>
                              <CardHeader>
                                 <CardTitle>Großhändler</CardTitle>
-                                <CardDescription>Verwalten Sie die Großhändler, bei denen Sie bestellen.</CardDescription>
+                                <CardDescription>Verwalten Sie die Großhändler und deren CSV-Exportformate für Bestellungen.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-2">

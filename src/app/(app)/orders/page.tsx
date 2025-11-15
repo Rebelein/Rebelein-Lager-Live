@@ -10,7 +10,7 @@ import { useAppContext } from '@/context/AppContext'
 import type { InventoryItem, Order, OrderItem, Location, Wholesaler } from '@/lib/types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
-import { ClipboardCopy, ShoppingCart, Inbox, Minus, Plus, X, Trash2, Truck, PackageCheck, Scan, Check, FileWarning, Camera, Zap, ZapOff, RefreshCw, Upload, ImagePlus, ClipboardPaste, AlertTriangle } from 'lucide-react'
+import { ClipboardCopy, ShoppingCart, Inbox, Minus, Plus, X, Trash2, Truck, PackageCheck, Scan, Check, FileWarning, Camera, Zap, ZapOff, RefreshCw, Upload, ImagePlus, ClipboardPaste, AlertTriangle, FileDown } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { getOrderStatusBadgeVariant, getOrderStatusText, isInventoryItem } from '@/lib/utils'
@@ -296,6 +296,58 @@ export default function OrdersPage() {
     setIsCopyModalOpen(true);
   };
 
+  const handleDownloadCsv = (order: Order | {wholesalerId: string, itemsToOrder: InventoryItem[]}) => {
+    const wholesalerId = 'wholesalerId' in order ? order.wholesalerId : '';
+    const wholesaler = wholesalers.find(w => w.id === wholesalerId);
+    
+    if (!wholesaler?.csvExportFormat) {
+        toast({
+            title: 'Exportformat fehlt',
+            description: `Für ${wholesaler?.name || 'diesen Großhändler'} wurde kein CSV-Format konfiguriert.`,
+            variant: 'destructive'
+        });
+        return;
+    }
+    
+    const { delimiter, includeHeader, columns } = wholesaler.csvExportFormat;
+    
+    let csvContent = '';
+    
+    if (includeHeader) {
+        const header = [];
+        header[columns.itemNumber.index] = 'Artikelnummer';
+        header[columns.quantity.index] = 'Menge';
+        csvContent += header.join(delimiter) + '\n';
+    }
+
+    const items = 'items' in order ? order.items : order.itemsToOrder;
+
+    items.forEach(item => {
+        const itemNumber = columns.itemNumber.type === 'manufacturer'
+            ? 'itemNumber' in item ? item.itemNumber : (item.preferredManufacturerItemNumber || item.manufacturerItemNumbers[0]?.number)
+            : ('wholesalerItemNumber' in item && item.wholesalerItemNumber)
+                ? item.wholesalerItemNumber
+                : item.suppliers.find(s => s.wholesalerId === wholesalerId)?.wholesalerItemNumber || '';
+                
+        const quantity = 'quantity' in item ? item.quantity : item.reorderStatus[Object.keys(item.reorderStatus)[0]]?.quantity;
+
+        const row = [];
+        row[columns.itemNumber.index] = itemNumber;
+        row[columns.quantity.index] = quantity;
+        csvContent += row.join(delimiter) + '\n';
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `bestellung-${wholesaler.name.toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleOpenCreateOrderModal = (wholesalerId: string, itemsToOrder: InventoryItem[], location: Location) => {
     setOrderCreationData({ wholesalerId, itemsToOrder, location });
     setSelectedExistingOrder('new');
@@ -311,7 +363,7 @@ export default function OrdersPage() {
     if (selectedExistingOrder === 'new') {
       const { wholesalerId, itemsToOrder, location } = orderCreationData;
       const newOrder = createOrder(wholesalerId, itemsToOrder, location.id, location.isVehicle);
-      toast({ title: 'Bestellung vorbereitet', description: `Bestellung ${newOrder.orderNumber} wurde erstellt. Sie können die Liste nun kopieren.` });
+      toast({ title: 'Bestellung vorbereitet', description: `Bestellung ${newOrder.orderNumber} wurde erstellt.` });
     } else {
       addItemsToOrder(selectedExistingOrder, orderCreationData.itemsToOrder, orderCreationData.location.id);
       toast({ title: 'Artikel hinzugefügt', description: `Artikel wurden zur Bestellung hinzugefügt.` });
@@ -533,7 +585,7 @@ export default function OrdersPage() {
             const allOpenOrderItems = openOrders.flatMap(order => 
                 order.items.map(orderItem => {
                     const fullItem = items.find(i => i.id === orderItem.itemId);
-                    const allSupplierNumbers = fullItem && isInventoryItem(fullItem) ? fullItem.suppliers.map((s: any) => s.wholesalerItemNumber).filter(Boolean) as string[] || [] : [];
+                    const allSupplierNumbers = fullItem && isInventoryItem(fullItem) ? (fullItem.suppliers || []).map((s: any) => s.wholesalerItemNumber).filter(Boolean) as string[] : [];
                     if (orderItem.wholesalerItemNumber && !allSupplierNumbers.includes(orderItem.wholesalerItemNumber)) {
                         allSupplierNumbers.push(orderItem.wholesalerItemNumber);
                     }
@@ -708,10 +760,16 @@ export default function OrdersPage() {
                                         <span className="font-semibold text-foreground ml-2">Bestell-Nr: {order.orderNumber}</span>
                                     </CardDescription>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={() => handleOpenCopyDialog(order.orderNumber, order.items, true)}>
-                                    <ClipboardCopy className="mr-2 h-4 w-4" />
-                                    Liste kopieren
-                                </Button>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm" onClick={() => handleDownloadCsv(order)}>
+                                      <FileDown className="mr-2 h-4 w-4" />
+                                      CSV
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => handleOpenCopyDialog(order.orderNumber, order.items, true)}>
+                                      <ClipboardCopy className="mr-2 h-4 w-4" />
+                                      Liste kopieren
+                                  </Button>
+                                </div>
                             </div>
                         </CardHeader>
                       <CardContent>
@@ -760,10 +818,18 @@ export default function OrdersPage() {
                                             <CardTitle className="break-words">{wholesalerName}</CardTitle>
                                             <CardDescription>{itemsToOrder.length} Artikel</CardDescription>
                                         </div>
-                                        <Button variant="destructive" size="icon" onClick={() => handleOpenCancelConfirm(wholesalerId, itemsToOrder, locationId)}>
-                                            <Trash2 className="h-4 w-4" />
-                                            <span className="sr-only">Vorschlag löschen</span>
-                                        </Button>
+                                        <div className="flex gap-2">
+                                          {wholesaler?.csvExportFormat && (
+                                              <Button variant="outline" size="sm" onClick={() => handleDownloadCsv({wholesalerId, itemsToOrder})}>
+                                                  <FileDown className="mr-2 h-4 w-4" />
+                                                  CSV
+                                              </Button>
+                                          )}
+                                          <Button variant="destructive" size="icon" onClick={() => handleOpenCancelConfirm(wholesalerId, itemsToOrder, locationId)}>
+                                              <Trash2 className="h-4 w-4" />
+                                              <span className="sr-only">Vorschlag löschen</span>
+                                          </Button>
+                                        </div>
                                     </div>
                                 </CardHeader>
                               <CardContent>
@@ -774,7 +840,7 @@ export default function OrdersPage() {
                                             <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2">
                                               <div className="flex-1 min-w-0">
                                                   <p className="font-medium break-words">{item.name}</p>
-                                                  <p className="text-sm text-muted-foreground truncate">{supplierInfo?.wholesalerItemNumber || item.manufacturerItemNumbers[0]?.number || ''}</p>
+                                                  <p className="text-sm text-muted-foreground truncate">{supplierInfo?.wholesalerItemNumber || (Array.isArray(item.manufacturerItemNumbers) && item.manufacturerItemNumbers[0]?.number) || ''}</p>
                                               </div>
                                               <div className="flex items-center justify-between sm:justify-end gap-4 ml-0 sm:ml-4 mt-2 sm:mt-0">
                                                 <span className="font-medium">{item.reorderStatus[locationId]?.quantity} Stk.</span>

@@ -134,9 +134,19 @@ export type ChangeLogEntry = {
     toLocationId?: string;
 };
 
+export type CsvExportFormat = {
+  delimiter: ',' | ';' | '\t';
+  includeHeader: boolean;
+  columns: {
+    itemNumber: { index: number; type: 'wholesaler' | 'manufacturer' };
+    quantity: { index: number };
+  };
+};
+
 export type Wholesaler = {
-    id: string;
-    name: string;
+  id: string;
+  name: string;
+  csvExportFormat?: CsvExportFormat;
 };
 
 export type ItemSupplier = {
