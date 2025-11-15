@@ -753,8 +753,8 @@ export default function OrdersPage() {
                 {draftOrders.map(order => (
                     <AccordionItem value={order.id} key={order.id} className="border-b-0">
                         <Card>
-                             <AccordionTrigger className="p-4 sm:p-6 hover:no-underline rounded-lg data-[state=open]:rounded-b-none">
-                                <div className="flex flex-col sm:flex-row justify-between items-start gap-2 w-full">
+                            <div className="p-4 sm:p-6 rounded-t-lg data-[state=open]:rounded-b-none flex justify-between items-start gap-2">
+                                <AccordionTrigger className="p-0 hover:no-underline flex-1">
                                     <div className="flex-1 min-w-0 text-left">
                                         <CardTitle className="break-words">{order.wholesalerName}</CardTitle>
                                         <CardDescription>
@@ -762,18 +762,18 @@ export default function OrdersPage() {
                                             <span className="font-semibold text-foreground ml-2">Bestell-Nr: {order.orderNumber}</span>
                                         </CardDescription>
                                     </div>
-                                    <div className="flex gap-2 self-start sm:self-center">
-                                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDownloadCsv(order); }}>
-                                          <FileDown className="mr-2 h-4 w-4" />
-                                          CSV
-                                      </Button>
-                                      <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenCopyDialog(order.orderNumber, order.items, true); }}>
-                                          <ClipboardCopy className="mr-2 h-4 w-4" />
-                                          Liste kopieren
-                                      </Button>
-                                    </div>
+                                </AccordionTrigger>
+                                <div className="flex gap-2 self-start sm:self-center">
+                                  <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDownloadCsv(order); }}>
+                                      <FileDown className="mr-2 h-4 w-4" />
+                                      CSV
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenCopyDialog(order.orderNumber, order.items, true); }}>
+                                      <ClipboardCopy className="mr-2 h-4 w-4" />
+                                      Liste kopieren
+                                  </Button>
                                 </div>
-                            </AccordionTrigger>
+                            </div>
                             <AccordionContent>
                               <CardContent className="pt-0">
                                   <div className="divide-y">
@@ -827,26 +827,26 @@ export default function OrdersPage() {
                           return (
                             <AccordionItem value={`${locationId}-${wholesalerId}`} key={`${locationId}-${wholesalerId}`} className="border-b-0 mb-4">
                                 <Card>
-                                     <AccordionTrigger className="p-4 sm:p-6 hover:no-underline rounded-lg data-[state=open]:rounded-b-none">
-                                        <div className="flex justify-between items-start gap-2 w-full">
+                                     <div className="p-4 sm:p-6 rounded-t-lg data-[state=open]:rounded-b-none flex justify-between items-start gap-2">
+                                        <AccordionTrigger className="p-0 hover:no-underline flex-1">
                                             <div className="flex-1 min-w-0 text-left">
                                                 <CardTitle className="break-words">{wholesalerName}</CardTitle>
                                                 <CardDescription>{itemsToOrder.length} Artikel</CardDescription>
                                             </div>
-                                            <div className="flex gap-2 self-start sm:self-center">
-                                              {wholesaler?.csvExportFormat && (
-                                                  <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDownloadCsv({wholesalerId, itemsToOrder}); }}>
-                                                      <FileDown className="mr-2 h-4 w-4" />
-                                                      CSV
-                                                  </Button>
-                                              )}
-                                              <Button variant="destructive" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenCancelConfirm(wholesalerId, itemsToOrder, locationId); }}>
-                                                  <Trash2 className="h-4 w-4" />
-                                                  <span className="sr-only">Vorschlag löschen</span>
+                                        </AccordionTrigger>
+                                        <div className="flex gap-2 self-start sm:self-center">
+                                          {wholesaler?.csvExportFormat && (
+                                              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleDownloadCsv({wholesalerId, itemsToOrder}); }}>
+                                                  <FileDown className="mr-2 h-4 w-4" />
+                                                  CSV
                                               </Button>
-                                            </div>
+                                          )}
+                                          <Button variant="destructive" size="icon" onClick={(e) => { e.stopPropagation(); handleOpenCancelConfirm(wholesalerId, itemsToOrder, locationId); }}>
+                                              <Trash2 className="h-4 w-4" />
+                                              <span className="sr-only">Vorschlag löschen</span>
+                                          </Button>
                                         </div>
-                                    </AccordionTrigger>
+                                    </div>
                                      <AccordionContent>
                                       <CardContent className="pt-0">
                                         <div className="divide-y">
