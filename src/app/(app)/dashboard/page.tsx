@@ -10,7 +10,7 @@ import { de } from 'date-fns/locale';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2, ScanLine, ClipboardCheck, StickyNote, Expand, X, Info, Circle, Archive, ClipboardList } from 'lucide-react';
+import { AlertCircle, FileClock, Truck, Package, PackagePlus, PackageMinus, History, Warehouse, Wrench, Calendar, User, GripVertical, Car, Settings2, LayoutGrid, PackageSearch, CheckCircle2, ScanLine, ClipboardCheck, StickyNote, Expand, X, Info, Circle, Archive, ClipboardList, Pencil, Trash2, Printer, MoreHorizontal } from 'lucide-react';
 import { getChangeLogActionText, getOrderStatusBadgeVariant, getOrderStatusText, isInventoryItem } from '@/lib/utils';
 import {
   Collapsible,
@@ -23,7 +23,7 @@ import { DndContext, PointerSensor, useSensor, useSensors, DragEndEvent, closest
 import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -98,7 +98,7 @@ const ScannerModeDashboard = () => {
 };
 
 
-function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdraw }: { commission: Commission | null, onOpenChange: (open: boolean) => void, onPrepare: (commission: Commission) => void, onWithdraw: (commission: Commission) => void}) {
+function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdraw, onEdit, onDelete, onPrint }: { commission: Commission | null, onOpenChange: (open: boolean) => void, onPrepare: (commission: Commission) => void, onWithdraw: (commission: Commission) => void, onEdit: (commission: Commission) => void, onDelete: (commission: Commission) => void, onPrint: (commission: Commission) => void}) {
     if (!commission) {
         return null;
     }
@@ -119,11 +119,24 @@ function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdra
             <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
                 <DialogHeader>
                     <div className="flex items-start justify-between">
-                         <div>
-                            <DialogTitle className="text-2xl">{commission.name}</DialogTitle>
+                         <div className='flex-1'>
+                            <DialogTitle className="text-2xl pr-12">{commission.name}</DialogTitle>
                             <DialogDescription>Auftrags-Nr: {commission.orderNumber}</DialogDescription>
                          </div>
-                         <Badge variant={getOrderStatusBadgeVariant(commission.status)} className="w-fit">{getOrderStatusText(commission.status)}</Badge>
+                         <div className="flex items-center gap-2">
+                             <Badge variant={getOrderStatusBadgeVariant(commission.status)} className="w-fit">{getOrderStatusText(commission.status)}</Badge>
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2"><MoreHorizontal className="h-4 w-4" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onSelect={() => onEdit(commission)}><Pencil className="mr-2 h-4 w-4" /> Bearbeiten</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => onPrint(commission)}><Printer className="mr-2 h-4 w-4" /> Etikett drucken</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onSelect={() => onDelete(commission)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
+                                </DropdownMenuContent>
+                             </DropdownMenu>
+                         </div>
                     </div>
                 </DialogHeader>
                 <div className="flex-1 min-h-0">
@@ -209,7 +222,7 @@ function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdra
                         </div>
                     </ScrollArea>
                 </div>
-                 <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                 <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
                     <DialogClose asChild><Button variant="secondary" className="w-full sm:w-auto">Schließen</Button></DialogClose>
                     <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
                         {commission.status !== 'ready' && commission.status !== 'withdrawn' && (
@@ -330,6 +343,18 @@ export default function DashboardPage() {
     const handlePrepare = (commission: Commission) => {
         router.push(`/commissioning?commissionId=${commission.id}&openPrepare=true`);
     };
+    
+    const handleEdit = (commission: Commission) => {
+        router.push(`/commissioning?commissionId=${commission.id}&openEdit=true`);
+    }
+
+    const handleDelete = (commission: Commission) => {
+        router.push(`/commissioning?commissionId=${commission.id}&openDelete=true`);
+    }
+
+    const handlePrint = (commission: Commission) => {
+        router.push(`/commissioning?commissionId=${commission.id}&openPrint=true`);
+    }
 
     if (currentUser?.isScannerMode) {
         return <ScannerModeDashboard />;
@@ -456,6 +481,9 @@ export default function DashboardPage() {
           onOpenChange={() => setDetailCommission(null)} 
           onPrepare={handlePrepare}
           onWithdraw={handleWithdraw}
+          onEdit={(c) => { setDetailCommission(null); handleEdit(c); }}
+          onDelete={(c) => { setDetailCommission(null); handleDelete(c); }}
+          onPrint={(c) => { setDetailCommission(null); handlePrint(c); }}
         />
       </DndContext>
     );
@@ -828,6 +856,7 @@ const TurnoverCard = ({ id, size, onSizeChange }: { id: string; size: 'small' | 
 }
 
     
+
 
 
 

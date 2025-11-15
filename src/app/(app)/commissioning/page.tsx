@@ -192,7 +192,7 @@ const getItemStatusIcon = (status: CommissionItem['status']) => {
 };
 
 
-function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdraw }: { commission: Commission | null, onOpenChange: (open: boolean) => void, onPrepare: (commission: Commission) => void, onWithdraw: (commission: Commission) => void}) {
+function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdraw, onEdit, onDelete, onPrint }: { commission: Commission | null, onOpenChange: (open: boolean) => void, onPrepare: (commission: Commission) => void, onWithdraw: (commission: Commission) => void, onEdit: (commission: Commission) => void, onDelete: (commission: Commission) => void, onPrint: (commission: Commission) => void }) {
     if (!commission) {
         return null;
     }
@@ -203,13 +203,26 @@ function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdra
     return (
         <Dialog open={!!commission} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
-                <DialogHeader>
+                 <DialogHeader>
                     <div className="flex items-start justify-between">
-                         <div>
-                            <DialogTitle className="text-2xl">{commission.name}</DialogTitle>
+                         <div className="flex-1">
+                            <DialogTitle className="text-2xl pr-12">{commission.name}</DialogTitle>
                             <DialogDescription>Auftrags-Nr: {commission.orderNumber}</DialogDescription>
                          </div>
-                         <Badge variant={getStatusVariant(commission.status)} className="w-fit">{getStatusText(commission.status)}</Badge>
+                         <div className="flex items-center gap-2">
+                             <Badge variant={getStatusVariant(commission.status)} className="w-fit">{getStatusText(commission.status)}</Badge>
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2"><MoreHorizontal className="h-4 w-4" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onSelect={() => onEdit(commission)}><Pencil className="mr-2 h-4 w-4" /> Bearbeiten</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => onPrint(commission)}><Printer className="mr-2 h-4 w-4" /> Etikett drucken</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onSelect={() => onDelete(commission)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
+                                </DropdownMenuContent>
+                             </DropdownMenu>
+                         </div>
                     </div>
                 </DialogHeader>
                 <div className="flex-1 min-h-0">
@@ -295,7 +308,7 @@ function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdra
                         </div>
                     </ScrollArea>
                 </div>
-                <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                 <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
                     <DialogClose asChild><Button variant="secondary" className="w-full sm:w-auto">Schließen</Button></DialogClose>
                     <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
                         {commission.status !== 'ready' && commission.status !== 'withdrawn' && (
@@ -896,6 +909,12 @@ export default function CommissioningPage() {
             setPreparingCommission(foundCommission);
           } else if (urlParams.get('action') === 'withdraw') {
             handleWithdraw(foundCommission);
+          } else if (urlParams.get('openEdit')) {
+            handleOpenForm(foundCommission);
+          } else if (urlParams.get('openDelete')) {
+            setCommissionToDelete(foundCommission);
+          } else if (urlParams.get('openPrint')) {
+            setPrintingCommission(foundCommission);
           }
           // Clean up URL
           window.history.replaceState({}, '', window.location.pathname);
@@ -1335,6 +1354,9 @@ export default function CommissioningPage() {
             onOpenChange={() => setDetailCommission(null)}
             onPrepare={setPreparingCommission}
             onWithdraw={handleWithdraw}
+            onEdit={(c) => { setDetailCommission(null); handleOpenForm(c); }}
+            onDelete={(c) => { setDetailCommission(null); setCommissionToDelete(c); }}
+            onPrint={(c) => { setDetailCommission(null); setPrintingCommission(c); }}
         />
       )}
       
