@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import * as React from 'react'
@@ -58,6 +57,9 @@ export default function OrdersPage() {
   const [isCommissionDialog, setIsCommissionDialog] = React.useState(false);
   const [cancellingInfo, setCancellingInfo] = React.useState<{ wholesalerId: string; itemsToCancel: InventoryItem[]; locationId: string; } | null>(null);
   
+  const [isCopyModalOpen, setIsCopyModalOpen] = React.useState(false);
+  const [copyModalContent, setCopyModalContent] = React.useState<{ orderNumber: string, items: (InventoryItem[] | OrderItem[]), isDraft: boolean } | null>(null);
+
   const [receivingInfo, setReceivingInfo] = React.useState<{ order: Order; item: OrderItem } | null>(null);
   const [receivedQuantity, setReceivedQuantity] = React.useState(0);
   
@@ -206,33 +208,27 @@ export default function OrdersPage() {
     return allCommissioned;
   }, [orders]);
 
-  const copyOrderList = (wholesalerName: string, orderNumber: string, itemsToOrder: (InventoryItem[] | OrderItem[]), isDraft: boolean) => {
-    const list = itemsToOrder.map(item => {
-      const locationId = (item as any).locationId || 'main'; // This is a simplification
-      const reorderStatus = isDraft ? null : (item as InventoryItem).reorderStatus[locationId];
-      const quantity = isDraft ? (item as OrderItem).quantity : reorderStatus?.quantity;
-      const name = isDraft ? (item as OrderItem).itemName : (item as InventoryItem).name;
-      const itemNumber = isDraft ? (item as OrderItem).wholesalerItemNumber || (item as OrderItem).itemNumber : ('itemType' in item && item.itemType === 'item' ? ((item as InventoryItem).suppliers?.find((s: any) => s.wholesalerId === (item as InventoryItem).preferredWholesalerId)?.wholesalerItemNumber || (item as InventoryItem).manufacturerItemNumbers[0]?.number) : '');
-      return `${quantity}x ${name} (Art-Nr: ${itemNumber})`
-    }).join('\n')
+ const handleOpenCopyDialog = (orderNumber: string, items: (InventoryItem[] | OrderItem[]), isDraft: boolean) => {
+    setCopyModalContent({ orderNumber, items, isDraft });
+    setIsCopyModalOpen(true);
+  };
 
-    const textToCopy = `Bestellung bei ${wholesalerName} (Kommission: ${orderNumber}):\n\n${list}`
+  const copyToClipboard = (textToCopy: string, itemName: string) => {
+      navigator.clipboard.writeText(textToCopy).then(() => {
+          toast({
+              title: 'Artikelnummer kopiert',
+              description: `Nummer für "${itemName}" wurde in die Zwischenablage kopiert.`
+          });
+      }).catch(err => {
+          console.error('Failed to copy: ', err);
+          toast({
+              title: 'Fehler',
+              description: 'Artikelnummer konnte nicht kopiert werden.',
+              variant: 'destructive'
+          });
+      });
+  };
 
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      toast({
-        title: 'Bestelliste kopiert',
-        description: `Die Bestellliste für ${wholesalerName} wurde in die Zwischenablage kopiert.`
-      })
-    }).catch(err => {
-      console.error('Failed to copy: ', err)
-      toast({
-        title: 'Fehler',
-        description: 'Die Bestellliste konnte nicht kopiert werden.',
-        variant: 'destructive'
-      })
-    })
-  }
-  
   const handleOpenCreateOrderModal = (wholesalerId: string, itemsToOrder: InventoryItem[], location: Location) => {
     setOrderCreationData({ wholesalerId, itemsToOrder, location });
     setSelectedExistingOrder('new');
@@ -645,7 +641,7 @@ export default function OrdersPage() {
                                         <span className="font-semibold text-foreground ml-2">Bestell-Nr: {order.orderNumber}</span>
                                     </CardDescription>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={() => copyOrderList(order.wholesalerName, order.orderNumber, order.items, true)}>
+                                <Button variant="outline" size="sm" onClick={() => handleOpenCopyDialog(order.orderNumber, order.items, true)}>
                                     <ClipboardCopy className="mr-2 h-4 w-4" />
                                     Liste kopieren
                                 </Button>
@@ -837,51 +833,43 @@ export default function OrdersPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isCameraScannerOpen} onOpenChange={setIsCameraScannerOpen}>
-        <DialogContent className="max-w-4xl">
+      <Dialog open={isCopyModalOpen} onOpenChange={setIsCopyModalOpen}>
+        <DialogContent>
             <DialogHeader>
-                <DialogTitle>Lieferschein fotografieren</DialogTitle>
+                <DialogTitle>Artikelnummer kopieren</DialogTitle>
                 <DialogDescription>
-                    Fotografieren Sie den Lieferschein. Sorgen Sie für gute Beleuchtung.
+                    Klicken Sie auf einen Artikel, um die Artikelnummer zu kopieren. Bestell-Nr: {copyModalContent?.orderNumber}
                 </DialogDescription>
             </DialogHeader>
-            <div className="relative aspect-[4/5] w-full max-w-full mx-auto overflow-hidden rounded-lg border mt-4 bg-black">
-                 <Webcam
-                    audio={false}
-                    ref={webcamRef}
-                    screenshotFormat="image/jpeg"
-                    videoConstraints={{
-                      deviceId: activeDeviceId,
-                      width: 1920,
-                      height: 1080,
-                      ...(zoom ? { zoom: zoom as any } : {}),
-                      advanced: [{ autoFocus: 'continuous' } as any],
-                    }}
-                    onUserMedia={checkTorchSupport}
-                    className="w-full h-full object-contain"
-                />
-            </div>
-            <div className="flex flex-col gap-4 mt-4">
-                <div className="flex items-center gap-4 bg-muted p-2 rounded-lg">
-                    {devices.length > 1 && (
-                        <Button variant="outline" size="icon" onClick={switchCamera} title="Kamera wechseln">
-                            <RefreshCw className="h-5 w-5" />
-                        </Button>
-                    )}
-                    <div className="flex-1 flex items-center gap-2">
-                        <Zap className="h-5 w-5" />
-                        <Slider id="zoom-slider" min={1} max={5} step={0.1} value={[zoom]} onValueChange={(val) => setZoom(val[0]!)} />
-                    </div>
-                    {torchSupported && (
-                        <Button variant="outline" size="icon" onClick={toggleTorch} title={torchOn ? "Licht aus" : "Licht an"}>
-                            {torchOn ? <ZapOff className="h-5 w-5" /> : <Zap className="h-5 w-5" />}
-                        </Button>
-                    )}
+            <div className="max-h-[60vh] overflow-y-auto my-4 pr-2">
+                <div className="space-y-2">
+                    {copyModalContent?.items.map((item, index) => {
+                        const isDraftItem = copyModalContent.isDraft;
+                        const itemNumber = isDraftItem
+                            ? (item as OrderItem).wholesalerItemNumber || (item as OrderItem).itemNumber
+                            : ('itemType' in item && item.itemType === 'item' ? ((item as InventoryItem).suppliers?.find((s: any) => s.wholesalerId === (item as InventoryItem).preferredWholesalerId)?.wholesalerItemNumber || (item as InventoryItem).manufacturerItemNumbers[0]?.number) : '');
+
+                        const itemName = isDraftItem ? (item as OrderItem).itemName : (item as InventoryItem).name;
+                        
+                        return (
+                            <Button
+                                key={(item as any).id || (item as any).itemId || index}
+                                variant="outline"
+                                className="w-full h-auto justify-start py-2"
+                                onClick={() => copyToClipboard(itemNumber || '', itemName)}
+                            >
+                                <div className="flex flex-col text-left">
+                                    <span className="font-semibold">{itemName}</span>
+                                    <span className="text-xs text-muted-foreground">{itemNumber}</span>
+                                </div>
+                            </Button>
+                        )
+                    })}
                 </div>
-                 <Button size="lg" className="rounded-full w-full h-16" onClick={takePicture}>
-                    <Camera className="h-8 w-8"/>
-                </Button>
             </div>
+            <DialogFooter>
+                <Button variant="secondary" onClick={() => setIsCopyModalOpen(false)}>Schließen</Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
       
@@ -1009,6 +997,54 @@ export default function OrdersPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isCameraScannerOpen} onOpenChange={setIsCameraScannerOpen}>
+        <DialogContent className="max-w-4xl">
+            <DialogHeader>
+                <DialogTitle>Lieferschein fotografieren</DialogTitle>
+                <DialogDescription>
+                    Fotografieren Sie den Lieferschein. Sorgen Sie für gute Beleuchtung.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="relative aspect-[4/5] w-full max-w-full mx-auto overflow-hidden rounded-lg border mt-4 bg-black">
+                 <Webcam
+                    audio={false}
+                    ref={webcamRef}
+                    screenshotFormat="image/jpeg"
+                    videoConstraints={{
+                      deviceId: activeDeviceId,
+                      width: 1920,
+                      height: 1080,
+                      ...(zoom ? { zoom: zoom as any } : {}),
+                      advanced: [{ autoFocus: 'continuous' } as any],
+                    }}
+                    onUserMedia={checkTorchSupport}
+                    className="w-full h-full object-contain"
+                />
+            </div>
+            <div className="flex flex-col gap-4 mt-4">
+                <div className="flex items-center gap-4 bg-muted p-2 rounded-lg">
+                    {devices.length > 1 && (
+                        <Button variant="outline" size="icon" onClick={switchCamera} title="Kamera wechseln">
+                            <RefreshCw className="h-5 w-5" />
+                        </Button>
+                    )}
+                    <div className="flex-1 flex items-center gap-2">
+                        <Zap className="h-5 w-5" />
+                        <Slider id="zoom-slider" min={1} max={5} step={0.1} value={[zoom]} onValueChange={(val) => setZoom(val[0]!)} />
+                    </div>
+                    {torchSupported && (
+                        <Button variant="outline" size="icon" onClick={toggleTorch} title={torchOn ? "Licht aus" : "Licht an"}>
+                            {torchOn ? <ZapOff className="h-5 w-5" /> : <Zap className="h-5 w-5" />}
+                        </Button>
+                    )}
+                </div>
+                 <Button size="lg" className="rounded-full w-full h-16" onClick={takePicture}>
+                    <Camera className="h-8 w-8"/>
+                </Button>
+            </div>
+        </DialogContent>
+      </Dialog>
+      
       <Dialog open={isDeliveryNoteScannerOpen} onOpenChange={setIsDeliveryNoteScannerOpen}>
         <DialogContent className="max-w-4xl">
             <DialogHeader>
