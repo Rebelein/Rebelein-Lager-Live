@@ -26,7 +26,7 @@ const DeliveryNoteItemSchema = z.object({
 export type DeliveryNoteItem = z.infer<typeof DeliveryNoteItemSchema>;
 
 const AnalyzeDeliveryNoteOutputSchema = z.object({
-  orderNumber: z.string().optional().describe("The order number found on the delivery note. Can be labeled 'Bestell-Nr.', 'Kommission', etc."),
+  orderNumber: z.string().optional().describe("The order number found on the delivery note. Can be labeled 'Bestell-Nr.', 'Kommission', 'Lieferschein-Nr.', 'Auftragsnummer' etc."),
   matchedItems: z.array(DeliveryNoteItemSchema).describe("A list of all items from the original order, with their delivery status updated based on the analysis of the delivery note text."),
 });
 export type AnalyzeDeliveryNoteOutput = z.infer<typeof AnalyzeDeliveryNoteOutputSchema>;
@@ -50,7 +50,7 @@ const OrderItemSchema = z.object({
 });
 
 const AnalyzeDeliveryNoteInputSchema = z.object({
-  deliveryNoteText: z.string().describe("The OCR-extracted and redacted text from the delivery note."),
+  deliveryNoteText: z.string().describe("The full, unredacted OCR-extracted text from the delivery note."),
   orderItems: z.array(OrderItemSchema).describe("A list of ALL items from ALL open orders."),
   model: z.string().optional().describe("The specific AI model to use."),
   apiKey: z.string().optional().describe("The API key for the selected provider."),
@@ -72,10 +72,10 @@ const analyzeDeliveryNoteFlow = ai.defineFlow(
   },
   async (input) => {
     
-    const systemPrompt = `You are an expert SHK (Sanitär, Heizung, Klima) warehouse assistant. Your task is to analyze redacted text from a German delivery note ("Lieferschein") and match its contents against a list of expected items from an order.
+    const systemPrompt = `You are an expert SHK (Sanitär, Heizung, Klima) warehouse assistant. Your task is to analyze text from a German delivery note ("Lieferschein") and match its contents against a list of expected items from an order.
 
 You MUST follow these steps:
-1.  Locate the order number in the provided text. It can be labeled as "Ihre Kommission", "Bestell-Nr.", "Kommission", etc. This is the MOST IMPORTANT step. Return this number in the 'orderNumber' field.
+1.  Locate the order number in the provided text. It can be labeled as "Ihre Kommission", "Bestell-Nr.", "Lieferschein-Nr.", "Auftragsnummer", etc. This is the MOST IMPORTANT step. Return this number in the 'orderNumber' field.
 2.  Based on the 'orderNumber' you found, filter the provided 'orderItems' list to only include items belonging to that specific order.
 3.  For EACH item in the now-filtered list, find it in the delivery note text. You can use the manufacturer article number (Hersteller-Artikelnummer) or ANY of the provided wholesaler item numbers (allWholesalerItemNumbers) or the item name (Bezeichnung) to match them. An item on the delivery note might have an article number from a different wholesaler than originally planned.
 4.  For each matched item, extract the DELIVERED QUANTITY ("Menge"). This is the most critical piece of information.
@@ -119,10 +119,10 @@ Analyze the delivery note text below and return the structured JSON with the res
           `- From Order: ${item.orderNumber}, Item ID: ${item.itemId}, Name: "${item.itemName}", Manufacturer-Art.Nr: ${item.itemNumber}, All Wholesaler-Art.Nr.: [${(item.allWholesalerItemNumbers || []).join(', ')}], Ordered: ${item.quantity}`
         ).join('\n');
 
-        const filledPrompt = `You are an expert SHK (Sanitär, Heizung, Klima) warehouse assistant. Your task is to analyze redacted text from a German delivery note ("Lieferschein") and match its contents against a list of expected items from an order.
+        const filledPrompt = `You are an expert SHK (Sanitär, Heizung, Klima) warehouse assistant. Your task is to analyze text from a German delivery note ("Lieferschein") and match its contents against a list of expected items from an order.
 
 You MUST follow these steps:
-1.  Locate the order number in the provided text. It can be labeled as "Ihre Kommission", "Bestell-Nr.", "Kommission", etc. This is the MOST IMPORTANT step. Return this number in the 'orderNumber' field.
+1.  Locate the order number in the provided text. It can be labeled as "Ihre Kommission", "Bestell-Nr.", "Lieferschein-Nr.", "Auftragsnummer", etc. This is the MOST IMPORTANT step. Return this number in the 'orderNumber' field.
 2.  Based on the 'orderNumber' you found, filter the provided 'orderItems' list to only include items belonging to that specific order.
 3.  For EACH item in the now-filtered list, find it in the delivery note text. You can use the manufacturer article number (Hersteller-Artikelnummer) or ANY of the provided wholesaler item numbers (allWholesalerItemNumbers) or the item name (Bezeichnung) to match them. An item on the delivery note might have an article number from a different wholesaler than originally planned.
 4.  For each matched item, extract the DELIVERED QUANTITY ("Menge"). This is the most critical piece of information.

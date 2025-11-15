@@ -134,19 +134,9 @@ export type ChangeLogEntry = {
     toLocationId?: string;
 };
 
-
-export type WholesalerMask = {
-  id: string;
-  name: string;
-  redactionPhrases?: string[];
-  requiredPhrases?: string[];
-  backgroundImage?: string;
-}
-
 export type Wholesaler = {
     id: string;
     name: string;
-    masks?: WholesalerMask[];
 };
 
 export type ItemSupplier = {
@@ -183,11 +173,13 @@ export type AppSettings = {
     provider: 'google' | 'openrouter';
     model: string;
     apiKey: string;
+    serverUrl?: string;
   };
   deliveryNoteAi?: {
-    provider: 'google' | 'openrouter';
+    provider: 'google' | 'openrouter' | 'lokale_ki';
     model: string;
     apiKey: string;
+    serverUrl?: string;
   };
   commission?: {
     printerEmail?: string;
@@ -246,14 +238,6 @@ export type DashboardLayout = {
     layout: DashboardCardLayout[];
     isEditing: boolean;
 }
-
-// Typ für die OCR-Maskierungsbereiche, falls Sie ihn an anderer Stelle benötigen
-export type MaskArea = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
 
 export type CommissionItem = {
     id: string; // Corresponds to InventoryItem ID or a generated placeholder ID

@@ -12,23 +12,10 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { navItems } from '@/lib/nav-items';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Trash2, PlusCircle, Pencil, X, Settings2, User, Bot, Link2, PackageSearch, Smartphone } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Pencil, User, Bot, Link2, PackageSearch } from 'lucide-react';
 import { testAiConnection } from './actions';
-import type { AppSettings, Wholesaler, WholesalerMask } from '@/lib/types';
+import type { AppSettings, Wholesaler } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import Image from 'next/image';
-import * as pdfjsLib from 'pdfjs-dist';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-
-
-// Configure the worker script path
-if (typeof window !== 'undefined') {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-}
-
 
 const availableModels = {
     google: [
@@ -45,206 +32,43 @@ const availableModels = {
     lokale_ki: []
 }
 
-function MaskEditorDialog({
-  open,
-  onOpenChange,
-  onSave,
-  mask: initialMask,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (name: string, redactionPhrases: string[], requiredPhrases: string[], backgroundImage: string | null) => void;
-  mask: WholesalerMask | null;
-}) {
-    const [maskName, setMaskName] = React.useState('');
-    const [backgroundImage, setBackgroundImage] = React.useState<string | null>(null);
-    const [redactionPhrases, setRedactionPhrases] = React.useState('');
-    const [requiredPhrases, setRequiredPhrases] = React.useState('');
-    const { toast } = useToast();
+function WholesalerDialog({ wholesaler, onSave, onOpenChange, open }: { wholesaler: Wholesaler | null, onSave: (name: string) => void, onOpenChange: (open: boolean) => void, open: boolean }) {
+    const [name, setName] = React.useState('');
 
     React.useEffect(() => {
-        if (open) {
-            setMaskName(initialMask?.name || 'Standard-Maske');
-            setBackgroundImage(initialMask?.backgroundImage || null);
-            setRedactionPhrases((initialMask?.redactionPhrases || []).join('\n'));
-            setRequiredPhrases((initialMask?.requiredPhrases || []).join('\n'));
+        if (wholesaler) {
+            setName(wholesaler.name);
+        } else {
+            setName('');
         }
-    }, [initialMask, open]);
+    }, [wholesaler, open]);
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setBackgroundImage(event.target?.result as string);
-            };
-            reader.readAsDataURL(file);
-        } else if (file.type === 'application/pdf') {
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-                const page = await pdf.getPage(1);
-                const viewport = page.getViewport({ scale: 2 });
-                
-                const canvas = document.createElement('canvas');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-                const canvasContext = canvas.getContext('2d');
-                if (!canvasContext) throw new Error('Could not get canvas context');
-
-                await page.render({ canvasContext, viewport }).promise;
-                setBackgroundImage(canvas.toDataURL());
-            } catch (error) {
-                console.error("Error rendering PDF:", error);
-                toast({
-                    title: "PDF-Fehler",
-                    description: "Die PDF-Datei konnte nicht verarbeitet werden.",
-                    variant: "destructive",
-                });
-            }
-        }
-    };
-    
-    const handleSave = () => {
-        if (!maskName.trim()) {
-            toast({ title: "Name fehlt", description: "Bitte geben Sie der Maske einen Namen.", variant: "destructive" });
-            return;
-        }
-        const redaction = redactionPhrases.split('\n').map(p => p.trim()).filter(Boolean);
-        const required = requiredPhrases.split('\n').map(p => p.trim()).filter(Boolean);
-        onSave(maskName, redaction, required, backgroundImage);
-    };
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(name);
+    }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl">
-                <DialogHeader>
-                    <DialogTitle>{initialMask ? 'Maske bearbeiten' : 'Neue Maske erstellen'}</DialogTitle>
-                </DialogHeader>
-                <div className="grid md:grid-cols-2 gap-6 py-4 max-h-[70vh]">
-                  <ScrollArea className="md:pr-6 h-full">
-                    <div className="space-y-4">
-                       <div className="space-y-2">
-                           <Label htmlFor="mask-name">Name der Maske</Label>
-                           <Input id="mask-name" value={maskName} onChange={e => setMaskName(e.target.value)} placeholder="z.B. Standard, Online-Abholschein"/>
-                       </div>
-                        <div className="space-y-2">
-                            <Label>Beispiel-Lieferschein (Bild oder PDF)</Label>
-                            <Input type="file" onChange={handleFileChange} accept="image/*,.pdf" />
-                        </div>
-                        <div className="relative w-full border rounded-lg bg-muted" style={{ aspectRatio: '1 / 1.414' }}>
-                           {backgroundImage ? (
-                             <div className="relative w-full h-full">
-                                <Image src={backgroundImage} alt="Lieferschein" fill={true} style={{objectFit:"contain"}} />
-                                <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 z-10" onClick={() => setBackgroundImage(null)}><X className="h-4 w-4"/></Button>
-                            </div>
-                           ) : <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Vorschaubild</div>}
+            <DialogContent>
+                <form onSubmit={handleSubmit}>
+                    <DialogHeader>
+                        <DialogTitle>{wholesaler ? 'Großhändler bearbeiten' : 'Neuen Großhändler anlegen'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="wholesaler-name" className="text-right">Name</Label>
+                            <Input id="wholesaler-name" value={name} onChange={e => setName(e.target.value)} className="col-span-3" required />
                         </div>
                     </div>
-                  </ScrollArea>
-                   <ScrollArea className="h-full">
-                      <div className="space-y-6 pr-2">
-                           <div>
-                                <h4 className="font-semibold">Zu entfernende Textbausteine</h4>
-                                <p className="text-sm text-muted-foreground">Die komplette Zeile, in der einer dieser Textbausteine vorkommt, wird entfernt.</p>
-                                <Textarea 
-                                    value={redactionPhrases}
-                                    onChange={(e) => setRedactionPhrases(e.target.value)}
-                                    className="h-40 font-mono text-xs mt-2"
-                                    placeholder={'Kundennummer:\nRechnungsadresse\nUSt-IdNr.'}
-                                />
-                            </div>
-                             <div>
-                                <h4 className="font-semibold">Wichtige Textbausteine</h4>
-                                <p className="text-sm text-muted-foreground">Textbausteine, die für die KI-Analyse zwingend erforderlich sind (z.B. &quot;Kommission:&quot;, &quot;Bestell-Nr.&quot;).</p>
-                                <Textarea 
-                                    value={requiredPhrases}
-                                    onChange={(e) => setRequiredPhrases(e.target.value)}
-                                    className="h-40 font-mono text-xs mt-2"
-                                    placeholder={'Ihre Kommission:\nAuftragsnummer'}
-                                />
-                            </div>
-                      </div>
-                   </ScrollArea>
-                </div>
-                <DialogFooter>
-                    <Button variant="secondary" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-                    <Button onClick={handleSave}>Maske speichern</Button>
-                </DialogFooter>
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="secondary">Abbrechen</Button></DialogClose>
+                        <Button type="submit">Speichern</Button>
+                    </DialogFooter>
+                </form>
             </DialogContent>
         </Dialog>
     )
-}
-
-function MaskManagementDialog({ wholesaler, open, onOpenChange, onUpdateWholesaler }: { wholesaler: Wholesaler | null, open: boolean, onOpenChange: (open: boolean) => void, onUpdateWholesaler: (updatedWholesaler: Wholesaler) => void }) {
-    const [isEditorOpen, setIsEditorOpen] = React.useState(false);
-    const [editingMask, setEditingMask] = React.useState<WholesalerMask | null>(null);
-
-    if (!wholesaler) return null;
-
-    const handleSaveMask = (name: string, redactionPhrases: string[], requiredPhrases: string[], backgroundImage: string | null) => {
-        let updatedMasks: WholesalerMask[];
-        if (editingMask) { // Editing existing mask
-            updatedMasks = (wholesaler.masks || []).map(m => m.id === editingMask.id ? { ...m, name, redactionPhrases, requiredPhrases, backgroundImage: backgroundImage || undefined } : m);
-        } else { // Adding new mask
-            const newMask: WholesalerMask = { id: new Date().toISOString(), name, redactionPhrases, requiredPhrases, backgroundImage: backgroundImage || undefined };
-            updatedMasks = [...(wholesaler.masks || []), newMask];
-        }
-        onUpdateWholesaler({ ...wholesaler, masks: updatedMasks });
-        setIsEditorOpen(false);
-        setEditingMask(null);
-    };
-
-    const handleDeleteMask = (maskId: string) => {
-        const updatedMasks = (wholesaler.masks || []).filter(m => m.id !== maskId);
-        onUpdateWholesaler({ ...wholesaler, masks: updatedMasks });
-    };
-
-    return (
-        <>
-            <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Masken für: {wholesaler.name}</DialogTitle>
-                        <DialogDescription>Verwalten Sie die verschiedenen Lieferschein-Masken für diesen Großhändler.</DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4 space-y-4">
-                        {(wholesaler.masks || []).length === 0 ? (
-                             <p className="text-sm text-muted-foreground text-center py-8">Noch keine Masken für diesen Großhändler erstellt.</p>
-                        ) : (
-                            <div className="space-y-2 max-h-80 overflow-y-auto">
-                                {(wholesaler.masks || []).map(mask => (
-                                    <div key={mask.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                        <span className="font-medium">{mask.name}</span>
-                                        <div className="flex items-center">
-                                            <Button variant="ghost" size="sm" onClick={() => { setEditingMask(mask); setIsEditorOpen(true); }}><Pencil className="mr-2 h-4 w-4"/>Bearbeiten</Button>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteMask(mask.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                         <Button className="w-full" onClick={() => { setEditingMask(null); setIsEditorOpen(true); }}>
-                            <PlusCircle className="mr-2 h-4 w-4"/> Neue Maske hinzufügen
-                        </Button>
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-            {isEditorOpen && (
-                <MaskEditorDialog
-                    open={isEditorOpen}
-                    onOpenChange={setIsEditorOpen}
-                    mask={editingMask}
-                    onSave={handleSaveMask}
-                />
-            )}
-        </>
-    );
 }
 
 const settingsSections = [
@@ -278,8 +102,8 @@ export default function SettingsPage() {
     // State for Commission Settings
     const [commissionPrinterEmail, setCommissionPrinterEmail] = React.useState('');
 
-    const [managingWholesaler, setManagingWholesaler] = React.useState<Wholesaler | null>(null);
-    const [isMaskManagementOpen, setIsMaskManagementOpen] = React.useState(false);
+    const [isWholesalerDialogOpen, setIsWholesalerDialogOpen] = React.useState(false);
+    const [editingWholesaler, setEditingWholesaler] = React.useState<Wholesaler | null>(null);
 
 
     React.useEffect(() => {
@@ -438,20 +262,21 @@ export default function SettingsPage() {
         }
     };
     
-    const handleOpenMaskManagement = (wholesaler: Wholesaler) => {
-        setManagingWholesaler(wholesaler);
-        setIsMaskManagementOpen(true);
+    const handleSaveWholesaler = (name: string) => {
+        if (editingWholesaler) {
+            setWholesalers(wholesalers.map(w => w.id === editingWholesaler.id ? { ...w, name } : w));
+            toast({ title: 'Großhändler aktualisiert' });
+        } else {
+            const newWholesaler: Wholesaler = { id: new Date().toISOString(), name, masks: [] };
+            setWholesalers([...wholesalers, newWholesaler]);
+            toast({ title: 'Großhändler hinzugefügt' });
+        }
+        setIsWholesalerDialogOpen(false);
     };
-    
-    const handleUpdateWholesaler = (updatedWholesaler: Wholesaler) => {
-        const updatedWholesalers = wholesalers.map(w =>
-            w.id === updatedWholesaler.id ? updatedWholesaler : w
-        );
-        setWholesalers(updatedWholesalers);
-        toast({
-            title: 'Masken aktualisiert',
-            description: `Die Masken für ${updatedWholesaler.name} wurden gespeichert.`
-        });
+
+    const handleDeleteWholesaler = (wholesalerId: string) => {
+        setWholesalers(wholesalers.filter(w => w.id !== wholesalerId));
+        toast({ title: 'Großhändler gelöscht', variant: 'destructive' });
     };
 
     const renderContent = () => {
@@ -625,23 +450,6 @@ export default function SettingsPage() {
                         </Card>
                          <Card>
                             <CardHeader>
-                                <CardTitle>Lieferschein-Schwärzung</CardTitle>
-                                <CardDescription>Legen Sie fest, welche Textbausteine für die KI unkenntlich gemacht werden.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                {wholesalers.map(wholesaler => (
-                                    <div key={wholesaler.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                        <div>
-                                            <h3 className="font-semibold">{wholesaler.name}</h3>
-                                            <p className="text-sm text-muted-foreground">{(wholesaler.masks?.length || 0)} Maske(n) definiert</p>
-                                        </div>
-                                        <Button variant="outline" size="sm" onClick={() => handleOpenMaskManagement(wholesaler)}>Verwalten</Button>
-                                    </div>
-                                ))}
-                            </CardContent>
-                        </Card>
-                         <Card>
-                            <CardHeader>
                                 <CardTitle className="flex items-center gap-2"><PackageSearch className="h-5 w-5" /> Kommissionierung</CardTitle>
                                 <CardDescription>Einstellungen für den Kommissionierungs-Workflow.</CardDescription>
                             </CardHeader>
@@ -669,6 +477,28 @@ export default function SettingsPage() {
             case 'integrations':
                  return (
                     <div className="space-y-6">
+                        <Card>
+                             <CardHeader>
+                                <CardTitle>Großhändler</CardTitle>
+                                <CardDescription>Verwalten Sie die Großhändler, bei denen Sie bestellen.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {wholesalers.map(wholesaler => (
+                                        <div key={wholesaler.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                            <span className="font-medium">{wholesaler.name}</span>
+                                            <div className="flex items-center">
+                                                <Button variant="ghost" size="sm" onClick={() => { setEditingWholesaler(wholesaler); setIsWholesalerDialogOpen(true); }}><Pencil className="mr-2 h-4 w-4"/>Bearbeiten</Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteWholesaler(wholesaler.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <Button variant="outline" className="mt-4 w-full" onClick={() => { setEditingWholesaler(null); setIsWholesalerDialogOpen(true); }}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Neuen Großhändler hinzufügen
+                                </Button>
+                            </CardContent>
+                        </Card>
                         <Card>
                             <CardHeader>
                                 <CardTitle>GC-Gruppe Online Plus (IDS-Schnittstelle)</CardTitle>
@@ -751,14 +581,12 @@ export default function SettingsPage() {
         </div>
       </div>
       
-      {managingWholesaler && (
-        <MaskManagementDialog
-            wholesaler={managingWholesaler}
-            open={isMaskManagementOpen}
-            onOpenChange={setIsMaskManagementOpen}
-            onUpdateWholesaler={handleUpdateWholesaler}
-        />
-      )}
+       <WholesalerDialog 
+          open={isWholesalerDialogOpen}
+          onOpenChange={setIsWholesalerDialogOpen}
+          wholesaler={editingWholesaler}
+          onSave={handleSaveWholesaler}
+      />
     </div>
   );
 }

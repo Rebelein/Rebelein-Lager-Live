@@ -7,7 +7,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAppContext } from '@/context/AppContext'
-import type { InventoryItem, Order, OrderItem, Location, Wholesaler, WholesalerMask } from '@/lib/types'
+import type { InventoryItem, Order, OrderItem, Location, Wholesaler } from '@/lib/types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
 import { ClipboardCopy, ShoppingCart, Inbox, Minus, Plus, X, Trash2, Truck, PackageCheck, Scan, Check, FileWarning, Camera, Zap, ZapOff, RefreshCw, Upload, ImagePlus, ClipboardPaste, AlertTriangle } from 'lucide-react'
@@ -65,18 +65,15 @@ export default function OrdersPage() {
   const [selectedExistingOrder, setSelectedExistingOrder] = React.useState<string>('new');
   
   const [isPreScanDialogOpen, setIsPreScanDialogOpen] = React.useState(false);
-  const [selectedWholesalerForScan, setSelectedWholesalerForScan] = React.useState<Wholesaler | null>(null);
-  const [selectedMaskForScan, setSelectedMaskForScan] = React.useState<WholesalerMask | null>(null);
 
   const [isDeliveryNoteScannerOpen, setIsDeliveryNoteScannerOpen] = React.useState(false);
   const [isCameraScannerOpen, setIsCameraScannerOpen] = React.useState(false);
   const [deliveryNoteImage, setDeliveryNoteImage] = React.useState<string | null>(null);
-  const [ocrTextBlocks, setOcrTextBlocks] = useState<string[]>([]);
+  const [ocrText, setOcrText] = React.useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
   const [analysisResult, setAnalysisResult] = React.useState<AnalyzeDeliveryNoteOutput | null>(null);
   const [analyzedOrder, setAnalyzedOrder] = React.useState<Order | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [missingRequiredPhrases, setMissingRequiredPhrases] = useState<string[]>([]);
 
     // Camera state
     const webcamRef = React.useRef<Webcam>(null);
@@ -368,12 +365,11 @@ export default function OrdersPage() {
         });
     }
   
-    const handleOpenPreScanDialog = () => {
+    const handleOpenScanDialog = () => {
         setDeliveryNoteImage(null);
         setAnalysisResult(null);
         setAnalyzedOrder(null);
-        setSelectedWholesalerForScan(null);
-        setSelectedMaskForScan(null);
+        setOcrText('');
         setIsPreScanDialogOpen(true);
     };
 
@@ -390,41 +386,19 @@ export default function OrdersPage() {
     };
 
     const processImageWithOCR = async (imageSrc: string) => {
-        if (!selectedMaskForScan) return;
         setIsAnalyzing(true);
         toast({ title: 'OCR gestartet', description: 'Erkenne Text auf dem Lieferschein...' });
 
         try {
             const result = await Tesseract.recognize(imageSrc, 'deu');
             
-            let processedText = result.data.text;
-            const redactionPhrases = selectedMaskForScan.redactionPhrases || [];
-
-            // Smarter redaction: remove the whole line containing the phrase
-            const lines = processedText.split('\n');
-            const redactedLines = lines.filter(line => 
-                !redactionPhrases.some(phrase => line.toLowerCase().includes(phrase.toLowerCase()))
-            );
-            processedText = redactedLines.join('\n');
+            setOcrText(result.data.text);
             
-            // For now, we set the whole text as one block. This can be improved later.
-            setOcrTextBlocks([processedText]);
-            
-            // Check for required phrases
-            const lowerCaseText = processedText.toLowerCase();
-            const missingPhrases = (selectedMaskForScan.requiredPhrases || []).filter(
-                phrase => !lowerCaseText.includes(phrase.toLowerCase())
-            );
-            setMissingRequiredPhrases(missingPhrases);
-            if (missingPhrases.length > 0) {
-                 toast({ title: 'Warnung', description: 'Einige wichtige Felder wurden nicht gefunden.', variant: 'destructive' });
-            }
-
-            toast({ title: 'Texterkennung erfolgreich!', description: 'Text wurde extrahiert und bereinigt.' });
+            toast({ title: 'Texterkennung erfolgreich!', description: 'Text wurde extrahiert.' });
         } catch (error) {
             console.error('OCR Error:', error);
             toast({ title: 'OCR-Fehler', description: 'Text konnte nicht erkannt werden.', variant: 'destructive' });
-            setOcrTextBlocks([]);
+            setOcrText('');
         } finally {
             setIsAnalyzing(false);
         }
@@ -433,7 +407,7 @@ export default function OrdersPage() {
 
     const handleDeliveryNoteImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file || !selectedMaskForScan) return;
+        if (!file) return;
         
         let dataUrl: string;
 
@@ -473,12 +447,10 @@ export default function OrdersPage() {
     };
     
     const handleAnalyzeDeliveryNote = async () => {
-        if (ocrTextBlocks.length === 0) {
+        if (ocrText.length === 0) {
             toast({ title: "Fehler", description: "Kein Text zum Analysieren vorhanden.", variant: 'destructive' });
             return;
         }
-
-        const fullText = ocrTextBlocks.join('\n\n');
 
         const aiConfig = appSettings?.deliveryNoteAi;
         if (!aiConfig?.provider || !aiConfig?.model || !aiConfig?.apiKey) {
@@ -513,11 +485,12 @@ export default function OrdersPage() {
             );
 
             const result = await analyzeDeliveryNote({
-                deliveryNoteText: fullText,
+                deliveryNoteText: ocrText,
                 orderItems: allOpenOrderItems,
                 provider: aiConfig.provider,
                 model: aiConfig.model,
                 apiKey: aiConfig.apiKey,
+                serverUrl: aiConfig.provider === 'lokale_ki' ? (appSettings.deliveryNoteAi as any).serverUrl : undefined,
             });
 
             if (!result.orderNumber) {
@@ -610,59 +583,8 @@ export default function OrdersPage() {
       }
     };
     
-    const handlePasteFromClipboard = async () => {
-        setIsPreScanDialogOpen(false);
-        if (!selectedMaskForScan) {
-            toast({ title: "Fehler", description: "Bitte wählen Sie zuerst eine Maske aus.", variant: "destructive"});
-            return;
-        }
-        try {
-            if (!navigator.clipboard.read) {
-                toast({
-                    title: 'Funktion nicht unterstützt',
-                    description: 'Ihr Browser unterstützt das Einfügen von Bildern aus der Zwischenablage nicht.',
-                    variant: 'destructive',
-                });
-                return;
-            }
-            const clipboardItems = await navigator.clipboard.read();
-
-            for (const item of clipboardItems) {
-                const imageType = item.types.find(type => type.startsWith('image/'));
-                if (imageType) {
-                    const blob = await item.getType(imageType);
-                    const reader = new FileReader();
-                    reader.onload = async (event) => {
-                        if (event.target?.result) {
-                            setDeliveryNoteImage(event.target.result as string);
-                            setIsDeliveryNoteScannerOpen(true);
-                            await processImageWithOCR(event.target.result as string);
-                            toast({ title: 'Bild eingefügt und verarbeitet.' });
-                        }
-                    };
-                    reader.readAsDataURL(blob);
-                    return;
-                }
-            }
-            toast({ title: 'Kein Bild gefunden', description: 'Es wurde kein Bild in der Zwischenablage gefunden.' });
-        } catch (error: any) {
-            console.error('Error pasting image:', error);
-            let description = 'Das Bild konnte nicht eingefügt werden. Versuchen Sie es erneut.';
-            if (error.name === 'NotAllowedError') {
-                description = 'Der Zugriff auf die Zwischenablage wurde verweigert. Bitte überprüfen Sie die Website-Berechtigungen in Ihrem Browser.';
-            }
-            toast({
-                title: 'Einfügen fehlgeschlagen',
-                description: description,
-                variant: 'destructive',
-            });
-        }
-    };
-    
-    const handleOcrBlockChange = (index: number, newText: string) => {
-        const newBlocks = [...ocrTextBlocks];
-        newBlocks[index] = newText;
-        setOcrTextBlocks(newBlocks);
+    const handleOcrTextChange = (newText: string) => {
+        setOcrText(newText);
     };
 
     const isFullReceiptPossible = analysisResult?.matchedItems.every(item => item.matchStatus === 'ok') ?? false;
@@ -686,17 +608,17 @@ export default function OrdersPage() {
          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
             <TabsList className="grid grid-cols-3 w-full sm:w-auto h-auto sm:h-10">
                 <TabsTrigger value="suggestions">
-                    Vorschl.
+                    Vorschl. ({arrangedItemsCount})
                 </TabsTrigger>
                 <TabsTrigger value="open">
-                    Offen
+                    Offen ({openOrders.length})
                 </TabsTrigger>
                 <TabsTrigger value="commissioning">
-                    Kom.
+                    Kom. ({commissionedItems.length})
                 </TabsTrigger>
             </TabsList>
             <div className="ml-auto flex items-center gap-2 w-full sm:w-auto">
-                <Button variant="outline" className="w-full sm:w-auto" onClick={handleOpenPreScanDialog}>
+                <Button variant="outline" className="w-full sm:w-auto" onClick={handleOpenScanDialog}>
                     <Scan className="mr-2 h-4 w-4" />
                     Lieferschein scannen
                 </Button>
@@ -1074,56 +996,16 @@ export default function OrdersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Lieferschein scannen</DialogTitle>
-            <DialogDescription>Wählen Sie den Großhändler und die passende Lieferschein-Maske aus.</DialogDescription>
+            <DialogDescription>Wie möchten Sie den Lieferschein einlesen?</DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="wholesaler-select">Großhändler</Label>
-              <Select onValueChange={(value) => {
-                  const newWholesaler = wholesalers.find(w => w.id === value);
-                  setSelectedWholesalerForScan(newWholesaler || null);
-                  setSelectedMaskForScan(null);
-              }}>
-                <SelectTrigger id="wholesaler-select">
-                  <SelectValue placeholder="Großhändler wählen..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {wholesalers.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="mask-select">Maske</Label>
-              <Select 
-                disabled={!selectedWholesalerForScan || !selectedWholesalerForScan.masks || selectedWholesalerForScan.masks.length === 0}
-                onValueChange={(value) => {
-                    const newMask = selectedWholesalerForScan?.masks?.find(m => m.id === value);
-                    setSelectedMaskForScan(newMask || null);
-                }}
-              >
-                <SelectTrigger id="mask-select">
-                  <SelectValue placeholder={!selectedWholesalerForScan ? "Zuerst Großhändler wählen" : "Maske wählen..."} />
-                </SelectTrigger>
-                <SelectContent>
-                  {selectedWholesalerForScan?.masks?.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-               {selectedWholesalerForScan && (!selectedWholesalerForScan.masks || selectedWholesalerForScan.masks.length === 0) && (
-                <p className="text-xs text-destructive">Für diesen Großhändler sind keine Masken definiert.</p>
-              )}
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+             <Button variant="outline" className="h-24" onClick={handleStartCamera}>
+                <Camera className="mr-2 h-6 w-6"/> Kamera verwenden
+             </Button>
+             <Button variant="outline" className="h-24" onClick={handleStartUpload}>
+                <Upload className="mr-2 h-6 w-6"/> Datei hochladen
+             </Button>
           </div>
-          <DialogFooter className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <Button variant="outline" onClick={handleStartCamera} disabled={!selectedWholesalerForScan || !selectedMaskForScan}>
-              <Camera className="mr-2 h-4 w-4"/> Kamera verwenden
-            </Button>
-            <Button variant="outline" onClick={handleStartUpload} disabled={!selectedWholesalerForScan || !selectedMaskForScan}>
-              <Upload className="mr-2 h-4 w-4"/> Datei hochladen
-            </Button>
-            <Button variant="outline" onClick={handlePasteFromClipboard} disabled={!selectedWholesalerForScan || !selectedMaskForScan}>
-              <ClipboardPaste className="mr-2 h-4 w-4"/> Einfügen
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1145,18 +1027,18 @@ export default function OrdersPage() {
                         ) : (
                              <div className="text-center text-muted-foreground space-y-2">
                                 <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><ImagePlus className="mr-2 h-4 w-4"/>Bild auswählen</Button>
-                                <Button type="button" variant="outline" size="sm" onClick={handlePasteFromClipboard}><ClipboardPaste className="mr-2 h-4 w-4" />Einfügen</Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => { /* Implement paste here */ }}><ClipboardPaste className="mr-2 h-4 w-4" />Einfügen</Button>
                             </div>
                         )}
                          <Input type="file" className="hidden" ref={fileInputRef} accept="image/*,.pdf" onChange={handleDeliveryNoteImageUpload} />
                     </Card>
-                     <Button className="w-full" onClick={handleAnalyzeDeliveryNote} disabled={ocrTextBlocks.length === 0 || isAnalyzing}>
+                     <Button className="w-full" onClick={handleAnalyzeDeliveryNote} disabled={ocrText.length === 0 || isAnalyzing}>
                         {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Scan className="mr-2 h-4 w-4" />}
                         Text an KI senden &amp; Abgleich starten
                     </Button>
                 </div>
                 <div className="space-y-4">
-                     <Label>Erkannter &amp; bereinigter Text</Label>
+                     <Label>Erkannter Text</Label>
                     {isAnalyzing && !analysisResult ? (
                          <div className="flex flex-col items-center justify-center gap-4 h-full border rounded-lg bg-muted/50">
                             <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -1165,12 +1047,6 @@ export default function OrdersPage() {
                     ) : analysisResult && analyzedOrder ? (
                         <div className="space-y-4">
                              <h4 className="font-semibold">Abgleich für Bestellung: <span className="text-primary">{analyzedOrder.orderNumber}</span></h4>
-                              {missingRequiredPhrases.length > 0 && (
-                                <div className="p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-600 dark:text-yellow-300">
-                                    <p className="font-bold flex items-center gap-2"><AlertTriangle className="h-5 w-5"/> Wichtige Felder fehlen</p>
-                                    <p className="text-sm mt-1">Folgende wichtige Felder wurden nicht gefunden: {missingRequiredPhrases.join(', ')}</p>
-                                </div>
-                             )}
                              <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -1211,24 +1087,9 @@ export default function OrdersPage() {
                             </Button>
                         </div>
                     ) : (
-                         <div className="flex flex-col gap-2 h-full">
-                            {missingRequiredPhrases.length > 0 && (
-                                <div className="p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 dark:bg-yellow-900/50 dark:border-yellow-600 dark:text-yellow-300">
-                                    <p className="font-bold flex items-center gap-2"><AlertTriangle className="h-5 w-5"/> Wichtige Felder fehlen</p>
-                                    <p className="text-sm mt-1">Folgende wichtige Felder wurden nicht gefunden: {missingRequiredPhrases.join(', ')}</p>
-                                </div>
-                             )}
-                            <div className="flex-grow space-y-2">
-                                {ocrTextBlocks.map((block, index) => (
-                                    <Textarea
-                                        key={index}
-                                        value={block}
-                                        onChange={(e) => handleOcrBlockChange(index, e.target.value)}
-                                        className="font-mono text-xs w-full min-h-[100px] flex-grow"
-                                    />
-                                ))}
-                            </div>
-                            {ocrTextBlocks.length === 0 && (
+                        <div className="flex flex-col gap-2 h-full">
+                           <Textarea value={ocrText} onChange={(e) => handleOcrTextChange(e.target.value)} className="font-mono text-xs w-full min-h-[100px] flex-grow" />
+                            {ocrText.length === 0 && (
                                 <div className="flex items-center justify-center h-full border rounded-md bg-muted/50">
                                     <p className="text-muted-foreground text-center">Hier erscheint der erkannte Text.</p>
                                 </div>
