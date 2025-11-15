@@ -192,7 +192,7 @@ const getItemStatusIcon = (status: CommissionItem['status']) => {
 };
 
 
-function CommissionDetailDialog({ commission, onOpenChange }: { commission: Commission | null, onOpenChange: (open: boolean) => void}) {
+function CommissionDetailDialog({ commission, onOpenChange, onPrepare, onWithdraw }: { commission: Commission | null, onOpenChange: (open: boolean) => void, onPrepare: (commission: Commission) => void, onWithdraw: (commission: Commission) => void}) {
     if (!commission) {
         return null;
     }
@@ -295,8 +295,18 @@ function CommissionDetailDialog({ commission, onOpenChange }: { commission: Comm
                         </div>
                     </ScrollArea>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between sm:items-center">
                     <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
+                    <div className="flex items-center gap-2">
+                        {commission.status !== 'ready' && commission.status !== 'withdrawn' && (
+                            <Button variant="outline" onClick={() => { onOpenChange(false); onPrepare(commission); }}>
+                                <ClipboardList className="mr-2 h-4 w-4" /> Vorbereiten
+                            </Button>
+                        )}
+                        <Button onClick={() => { onOpenChange(false); onWithdraw(commission); }} disabled={commission.status !== 'ready'}>
+                            <Archive className="mr-2 h-4 w-4" /> Entnehmen
+                        </Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -1323,6 +1333,8 @@ export default function CommissioningPage() {
           <CommissionDetailDialog
             commission={detailCommission}
             onOpenChange={() => setDetailCommission(null)}
+            onPrepare={() => setPreparingCommission(detailCommission)}
+            onWithdraw={handleWithdraw}
         />
       )}
       
