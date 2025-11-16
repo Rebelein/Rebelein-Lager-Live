@@ -753,7 +753,7 @@ export default function OrdersPage() {
                 {draftOrders.map(order => (
                     <AccordionItem value={order.id} key={order.id} className="border-b-0">
                         <Card>
-                            <div className="p-4 sm:p-6 rounded-t-lg data-[state=open]:rounded-b-none flex justify-between items-start gap-2">
+                             <div className="p-4 sm:p-6 rounded-t-lg data-[state=open]:rounded-b-none flex justify-between items-start gap-2">
                                 <AccordionTrigger className="p-0 hover:no-underline flex-1">
                                     <div className="flex-1 min-w-0 text-left">
                                         <CardTitle className="break-words">{order.wholesalerName}</CardTitle>
@@ -888,7 +888,7 @@ export default function OrdersPage() {
             </Accordion>
         </TabsContent>
         <TabsContent value="open">
-             <div className="flex flex-col gap-6 mt-4">
+            <Accordion type="multiple" className="w-full space-y-4 mt-4">
                 {openOrders.length === 0 ? (
                     <Card>
                         <CardContent className="pt-6">
@@ -897,54 +897,56 @@ export default function OrdersPage() {
                     </Card>
                 ) : (
                     openOrders.map(order => (
-                        <Card key={order.id} ref={(el: HTMLDivElement | null) => { if (el) orderRefs.current[order.id] = el; }}>
-                            <CardHeader>
-                                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <CardTitle className="break-words">{order.orderNumber}</CardTitle>
-                                    <CardDescription>{order.wholesalerName} - {new Date(order.date).toLocaleDateString()}</CardDescription>
-                                  </div>
-                                  <div className="flex items-center gap-2 self-start sm:self-center">
-                                    <Badge variant={getOrderStatusBadgeVariant(order.status)} className="w-fit">
-                                        {getOrderStatusText(order.status)}
-                                    </Badge>
-                                  </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="pt-0">
-                                <div className="divide-y">
-                                    {order.items.map(item => (
-                                        <div key={item.itemId} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium break-words">{item.itemName}</p>
-                                                <p className="text-sm text-muted-foreground truncate">{item.wholesalerItemNumber || item.itemNumber}</p>
-                                            </div>
-                                            <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0">
-                                                <p className="font-medium text-sm">
-                                                    {item.status === 'commissioned' ? <span><PackageCheck className="inline-block h-4 w-4 mr-1 text-blue-500" />{item.quantity} Stk.</span> : `${item.receivedQuantity} / ${item.quantity} Stk.` }
-                                                </p>
-                                                <Button 
-                                                    size="sm" 
-                                                    variant="outline"
-                                                    onClick={() => handleOpenReceiveModal(order, item)}
-                                                    disabled={item.status === 'received' || item.status === 'commissioned'}
-                                                    className="w-full sm:w-auto"
-                                                >
-                                                    <Inbox className="mr-2 h-4 w-4" /> 
-                                                    Wareneingang
-                                                </Button>
-                                            </div>
+                         <AccordionItem value={order.id} key={order.id} className="border-b-0">
+                            <Card ref={(el: HTMLDivElement | null) => { if (el) orderRefs.current[order.id] = el; }}>
+                                <AccordionTrigger className="p-4 sm:p-6 hover:no-underline rounded-lg data-[state=open]:rounded-b-none">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full text-left gap-2 sm:gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-base sm:text-lg truncate">{order.orderNumber}</p>
+                                            <CardDescription>{order.wholesalerName} - {new Date(order.date).toLocaleDateString()}</CardDescription>
                                         </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                                        <div className="w-full sm:w-auto sm:flex-1 text-left sm:text-right mt-2 sm:mt-0">
+                                            <Badge variant={getOrderStatusBadgeVariant(order.status)} className="w-fit">
+                                                {getOrderStatusText(order.status)}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="divide-y px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
+                                        {order.items.map(item => (
+                                            <div key={item.itemId} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium break-words">{item.itemName}</p>
+                                                    <p className="text-sm text-muted-foreground truncate">{item.wholesalerItemNumber || item.itemNumber}</p>
+                                                </div>
+                                                <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0">
+                                                    <p className="font-medium text-sm">
+                                                        {item.status === 'commissioned' ? <span><PackageCheck className="inline-block h-4 w-4 mr-1 text-blue-500" />{item.quantity} Stk.</span> : `${item.receivedQuantity} / ${item.quantity} Stk.` }
+                                                    </p>
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="outline"
+                                                        onClick={() => handleOpenReceiveModal(order, item)}
+                                                        disabled={item.status === 'received' || item.status === 'commissioned'}
+                                                        className="w-full sm:w-auto"
+                                                    >
+                                                        <Inbox className="mr-2 h-4 w-4" /> 
+                                                        Wareneingang
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </AccordionContent>
+                            </Card>
+                        </AccordionItem>
                     ))
                 )}
-             </div>
+             </Accordion>
         </TabsContent>
         <TabsContent value="commissioning">
-            <div className="flex flex-col gap-6 mt-4">
+            <Accordion type="multiple" className="w-full space-y-4 mt-4">
               {commissionedItems.length === 0 ? (
                 <Card>
                   <CardContent className="pt-6 text-center text-muted-foreground">
@@ -952,20 +954,30 @@ export default function OrdersPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Bereitgestelltes Material</CardTitle>
-                        <CardDescription>Dieses Material wurde im Lager empfangen und wartet darauf, auf die Fahrzeuge verladen zu werden.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-0 sm:p-6 sm:pt-0">
-                       <div className="divide-y">
-                           {commissionedItems.map(({order, item}) => {
-                                const location = locations.find(l => l.id === item.locationId);
-                                return (
+                commissionedItems.reduce((acc, { order, item }) => {
+                    const location = locations.find(l => l.id === item.locationId);
+                    const locationName = location?.name || 'Unbekannter Ort';
+                    if (!acc[locationName]) {
+                        acc[locationName] = [];
+                    }
+                    acc[locationName].push({ order, item });
+                    return acc;
+                }, {} as Record<string, { order: Order, item: OrderItem }[]>
+                )
+                |> Object.entries
+                |> (groupedItems => groupedItems.map(([locationName, items]) => (
+                    <AccordionItem value={locationName} key={locationName} className="border-b-0">
+                        <Card>
+                            <AccordionTrigger className="p-4 sm:p-6 hover:no-underline rounded-lg data-[state=open]:rounded-b-none">
+                                <CardTitle className="text-lg">{locationName}</CardTitle>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="divide-y px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
+                                {items.map(({ order, item }) => (
                                     <div key={`${order.id}-${item.itemId}`} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                         <div className="flex-1 min-w-0">
                                             <p className="font-medium break-words">{item.itemName}</p>
-                                            <p className="text-sm text-muted-foreground">Für: <span className="font-semibold">{location?.name || item.locationId}</span></p>
+                                            <p className="text-sm text-muted-foreground">Aus Bestellung: {order.orderNumber}</p>
                                         </div>
                                         <div className="flex items-center justify-between sm:justify-end gap-4 mt-2 sm:mt-0">
                                             <p className="font-medium">{item.quantity} Stk.</p>
@@ -974,13 +986,14 @@ export default function OrdersPage() {
                                             </Button>
                                         </div>
                                     </div>
-                                )
-                            })}
-                       </div>
-                    </CardContent>
-                </Card>
+                                ))}
+                                </div>
+                            </AccordionContent>
+                        </Card>
+                    </AccordionItem>
+                )))
               )}
-            </div>
+            </Accordion>
         </TabsContent>
       </Tabs>
 
