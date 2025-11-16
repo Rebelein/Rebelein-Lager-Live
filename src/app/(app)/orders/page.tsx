@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import * as React from 'react'
@@ -709,6 +708,16 @@ export default function OrdersPage() {
   
     const availableOrdersForCreation = orderCreationData ? orders.filter(o => o.status === 'draft' && o.wholesalerId === orderCreationData.wholesalerId) : [];
 
+    const groupedCommissionedItems = commissionedItems.reduce((acc, { order, item }) => {
+        const location = locations.find(l => l.id === item.locationId);
+        const locationName = location?.name || 'Unbekannter Ort';
+        if (!acc[locationName]) {
+            acc[locationName] = [];
+        }
+        acc[locationName]!.push({ order, item });
+        return acc;
+    }, {} as Record<string, { order: Order, item: OrderItem }[]>);
+
   return (
     <div className="grid gap-6">
       <Card>
@@ -754,8 +763,8 @@ export default function OrdersPage() {
                     <AccordionItem value={order.id} key={order.id} className="border-b-0">
                         <Card>
                              <div className="p-4 sm:p-6 rounded-t-lg data-[state=open]:rounded-b-none flex justify-between items-start gap-2">
-                                <AccordionTrigger className="p-0 hover:no-underline flex-1">
-                                    <div className="flex-1 min-w-0 text-left">
+                                <AccordionTrigger className="p-0 hover:no-underline flex-1 text-left">
+                                    <div className="flex-1 min-w-0">
                                         <CardTitle className="break-words">{order.wholesalerName}</CardTitle>
                                         <CardDescription>
                                             {order.items.length} Artikel
@@ -828,8 +837,8 @@ export default function OrdersPage() {
                             <AccordionItem value={`${locationId}-${wholesalerId}`} key={`${locationId}-${wholesalerId}`} className="border-b-0 mb-4">
                                 <Card>
                                      <div className="p-4 sm:p-6 rounded-t-lg data-[state=open]:rounded-b-none flex justify-between items-start gap-2">
-                                        <AccordionTrigger className="p-0 hover:no-underline flex-1">
-                                            <div className="flex-1 min-w-0 text-left">
+                                        <AccordionTrigger className="p-0 hover:no-underline flex-1 text-left">
+                                            <div className="flex-1 min-w-0">
                                                 <CardTitle className="break-words">{wholesalerName}</CardTitle>
                                                 <CardDescription>{itemsToOrder.length} Artikel</CardDescription>
                                             </div>
@@ -899,8 +908,8 @@ export default function OrdersPage() {
                     openOrders.map(order => (
                          <AccordionItem value={order.id} key={order.id} className="border-b-0">
                             <Card ref={(el: HTMLDivElement | null) => { if (el) orderRefs.current[order.id] = el; }}>
-                                <AccordionTrigger className="p-4 sm:p-6 hover:no-underline rounded-lg data-[state=open]:rounded-b-none">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full text-left gap-2 sm:gap-4">
+                                <AccordionTrigger className="p-4 sm:p-6 hover:no-underline rounded-lg data-[state=open]:rounded-b-none text-left">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2 sm:gap-4">
                                         <div className="flex-1 min-w-0">
                                             <p className="font-bold text-base sm:text-lg truncate">{order.orderNumber}</p>
                                             <CardDescription>{order.wholesalerName} - {new Date(order.date).toLocaleDateString()}</CardDescription>
@@ -946,7 +955,7 @@ export default function OrdersPage() {
              </Accordion>
         </TabsContent>
         <TabsContent value="commissioning">
-            <Accordion type="multiple" className="w-full space-y-4 mt-4">
+             <Accordion type="multiple" className="w-full space-y-4 mt-4">
               {commissionedItems.length === 0 ? (
                 <Card>
                   <CardContent className="pt-6 text-center text-muted-foreground">
@@ -954,18 +963,7 @@ export default function OrdersPage() {
                   </CardContent>
                 </Card>
               ) : (
-                commissionedItems.reduce((acc, { order, item }) => {
-                    const location = locations.find(l => l.id === item.locationId);
-                    const locationName = location?.name || 'Unbekannter Ort';
-                    if (!acc[locationName]) {
-                        acc[locationName] = [];
-                    }
-                    acc[locationName].push({ order, item });
-                    return acc;
-                }, {} as Record<string, { order: Order, item: OrderItem }[]>
-                )
-                |> Object.entries
-                |> (groupedItems => groupedItems.map(([locationName, items]) => (
+                Object.entries(groupedCommissionedItems).map(([locationName, items]) => (
                     <AccordionItem value={locationName} key={locationName} className="border-b-0">
                         <Card>
                             <AccordionTrigger className="p-4 sm:p-6 hover:no-underline rounded-lg data-[state=open]:rounded-b-none">
@@ -991,7 +989,7 @@ export default function OrdersPage() {
                             </AccordionContent>
                         </Card>
                     </AccordionItem>
-                )))
+                ))
               )}
             </Accordion>
         </TabsContent>
