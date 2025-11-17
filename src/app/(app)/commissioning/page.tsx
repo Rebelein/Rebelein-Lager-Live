@@ -44,7 +44,7 @@ import Webcam from 'react-webcam';
 import jsQR from 'jsqr';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 
 const getStatusVariant = (status: Commission['status']) => {
@@ -344,6 +344,7 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
 
     const [labelSize, setLabelSize] = React.useState({ width: 80, height: 40 });
     const [fontSize, setFontSize] = React.useState(70);
+    const [printMode, setPrintMode] = React.useState<'download' | 'print'>('download');
     
     const commissionsToPrint = commission ? [commission] : commissions;
 
@@ -426,6 +427,57 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
         
         return pdf.output('blob');
     }, [labelSize]);
+
+    const handleMainAction = async () => {
+        if (printMode === 'download') {
+            await handleDownloadPng();
+        } else {
+            await handleDirectPrint();
+        }
+    };
+    
+    const handleDirectPrint = async () => {
+        if (commissionsToPrint.length === 0) return;
+        const printedIds: string[] = [];
+
+        let printHtml = '<html><head><title>Etiketten drucken</title>';
+        printHtml += '<style>@page { size: auto; margin: 5mm; } body { margin: 0; } .label-container { page-break-inside: avoid; display: inline-block; vertical-align: top; margin: 1mm; } img { max-width: 100%; height: auto; }</style>';
+        printHtml += '</head><body>';
+
+        for (const comm of commissionsToPrint) {
+            const qrCodeNode = qrCodeRefs.current[comm.id];
+            if (!qrCodeNode) continue;
+             try {
+                const dataUrl = await toPng(qrCodeNode, {
+                    cacheBust: true, pixelRatio: 3,
+                    fontEmbedCSS: `@font-face {font-family: 'PT Sans'; src: url('https://fonts.gstatic.com/s/ptsans/v17/jizaRExUiTo99u79D0-ExdGM.woff2') format('woff2'); font-weight: normal; font-style: normal;} @font-face {font-family: 'PT Sans'; src: url('https://fonts.gstatic.com/s/ptsans/v17/jizfRExUiTo99u79B_mh4O3f-A.woff2') format('woff2'); font-weight: bold; font-style: normal;}`,
+                });
+                printHtml += `<div class="label-container"><img src="${dataUrl}" /></div>`;
+                printedIds.push(comm.id);
+            } catch (err) {
+                console.error(err);
+                toast({ title: `Fehler beim Erstellen von Etikett für ${comm.name}`, variant: 'destructive' });
+            }
+        }
+        
+        printHtml += '</body></html>';
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(printHtml);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+        } else {
+            toast({ title: 'Drucken fehlgeschlagen', description: 'Bitte deaktivieren Sie Pop-up-Blocker.', variant: 'destructive' });
+        }
+
+        if(printedIds.length > 0) {
+            toast({ title: `${printedIds.length} Etikett(en) zum Drucken gesendet` });
+            onPrinted?.(printedIds, false);
+        }
+    };
+
 
     const handleDownloadPng = React.useCallback(async () => {
         if (commissionsToPrint.length === 0) return;
@@ -600,12 +652,16 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
                         </div>
                     </div>
                 </div>
-                <DialogFooter className="justify-between">
-                    <Button variant="outline" onClick={handleSaveAsDefault}><Save className="mr-2 h-4 w-4"/> Als Standard speichern</Button>
-                    <div className="flex gap-2">
-                        <Button variant="secondary" onClick={handlePrintLater}>Später drucken</Button>
-                        {commissionsToPrint.length === 1 && <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> Per E-Mail senden</Button>}
-                        <Button onClick={handleDownloadPng}><Printer className="mr-2 h-4 w-4"/> Herunterladen (Bild)</Button>
+                <DialogFooter className="flex-col sm:flex-row sm:justify-between items-stretch sm:items-center gap-4">
+                     <div className="flex items-center space-x-2">
+                        <Switch id="print-mode" checked={printMode === 'print'} onCheckedChange={(checked) => setPrintMode(checked ? 'print' : 'download')} />
+                        <Label htmlFor="print-mode">Direkt drucken</Label>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <Button variant="outline" onClick={handleSaveAsDefault}><Save className="mr-2 h-4 w-4"/> Als Standard speichern</Button>
+                        <Button variant="secondary" onClick={() => onOpenChange(false)}>Schließen</Button>
+                        {commissionsToPrint.length === 1 && <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> E-Mail</Button>}
+                        <Button onClick={handleMainAction}><Printer className="mr-2 h-4 w-4"/> {printMode === 'print' ? 'Drucken' : 'Herunterladen'}</Button>
                     </div>
                 </DialogFooter>
             </DialogContent>
