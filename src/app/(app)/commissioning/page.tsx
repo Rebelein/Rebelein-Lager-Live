@@ -463,28 +463,17 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
         
         printHtml += '</body></html>';
     
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'absolute';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
-        iframe.style.border = '0';
-        document.body.appendChild(iframe);
-    
-        const doc = iframe.contentWindow?.document;
-        if (doc) {
-            doc.open();
-            doc.write(printHtml);
-            doc.close();
-            
-            iframe.contentWindow?.focus();
-            
-            setTimeout(() => {
-                iframe.contentWindow?.print();
-                 // Clean up after a delay
-                setTimeout(() => {
-                    document.body.removeChild(iframe);
-                }, 1000);
-            }, 250); // Small delay to ensure content is rendered
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.open();
+            printWindow.document.write(printHtml);
+            printWindow.document.close();
+            printWindow.onload = () => {
+                printWindow.print();
+                printWindow.close();
+            };
+        } else {
+            toast({ title: 'Fehler', description: 'Das Druckfenster konnte nicht geöffnet werden. Bitte prüfen Sie Ihre Browser-Einstellungen.', variant: 'destructive'});
         }
     
         if(printedIds.length > 0) {
@@ -1894,4 +1883,5 @@ export default function CommissioningPage() {
     </div>
   );
 }
+
 
