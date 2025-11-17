@@ -337,14 +337,16 @@ const DPI = 96;
 const MM_PER_INCH = 25.4;
 const mmToPx = (mm: number) => (mm / MM_PER_INCH) * DPI;
 
-function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: Commission | null, onOpenChange: (open: boolean) => void}) {
+function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange, onPrinted }: { commission?: Commission | null, commissions?: Commission[], onOpenChange: (open: boolean) => void, onPrinted?: (printedIds: string[]) => void}) {
     const { toast } = useToast();
     const { appSettings, updateAppSettings } = useAppContext();
-    const qrCodeRef = React.useRef<HTMLDivElement>(null);
+    const qrCodeRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
 
     const [labelSize, setLabelSize] = React.useState({ width: 80, height: 40 });
     const [fontSize, setFontSize] = React.useState(70);
     
+    const commissionsToPrint = commission ? [commission] : commissions;
+
     React.useEffect(() => {
         if(appSettings?.labelSettings?.commission) {
             setLabelSize({
@@ -355,10 +357,11 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
         }
     }, [appSettings]);
 
-    const generatePdf = React.useCallback(async (): Promise<Blob> => {
-        if (!qrCodeRef.current || !commission) throw new Error("Label element not found");
+    const generatePdf = React.useCallback(async (singleCommission: Commission): Promise<Blob> => {
+        const qrCodeNode = qrCodeRefs.current[singleCommission.id];
+        if (!qrCodeNode) throw new Error("Label element not found for " + singleCommission.name);
         
-        const dataUrl = await toPng(qrCodeRef.current, {
+        const dataUrl = await toPng(qrCodeNode, {
           cacheBust: true,
           pixelRatio: 3,
           fontEmbedCSS: `@font-face {
@@ -378,19 +381,17 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
         const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
-            format: 'a6' // DIN A6 format
+            format: 'a6'
         });
 
-        // A6 size in mm is 105 x 148
         const xOffset = 10;
         let yOffset = 10;
 
         pdf.addImage(dataUrl, 'PNG', xOffset, yOffset, labelSize.width, labelSize.height);
-        yOffset += labelSize.height + 15; // Move below the label image
+        yOffset += labelSize.height + 15;
 
-        // Add text content below the image
-        const itemsFromWarehouse = commission.items.filter(item => item.source === 'main_warehouse');
-        const itemsFromOrders = commission.items.filter(item => item.source === 'external_order');
+        const itemsFromWarehouse = singleCommission.items.filter(item => item.source === 'main_warehouse');
+        const itemsFromOrders = singleCommission.items.filter(item => item.source === 'external_order');
 
         pdf.setFont('PT Sans', 'bold');
         pdf.setFontSize(12);
@@ -401,14 +402,11 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
             pdf.setFont('PT Sans', 'normal');
             pdf.setFontSize(10);
             itemsFromWarehouse.forEach(item => {
-                if (yOffset > 138) { // Check if new page is needed
-                    pdf.addPage();
-                    yOffset = 10;
-                }
+                if (yOffset > 138) { pdf.addPage(); yOffset = 10; }
                 pdf.text(`- ${item.quantity}x ${item.name}`, xOffset, yOffset);
                 yOffset += 5;
             });
-            yOffset += 5; // Extra space
+            yOffset += 5;
         }
         
         if (itemsFromOrders.length > 0) {
@@ -427,37 +425,47 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
         }
         
         return pdf.output('blob');
-    }, [commission, labelSize]);
+    }, [labelSize]);
 
     const handleDownloadPng = React.useCallback(async () => {
-        if (!qrCodeRef.current || !commission) return;
-        try {
-            const dataUrl = await toPng(qrCodeRef.current, {
-                cacheBust: true,
-                pixelRatio: 3,
-                fontEmbedCSS: `@font-face {
-                    font-family: 'PT Sans';
-                    src: url('https://fonts.gstatic.com/s/ptsans/v17/jizaRExUiTo99u79D0-ExdGM.woff2') format('woff2');
-                    font-weight: normal;
-                    font-style: normal;
-                  }
-                  @font-face {
-                    font-family: 'PT Sans';
-                    src: url('https://fonts.gstatic.com/s/ptsans/v17/jizfRExUiTo99u79B_mh4O3f-A.woff2') format('woff2');
-                    font-weight: bold;
-                    font-style: normal;
-                  }`,
-            });
-            const link = document.createElement('a');
-            link.download = `kommission-${commission.name.replace(/\s+/g, '-')}.png`;
-            link.href = dataUrl;
-            link.click();
-            toast({ title: 'Etikett heruntergeladen' });
-        } catch (err) {
-            console.error(err);
-            toast({ title: 'Fehler beim Erstellen des Bildes', variant: 'destructive' });
+        if (commissionsToPrint.length === 0) return;
+        const printedIds: string[] = [];
+
+        for (const comm of commissionsToPrint) {
+            const qrCodeNode = qrCodeRefs.current[comm.id];
+            if (!qrCodeNode) continue;
+             try {
+                const dataUrl = await toPng(qrCodeNode, {
+                    cacheBust: true,
+                    pixelRatio: 3,
+                    fontEmbedCSS: `@font-face {
+                        font-family: 'PT Sans';
+                        src: url('https://fonts.gstatic.com/s/ptsans/v17/jizaRExUiTo99u79D0-ExdGM.woff2') format('woff2');
+                        font-weight: normal;
+                        font-style: normal;
+                      }
+                      @font-face {
+                        font-family: 'PT Sans';
+                        src: url('https://fonts.gstatic.com/s/ptsans/v17/jizfRExUiTo99u79B_mh4O3f-A.woff2') format('woff2');
+                        font-weight: bold;
+                        font-style: normal;
+                      }`,
+                });
+                const link = document.createElement('a');
+                link.download = `kommission-${comm.name.replace(/\s+/g, '-')}.png`;
+                link.href = dataUrl;
+                link.click();
+                printedIds.push(comm.id);
+            } catch (err) {
+                console.error(err);
+                toast({ title: `Fehler beim Erstellen von Etikett für ${comm.name}`, variant: 'destructive' });
+            }
         }
-    }, [commission?.name, toast, commission]);
+        if(printedIds.length > 0) {
+            toast({ title: `${printedIds.length} Etikett(en) heruntergeladen` });
+            onPrinted?.(printedIds);
+        }
+    }, [commissionsToPrint, toast, onPrinted]);
     
     const handleSaveAsDefault = () => {
         if (!appSettings) return;
@@ -475,51 +483,42 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
         toast({ title: 'Standardeinstellungen gespeichert', description: 'Die aktuellen Einstellungen wurden als Standard für Kommissions-Etiketten gespeichert.' });
     };
 
-    if (!commission) return null;
-
     const handleSendEmail = async () => {
         const printerEmail = appSettings?.commission?.printerEmail;
         if (!printerEmail) {
-            toast({
-                title: 'E-Mail-Adresse fehlt',
-                description: 'Bitte hinterlegen Sie die Drucker-E-Mail-Adresse in den Einstellungen.',
-                variant: 'destructive',
-            });
+            toast({ title: 'E-Mail-Adresse fehlt', description: 'Bitte hinterlegen Sie die Drucker-E-Mail-Adresse in den Einstellungen.', variant: 'destructive' });
             return;
         }
 
+        if (commissionsToPrint.length !== 1) {
+            toast({ title: 'Aktion nicht möglich', description: 'E-Mail-Versand ist nur für ein einzelnes Etikett möglich.', variant: 'destructive' });
+            return;
+        }
+        const singleCommission = commissionsToPrint[0];
+        if (!singleCommission) return;
+
         try {
-            const pdfBlob = await generatePdf();
+            const pdfBlob = await generatePdf(singleCommission);
             
             const reader = new FileReader();
             reader.readAsDataURL(pdfBlob); 
             reader.onloadend = function() {
-                const base64data = reader.result;
-                const mailtoLink = `mailto:${printerEmail}?subject=${encodeURIComponent(`Kommission: ${commission.name}`)}&body=${encodeURIComponent(`Anhang: Kommission-${commission.name.replace(/\s+/g, '-')}.pdf`)}`;
-                
-                const a = document.createElement('a');
-                a.href = mailtoLink;
-                // You can't directly attach a file this way due to security reasons.
-                // The user has to attach the file manually. Let's provide the download for them.
+                const mailtoLink = `mailto:${printerEmail}?subject=${encodeURIComponent(`Kommission: ${singleCommission.name}`)}&body=${encodeURIComponent(`Anhang: Kommission-${singleCommission.name.replace(/\s+/g, '-')}.pdf`)}`;
                 
                 const url = URL.createObjectURL(pdfBlob);
                 const downloadLink = document.createElement('a');
                 downloadLink.href = url;
-                downloadLink.download = `Kommission-${commission.name}.pdf`;
+                downloadLink.download = `Kommission-${singleCommission.name}.pdf`;
                 document.body.appendChild(downloadLink);
                 downloadLink.click();
                 document.body.removeChild(downloadLink);
                 URL.revokeObjectURL(url);
                 
-                toast({
-                    title: 'PDF heruntergeladen',
-                    description: 'Das PDF wurde heruntergeladen. Bitte hängen Sie es manuell an die E-Mail an.',
-                });
+                toast({ title: 'PDF heruntergeladen', description: 'Das PDF wurde heruntergeladen. Bitte hängen Sie es manuell an die E-Mail an.' });
                 
-                // Open mail client
                 window.location.href = mailtoLink;
+                onPrinted?.([singleCommission.id]);
             }
-
         } catch (err) {
             console.error(err);
             toast({ title: 'Fehler beim Erstellen des PDFs', variant: 'destructive' });
@@ -530,11 +529,13 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
     const labelWidthPx = mmToPx(labelSize.width);
     const labelHeightPx = mmToPx(labelSize.height);
 
+    if (commissionsToPrint.length === 0) return null;
+
     return (
-        <Dialog open={!!commission} onOpenChange={onOpenChange}>
+        <Dialog open={true} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl">
                 <DialogHeader>
-                    <DialogTitle>Etikett für Kommission: {commission.name}</DialogTitle>
+                    <DialogTitle>Etiketten für Kommissionen</DialogTitle>
                 </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4 max-h-[70vh]">
                      <div className="space-y-6 overflow-y-auto pr-4">
@@ -563,28 +564,32 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
                             </div>
                         </div>
                     </div>
-                     <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-4 rounded-md min-h-[200px]">
-                        <div id="label-to-download" ref={qrCodeRef}>
-                            <div
-                                className="p-2 bg-white border flex items-stretch justify-center gap-2"
-                                style={{
-                                    fontFamily: "'PT Sans', sans-serif",
-                                    width: `${labelWidthPx}px`,
-                                    height: `${labelHeightPx}px`,
-                                    boxSizing: 'content-box'
-                                }}
-                            >
-                                <div className="flex-1 flex flex-col justify-between overflow-hidden p-1">
-                                    <div>
-                                        <p className="text-black font-bold" style={{ fontSize: `${Math.max(8, (labelHeightPx * 0.15) * (fontSize / 100))}px`, lineHeight: 1.1 }}>{commission.name}</p>
-                                        <p className="text-gray-600" style={{ fontSize: `${Math.max(7, (labelHeightPx * 0.12) * (fontSize / 100))}px`, lineHeight: 1 }}>Auftrag: {commission.orderNumber}</p>
+                     <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-4 rounded-md min-h-[200px] overflow-auto">
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            {commissionsToPrint.map(comm => (
+                                <div key={comm.id} ref={el => qrCodeRefs.current[comm.id] = el}>
+                                    <div
+                                        className="p-2 bg-white border flex items-stretch justify-center gap-2"
+                                        style={{
+                                            fontFamily: "'PT Sans', sans-serif",
+                                            width: `${labelWidthPx}px`,
+                                            height: `${labelHeightPx}px`,
+                                            boxSizing: 'content-box'
+                                        }}
+                                    >
+                                        <div className="flex-1 flex flex-col justify-between overflow-hidden p-1">
+                                            <div>
+                                                <p className="text-black font-bold" style={{ fontSize: `${Math.max(8, (labelHeightPx * 0.15) * (fontSize / 100))}px`, lineHeight: 1.1 }}>{comm.name}</p>
+                                                <p className="text-gray-600" style={{ fontSize: `${Math.max(7, (labelHeightPx * 0.12) * (fontSize / 100))}px`, lineHeight: 1 }}>Auftrag: {comm.orderNumber}</p>
+                                            </div>
+                                            {comm.notes && <p className="text-gray-500 italic text-xs" style={{ fontSize: `${Math.max(6, (labelHeightPx * 0.1) * (fontSize / 100))}px`, lineHeight: 1.2 }}>&quot;{comm.notes}&quot;</p>}
+                                        </div>
+                                        <div className="h-full flex items-center justify-center p-1" style={{ width: `${Math.min(labelHeightPx - 8, 120)}px` }}>
+                                            <QRCode value={`commission::${comm.id}`} size={Math.min(labelHeightPx - 8, 120)} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
+                                        </div>
                                     </div>
-                                    {commission.notes && <p className="text-gray-500 italic text-xs" style={{ fontSize: `${Math.max(6, (labelHeightPx * 0.1) * (fontSize / 100))}px`, lineHeight: 1.2 }}>&quot;{commission.notes}&quot;</p>}
                                 </div>
-                                <div className="h-full flex items-center justify-center p-1" style={{ width: `${Math.min(labelHeightPx - 8, 120)}px` }}>
-                                    <QRCode value={`commission::${commission.id}`} size={Math.min(labelHeightPx - 8, 120)} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
-                                </div>
-                            </div>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -592,7 +597,7 @@ function PrintCommissionLabelDialog({ commission, onOpenChange }: { commission: 
                     <Button variant="outline" onClick={handleSaveAsDefault}><Save className="mr-2 h-4 w-4"/> Als Standard speichern</Button>
                     <div className="flex gap-2">
                         <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
-                        <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> Per E-Mail senden</Button>
+                        {commissionsToPrint.length === 1 && <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> Per E-Mail senden</Button>}
                         <Button onClick={handleDownloadPng}><Printer className="mr-2 h-4 w-4"/> Herunterladen (Bild)</Button>
                     </div>
                 </DialogFooter>
@@ -645,6 +650,9 @@ export default function CommissioningPage() {
   const [sortConfig, setSortConfig] = React.useState<{ key: SortKey, direction: 'asc' | 'desc' }>({ key: 'createdAt', direction: 'desc' });
   const [openSections, setOpenSections] = React.useState<string[]>([]);
   const [isCompactView, setIsCompactView] = React.useState(false);
+  
+  const [isLabelQueueOpen, setIsLabelQueueOpen] = React.useState(false);
+  const [selectedLabelsToPrint, setSelectedLabelsToPrint] = React.useState<Set<string>>(new Set());
   
    React.useEffect(() => {
     if (currentUser) {
@@ -773,7 +781,8 @@ export default function CommissioningPage() {
           createdAt: new Date().toISOString(),
           createdBy: currentUser.name,
           withdrawnAt: null,
-          isNewlyReady: true, // Always set to true on creation
+          isNewlyReady: true,
+          needsLabel: true, // Mark for printing
         };
         addOrUpdateCommission(commissionData); 
         toast({ title: 'Kommission erstellt', description: `Die Kommission "${commissionData.name}" wurde angelegt.` });
@@ -992,7 +1001,6 @@ export default function CommissioningPage() {
             toast({ title: 'Kommission nicht gefunden', variant: 'destructive'});
         }
     } else {
-        // Fuzzy search for transaction number in all active commissions
         const activeCommissions = [...draftCommissions, ...readyCommissions];
         for (const commission of activeCommissions) {
             for (const item of commission.items) {
@@ -1000,13 +1008,13 @@ export default function CommissioningPage() {
                     toast({ title: 'Lieferschein erkannt!', description: `Öffne Vorbereitung für Kommission "${commission.name}".`});
                     setPreparingCommission(commission);
                     setIsScannerOpen(false);
-                    return; // Stop after first match
+                    return;
                 }
             }
         }
         toast({ title: 'Keine passende Kommission gefunden', description: 'Der gescannte Code konnte keiner externen Bestellung zugeordnet werden.', variant: 'destructive' });
     }
-    lastScannedId.current = null; // Allow re-scanning after message
+    lastScannedId.current = null;
   }, [draftCommissions, readyCommissions, commissions, toast]);
 
     const captureCode = React.useCallback(async () => {
@@ -1029,7 +1037,6 @@ export default function CommissioningPage() {
 
         let codeFound = false;
 
-        // Respect the user's choice of scanner type
         if (scannerType === 'qr') {
             const qrCode = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
             if (qrCode && qrCode.data && lastScannedId.current !== qrCode.data) {
@@ -1085,6 +1092,23 @@ export default function CommissioningPage() {
         }
     };
     
+    const labelsToPrint = React.useMemo(() => {
+        return commissions.filter(c => c.needsLabel);
+    }, [commissions]);
+
+    const handlePrintFromQueue = (printedIds: string[]) => {
+        printedIds.forEach(id => {
+            const commission = commissions.find(c => c.id === id);
+            if (commission) {
+                addOrUpdateCommission({ ...commission, needsLabel: false });
+            }
+        });
+        setSelectedLabelsToPrint(new Set());
+        if(printedIds.length === commissions.filter(c => selectedLabelsToPrint.has(c.id)).length) {
+            setIsLabelQueueOpen(false);
+        }
+    }
+
     const CommissionCard = ({ commission }: { commission: Commission }) => {
         if (isCompactView) {
             return (
@@ -1106,6 +1130,7 @@ export default function CommissioningPage() {
                                     <DropdownMenuItem onSelect={() => setDetailCommission(commission)}><Info className="mr-2 h-4 w-4" /> Details</DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => handleOpenForm(commission)}><Pencil className="mr-2 h-4 w-4" /> Bearbeiten</DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}><Printer className="mr-2 h-4 w-4" /> Etikett</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onSelect={() => setCommissionToDelete(commission)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -1158,6 +1183,7 @@ export default function CommissioningPage() {
                                     <DropdownMenuItem onSelect={() => setDetailCommission(commission)}><Info className="mr-2 h-4 w-4" /> Details anzeigen</DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => handleOpenForm(commission)}><Pencil className="mr-2 h-4 w-4" /> Bearbeiten</DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => setPrintingCommission(commission)}><Printer className="mr-2 h-4 w-4" /> Etikett drucken</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onSelect={() => setCommissionToDelete(commission)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Löschen</DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -1243,6 +1269,14 @@ export default function CommissioningPage() {
             <Button size="sm" variant="outline" className="h-8 gap-1" onClick={openScanner}>
                 <ScanLine className="h-4 w-4" />
                 <span>Scannen</span>
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 gap-1 relative" onClick={() => setIsLabelQueueOpen(true)}>
+                <Printer className="h-3.5 w-3.5" />
+                {labelsToPrint.length > 0 && (
+                    <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 justify-center rounded-full">
+                        {labelsToPrint.length}
+                    </Badge>
+                )}
             </Button>
           <Button size="sm" className="h-8 gap-1" onClick={() => handleOpenForm(null)}>
             <PlusCircle className="h-3.5 w-3.5" />
@@ -1364,6 +1398,7 @@ export default function CommissioningPage() {
         <PrintCommissionLabelDialog 
             commission={printingCommission}
             onOpenChange={() => setPrintingCommission(null)}
+            onPrinted={(printedIds) => addOrUpdateCommission({ ...printingCommission, needsLabel: false })}
         />
       )}
 
@@ -1593,15 +1628,21 @@ export default function CommissioningPage() {
                     Möchten Sie jetzt ein Etikett für die Kommission &quot;{commissionJustSaved?.name}&quot; drucken?
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setCommissionJustSaved(null)}>Nein, danke</AlertDialogCancel>
-                <AlertDialogAction onClick={() => {
-                    if (commissionJustSaved) {
-                        setPrintingCommission(commissionJustSaved);
-                    }
-                    setIsPostSavePrintOpen(false);
-                    setCommissionJustSaved(null);
-                }}>Ja, Etikett drucken</AlertDialogAction>
+            <AlertDialogFooter className="grid grid-cols-3 gap-2">
+                <AlertDialogCancel asChild className="col-span-1">
+                    <Button variant="secondary" onClick={() => { setIsPostSavePrintOpen(false); setCommissionJustSaved(null); }}>Schließen</Button>
+                </AlertDialogCancel>
+                 <Button variant="outline" className="col-span-1" onClick={() => { addOrUpdateCommission({ ...commissionJustSaved!, needsLabel: true }); setIsPostSavePrintOpen(false); setCommissionJustSaved(null); }}>Später drucken</Button>
+                 <AlertDialogAction asChild className="col-span-1">
+                    <Button onClick={() => {
+                        if (commissionJustSaved) {
+                            setPrintingCommission(commissionJustSaved);
+                            addOrUpdateCommission({ ...commissionJustSaved, needsLabel: false });
+                        }
+                        setIsPostSavePrintOpen(false);
+                        setCommissionJustSaved(null);
+                    }}>Ja, jetzt drucken</Button>
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1696,6 +1737,78 @@ export default function CommissioningPage() {
             </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isLabelQueueOpen} onOpenChange={setIsLabelQueueOpen}>
+          <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                  <DialogTitle>Ausstehende Etiketten</DialogTitle>
+                  <DialogDescription>
+                      Wählen Sie die Kommissionen aus, für die Sie jetzt Etiketten drucken möchten.
+                  </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6 py-4">
+                 {labelsToPrint.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-10">Keine ausstehenden Etiketten.</p>
+                 ) : (
+                    <div className="space-y-2">
+                        <div className="flex items-center p-2 border-b">
+                            <Checkbox 
+                                id="select-all-labels"
+                                checked={selectedLabelsToPrint.size === labelsToPrint.length}
+                                onCheckedChange={(checked) => {
+                                    if(checked) {
+                                        setSelectedLabelsToPrint(new Set(labelsToPrint.map(l => l.id)))
+                                    } else {
+                                        setSelectedLabelsToPrint(new Set())
+                                    }
+                                }}
+                            />
+                            <Label htmlFor="select-all-labels" className="ml-3 font-semibold">Alle auswählen</Label>
+                        </div>
+                        {labelsToPrint.map(commission => (
+                            <div key={commission.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50">
+                                <Checkbox 
+                                    id={`label-${commission.id}`}
+                                    checked={selectedLabelsToPrint.has(commission.id)}
+                                    onCheckedChange={(checked) => {
+                                        const newSet = new Set(selectedLabelsToPrint);
+                                        if (checked) newSet.add(commission.id);
+                                        else newSet.delete(commission.id);
+                                        setSelectedLabelsToPrint(newSet);
+                                    }}
+                                />
+                                <Label htmlFor={`label-${commission.id}`} className="flex-1 cursor-pointer">
+                                    <p className="font-medium">{commission.name}</p>
+                                    <p className="text-xs text-muted-foreground">Auftrag: {commission.orderNumber}</p>
+                                </Label>
+                            </div>
+                        ))}
+                    </div>
+                 )}
+              </div>
+              <DialogFooter>
+                  <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
+                  <Button 
+                    onClick={() => {
+                        const commissionsToPrint = commissions.filter(c => selectedLabelsToPrint.has(c.id));
+                        setPrintingCommission(commissionsToPrint[0]); // Hack to open the dialog
+                        setIsLabelQueueOpen(false);
+                    }}
+                    disabled={selectedLabelsToPrint.size === 0}
+                   >
+                     {selectedLabelsToPrint.size} Etikett(en) drucken
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+
+       {isLabelQueueOpen && selectedLabelsToPrint.size > 0 && (
+          <PrintCommissionLabelDialog 
+            commissions={commissions.filter(c => selectedLabelsToPrint.has(c.id))}
+            onOpenChange={(open) => { if (!open) setIsLabelQueueOpen(false); }}
+            onPrinted={handlePrintFromQueue}
+          />
+      )}
     </div>
   );
 }

@@ -146,6 +146,7 @@ export type CsvExportFormat = {
 export type Wholesaler = {
   id: string;
   name: string;
+  masks?: MaskArea[]; // Optional array for delivery note analysis masks
   csvExportFormat?: CsvExportFormat;
 };
 
@@ -270,4 +271,12 @@ export type Commission = {
   withdrawnAt?: string | null;
   items: CommissionItem[];
   isNewlyReady?: boolean;
+  needsLabel?: boolean;
+};
+
+export type MaskArea = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 };
