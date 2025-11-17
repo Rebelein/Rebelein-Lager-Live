@@ -440,8 +440,22 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
         if (commissionsToPrint.length === 0) return;
         const printedIds: string[] = [];
     
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            toast({ title: 'Fehler', description: 'Das Druckfenster konnte nicht geöffnet werden. Bitte prüfen Sie Ihre Browser-Einstellungen.', variant: 'destructive'});
+            return;
+        }
+
         let printHtml = '<html><head><title>Etiketten drucken</title>';
-        printHtml += '<style>@page { size: auto; margin: 5mm; } body { margin: 0; font-family: "PT Sans", sans-serif; } .label-container { page-break-inside: avoid; display: inline-block; vertical-align: top; margin: 1mm; } img { max-width: 100%; height: auto; }</style>';
+        printHtml += `<style>
+            @media print {
+                @page { size: auto; margin: 5mm; }
+                .label-container { page-break-after: always; }
+            }
+            body { margin: 0; font-family: "PT Sans", sans-serif; } 
+            .label-container { display: inline-block; vertical-align: top; margin: 1mm; }
+            img { max-width: 100%; height: auto; } 
+        </style>`;
         printHtml += '</head><body>';
     
         for (const comm of commissionsToPrint) {
@@ -463,18 +477,15 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
         
         printHtml += '</body></html>';
     
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.open();
-            printWindow.document.write(printHtml);
-            printWindow.document.close();
-            printWindow.onload = () => {
-                printWindow.print();
-                printWindow.close();
-            };
-        } else {
-            toast({ title: 'Fehler', description: 'Das Druckfenster konnte nicht geöffnet werden. Bitte prüfen Sie Ihre Browser-Einstellungen.', variant: 'destructive'});
-        }
+        printWindow.document.open();
+        printWindow.document.write(printHtml);
+        printWindow.document.close();
+        
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }, 250);
     
         if(printedIds.length > 0) {
             toast({ title: `${printedIds.length} Etikett(en) zum Drucken gesendet` });
@@ -662,7 +673,6 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
                         <Label htmlFor="print-mode">Direkt drucken</Label>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <Button variant="secondary" onClick={() => onOpenChange(false)}>Abbrechen</Button>
                         <Button variant="outline" onClick={handlePrintLater}>Später drucken</Button>
                         <Button variant="outline" onClick={handleSaveAsDefault}><Save className="mr-2 h-4 w-4"/> Als Standard</Button>
                         {commissionsToPrint.length === 1 && <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> E-Mail</Button>}
@@ -1883,5 +1893,6 @@ export default function CommissioningPage() {
     </div>
   );
 }
+
 
 
