@@ -439,17 +439,18 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
     const handleDirectPrint = async () => {
         if (commissionsToPrint.length === 0) return;
         const printedIds: string[] = [];
-
+    
         let printHtml = '<html><head><title>Etiketten drucken</title>';
-        printHtml += '<style>@page { size: auto; margin: 5mm; } body { margin: 0; } .label-container { page-break-inside: avoid; display: inline-block; vertical-align: top; margin: 1mm; } img { max-width: 100%; height: auto; }</style>';
+        printHtml += '<style>@page { size: auto; margin: 5mm; } body { margin: 0; font-family: "PT Sans", sans-serif; } .label-container { page-break-inside: avoid; display: inline-block; vertical-align: top; margin: 1mm; } img { max-width: 100%; height: auto; }</style>';
         printHtml += '</head><body>';
-
+    
         for (const comm of commissionsToPrint) {
             const qrCodeNode = qrCodeRefs.current[comm.id];
             if (!qrCodeNode) continue;
-             try {
+            try {
                 const dataUrl = await toPng(qrCodeNode, {
-                    cacheBust: true, pixelRatio: 3,
+                    cacheBust: true,
+                    pixelRatio: 3,
                     fontEmbedCSS: `@font-face {font-family: 'PT Sans'; src: url('https://fonts.gstatic.com/s/ptsans/v17/jizaRExUiTo99u79D0-ExdGM.woff2') format('woff2'); font-weight: normal; font-style: normal;} @font-face {font-family: 'PT Sans'; src: url('https://fonts.gstatic.com/s/ptsans/v17/jizfRExUiTo99u79B_mh4O3f-A.woff2') format('woff2'); font-weight: bold; font-style: normal;}`,
                 });
                 printHtml += `<div class="label-container"><img src="${dataUrl}" /></div>`;
@@ -461,17 +462,31 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
         }
         
         printHtml += '</body></html>';
-
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-            printWindow.document.write(printHtml);
-            printWindow.document.close();
-            printWindow.focus();
-            printWindow.print();
-        } else {
-            toast({ title: 'Drucken fehlgeschlagen', description: 'Bitte deaktivieren Sie Pop-up-Blocker.', variant: 'destructive' });
+    
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'absolute';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+    
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+            doc.open();
+            doc.write(printHtml);
+            doc.close();
+            
+            iframe.contentWindow?.focus();
+            
+            setTimeout(() => {
+                iframe.contentWindow?.print();
+                 // Clean up after a delay
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                }, 1000);
+            }, 250); // Small delay to ensure content is rendered
         }
-
+    
         if(printedIds.length > 0) {
             toast({ title: `${printedIds.length} Etikett(en) zum Drucken gesendet` });
             onPrinted?.(printedIds, false);
@@ -658,8 +673,9 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
                         <Label htmlFor="print-mode">Direkt drucken</Label>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <Button variant="outline" onClick={handleSaveAsDefault}><Save className="mr-2 h-4 w-4"/> Als Standard speichern</Button>
-                        <Button variant="secondary" onClick={() => onOpenChange(false)}>Schließen</Button>
+                        <Button variant="secondary" onClick={() => onOpenChange(false)}>Abbrechen</Button>
+                        <Button variant="outline" onClick={handlePrintLater}>Später drucken</Button>
+                        <Button variant="outline" onClick={handleSaveAsDefault}><Save className="mr-2 h-4 w-4"/> Als Standard</Button>
                         {commissionsToPrint.length === 1 && <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> E-Mail</Button>}
                         <Button onClick={handleMainAction}><Printer className="mr-2 h-4 w-4"/> {printMode === 'print' ? 'Drucken' : 'Herunterladen'}</Button>
                     </div>
@@ -1694,11 +1710,11 @@ export default function CommissioningPage() {
                     Möchten Sie jetzt ein Etikett für die Kommission &quot;{commissionJustSaved?.name}&quot; drucken?
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter className="grid grid-cols-3 gap-2">
-                <AlertDialogCancel asChild className="col-span-1">
+            <AlertDialogFooter className="grid grid-cols-2 gap-2">
+                 <Button variant="outline" className="col-span-2" onClick={() => { addOrUpdateCommission({ ...commissionJustSaved!, needsLabel: true }); setIsPostSavePrintOpen(false); setCommissionJustSaved(null); }}>Später drucken</Button>
+                 <AlertDialogCancel asChild className="col-span-1">
                     <Button variant="secondary" onClick={() => { setIsPostSavePrintOpen(false); setCommissionJustSaved(null); }}>Schließen</Button>
                 </AlertDialogCancel>
-                 <Button variant="outline" className="col-span-1" onClick={() => { addOrUpdateCommission({ ...commissionJustSaved!, needsLabel: true }); setIsPostSavePrintOpen(false); setCommissionJustSaved(null); }}>Später drucken</Button>
                  <AlertDialogAction asChild className="col-span-1">
                     <Button onClick={() => {
                         if (commissionJustSaved) {
