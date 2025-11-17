@@ -337,7 +337,7 @@ const DPI = 96;
 const MM_PER_INCH = 25.4;
 const mmToPx = (mm: number) => (mm / MM_PER_INCH) * DPI;
 
-function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange, onPrinted }: { commission?: Commission | null, commissions?: Commission[], onOpenChange: (open: boolean) => void, onPrinted?: (printedIds: string[]) => void}) {
+function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange, onPrinted }: { commission?: Commission | null, commissions?: Commission[], onOpenChange: (open: boolean) => void, onPrinted?: (printedIds: string[], markAsNeedsLabel: boolean) => void}) {
     const { toast } = useToast();
     const { appSettings, updateAppSettings } = useAppContext();
     const qrCodeRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
@@ -463,7 +463,7 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
         }
         if(printedIds.length > 0) {
             toast({ title: `${printedIds.length} Etikett(en) heruntergeladen` });
-            onPrinted?.(printedIds);
+            onPrinted?.(printedIds, false);
         }
     }, [commissionsToPrint, toast, onPrinted]);
     
@@ -517,12 +517,19 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
                 toast({ title: 'PDF heruntergeladen', description: 'Das PDF wurde heruntergeladen. Bitte hängen Sie es manuell an die E-Mail an.' });
                 
                 window.location.href = mailtoLink;
-                onPrinted?.([singleCommission.id]);
+                onPrinted?.([singleCommission.id], false);
             }
         } catch (err) {
             console.error(err);
             toast({ title: 'Fehler beim Erstellen des PDFs', variant: 'destructive' });
         }
+    };
+    
+    const handlePrintLater = () => {
+        const idsToQueue = commissionsToPrint.map(c => c.id);
+        onPrinted?.(idsToQueue, true);
+        toast({ title: `${idsToQueue.length} Etikett(en) zur Druck-Warteschlange hinzugefügt.` });
+        onOpenChange(false);
     };
 
 
@@ -596,7 +603,7 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
                 <DialogFooter className="justify-between">
                     <Button variant="outline" onClick={handleSaveAsDefault}><Save className="mr-2 h-4 w-4"/> Als Standard speichern</Button>
                     <div className="flex gap-2">
-                        <DialogClose asChild><Button variant="secondary">Schließen</Button></DialogClose>
+                        <Button variant="secondary" onClick={handlePrintLater}>Später drucken</Button>
                         {commissionsToPrint.length === 1 && <Button variant="outline" onClick={handleSendEmail}><Mail className="mr-2 h-4 w-4"/> Per E-Mail senden</Button>}
                         <Button onClick={handleDownloadPng}><Printer className="mr-2 h-4 w-4"/> Herunterladen (Bild)</Button>
                     </div>
@@ -1096,16 +1103,19 @@ export default function CommissioningPage() {
         return commissions.filter(c => c.needsLabel);
     }, [commissions]);
 
-    const handlePrintFromQueue = (printedIds: string[]) => {
+    const handlePrintFromQueue = (printedIds: string[], markAsNeedsLabel: boolean = false) => {
         printedIds.forEach(id => {
             const commission = commissions.find(c => c.id === id);
             if (commission) {
-                addOrUpdateCommission({ ...commission, needsLabel: false });
+                addOrUpdateCommission({ ...commission, needsLabel: markAsNeedsLabel });
             }
         });
-        setSelectedLabelsToPrint(new Set());
-        if(printedIds.length === commissions.filter(c => selectedLabelsToPrint.has(c.id)).length) {
-            setIsLabelQueueOpen(false);
+        
+        if (!markAsNeedsLabel) {
+            setSelectedLabelsToPrint(new Set());
+            if(printedIds.length === commissions.filter(c => selectedLabelsToPrint.has(c.id)).length) {
+                setIsLabelQueueOpen(false);
+            }
         }
     }
 
@@ -1398,7 +1408,7 @@ export default function CommissioningPage() {
         <PrintCommissionLabelDialog 
             commission={printingCommission}
             onOpenChange={() => setPrintingCommission(null)}
-            onPrinted={(printedIds) => addOrUpdateCommission({ ...printingCommission, needsLabel: false })}
+            onPrinted={(printedIds, needsLabel) => handlePrintFromQueue(printedIds, needsLabel)}
         />
       )}
 
