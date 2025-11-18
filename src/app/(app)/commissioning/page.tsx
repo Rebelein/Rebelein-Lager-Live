@@ -356,7 +356,23 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
             });
             setFontSize(appSettings.labelSettings.commission.fontSize);
         }
+        try {
+            const storedPrintMode = localStorage.getItem('commissionPrintMode');
+            if (storedPrintMode === 'print' || storedPrintMode === 'download') {
+                setPrintMode(storedPrintMode);
+            }
+        } catch (e) {
+            console.error('Failed to read print mode from localStorage');
+        }
     }, [appSettings]);
+    
+    React.useEffect(() => {
+        try {
+            localStorage.setItem('commissionPrintMode', printMode);
+        } catch(e) {
+            console.error('Failed to save print mode to localStorage');
+        }
+    }, [printMode]);
 
     const generatePdf = React.useCallback(async (singleCommission: Commission): Promise<Blob> => {
         const qrCodeNode = qrCodeRefs.current[singleCommission.id];
@@ -438,8 +454,9 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
     
     const handleDirectPrint = async () => {
         if (commissionsToPrint.length === 0) return;
+        
         const printedIds: string[] = [];
-    
+        
         for (const comm of commissionsToPrint) {
             try {
                 const pdfBlob = await generatePdf(comm);
@@ -453,9 +470,12 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
                 
                 printWindow.onload = () => {
                     printWindow.print();
-                    // We can't reliably close the window or revoke the URL here
-                    // as the user might still be interacting with the print dialog.
-                    // The object URL will be cleaned up when the tab is closed by the user.
+                    // Let's close it after a short delay, this might help in some browsers
+                    setTimeout(() => {
+                        if (!printWindow.closed) {
+                            printWindow.close();
+                        }
+                    }, 500);
                 };
                 
                 printedIds.push(comm.id);
@@ -1856,6 +1876,7 @@ export default function CommissioningPage() {
     </div>
   );
 }
+
 
 
 
