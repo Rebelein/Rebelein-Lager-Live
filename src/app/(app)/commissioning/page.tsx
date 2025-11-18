@@ -440,48 +440,33 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
         if (commissionsToPrint.length === 0) return;
         const printedIds: string[] = [];
     
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            toast({ title: 'Fehler', description: 'Das Druckfenster konnte nicht geöffnet werden. Bitte prüfen Sie Ihre Browser-Einstellungen.', variant: 'destructive'});
-            return;
-        }
-
-        printWindow.document.write('<html><head><title>Etiketten drucken</title></head><body></body></html>');
-        printWindow.document.close();
-
         for (const comm of commissionsToPrint) {
             try {
                 const pdfBlob = await generatePdf(comm);
                 const pdfUrl = URL.createObjectURL(pdfBlob);
                 
-                const iframe = printWindow.document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = pdfUrl;
+                const printWindow = window.open(pdfUrl, '_blank');
+                if (!printWindow) {
+                    toast({ title: 'Fehler', description: 'Das Druckfenster konnte nicht geöffnet werden. Bitte prüfen Sie Ihre Browser-Einstellungen.', variant: 'destructive'});
+                    return;
+                }
                 
-                const promise = new Promise<void>((resolve) => {
-                    iframe.onload = () => {
-                        iframe.contentWindow?.focus();
-                        iframe.contentWindow?.print();
-                        URL.revokeObjectURL(pdfUrl);
-                        resolve();
-                    };
-                });
+                printWindow.onload = () => {
+                    printWindow.print();
+                    // We can't reliably close the window or revoke the URL here
+                    // as the user might still be interacting with the print dialog.
+                    // The object URL will be cleaned up when the tab is closed by the user.
+                };
                 
-                printWindow.document.body.appendChild(iframe);
-                await promise;
                 printedIds.push(comm.id);
             } catch (err) {
                 console.error(err);
                 toast({ title: `Fehler beim Erstellen von Etikett für ${comm.name}`, variant: 'destructive' });
             }
         }
-        
-        setTimeout(() => {
-            printWindow.close();
-        }, 1000);
     
         if(printedIds.length > 0) {
-            toast({ title: `${printedIds.length} Etikett(en) zum Drucken gesendet` });
+            toast({ title: `${printedIds.length} Etikett(en) zum Drucken geöffnet` });
             onPrinted?.(printedIds, false);
         }
     };
@@ -1871,6 +1856,7 @@ export default function CommissioningPage() {
     </div>
   );
 }
+
 
 
 
