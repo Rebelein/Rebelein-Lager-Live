@@ -430,7 +430,7 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
 
     const handleMainAction = async () => {
         if (printMode === 'download') {
-            await handleDownloadPng();
+            await handleDownloadPdf();
         } else {
             await handleDirectPrint();
         }
@@ -446,28 +446,29 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
             return;
         }
 
-        let printHtml = '<html><head><title>Etiketten drucken</title>';
-        printHtml += `<style>
-            @media print {
-                @page { size: auto; margin: 5mm; }
-                .label-container { page-break-after: always; }
-            }
-            body { margin: 0; font-family: "PT Sans", sans-serif; } 
-            .label-container { display: inline-block; vertical-align: top; margin: 1mm; }
-            img { max-width: 100%; height: auto; } 
-        </style>`;
-        printHtml += '</head><body>';
-    
+        printWindow.document.write('<html><head><title>Etiketten drucken</title></head><body></body></html>');
+        printWindow.document.close();
+
         for (const comm of commissionsToPrint) {
-            const qrCodeNode = qrCodeRefs.current[comm.id];
-            if (!qrCodeNode) continue;
             try {
-                const dataUrl = await toPng(qrCodeNode, {
-                    cacheBust: true,
-                    pixelRatio: 3,
-                    fontEmbedCSS: `@font-face {font-family: 'PT Sans'; src: url('https://fonts.gstatic.com/s/ptsans/v17/jizaRExUiTo99u79D0-ExdGM.woff2') format('woff2'); font-weight: normal; font-style: normal;} @font-face {font-family: 'PT Sans'; src: url('https://fonts.gstatic.com/s/ptsans/v17/jizfRExUiTo99u79B_mh4O3f-A.woff2') format('woff2'); font-weight: bold; font-style: normal;}`,
+                const pdfBlob = await generatePdf(comm);
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                
+                const iframe = printWindow.document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = pdfUrl;
+                
+                const promise = new Promise<void>((resolve) => {
+                    iframe.onload = () => {
+                        iframe.contentWindow?.focus();
+                        iframe.contentWindow?.print();
+                        URL.revokeObjectURL(pdfUrl);
+                        resolve();
+                    };
                 });
-                printHtml += `<div class="label-container"><img src="${dataUrl}" /></div>`;
+                
+                printWindow.document.body.appendChild(iframe);
+                await promise;
                 printedIds.push(comm.id);
             } catch (err) {
                 console.error(err);
@@ -475,17 +476,9 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
             }
         }
         
-        printHtml += '</body></html>';
-    
-        printWindow.document.open();
-        printWindow.document.write(printHtml);
-        printWindow.document.close();
-        
         setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
             printWindow.close();
-        }, 250);
+        }, 1000);
     
         if(printedIds.length > 0) {
             toast({ title: `${printedIds.length} Etikett(en) zum Drucken gesendet` });
@@ -493,35 +486,20 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
         }
     };
 
-
-    const handleDownloadPng = React.useCallback(async () => {
+    const handleDownloadPdf = async () => {
         if (commissionsToPrint.length === 0) return;
         const printedIds: string[] = [];
 
         for (const comm of commissionsToPrint) {
-            const qrCodeNode = qrCodeRefs.current[comm.id];
-            if (!qrCodeNode) continue;
              try {
-                const dataUrl = await toPng(qrCodeNode, {
-                    cacheBust: true,
-                    pixelRatio: 3,
-                    fontEmbedCSS: `@font-face {
-                        font-family: 'PT Sans';
-                        src: url('https://fonts.gstatic.com/s/ptsans/v17/jizaRExUiTo99u79D0-ExdGM.woff2') format('woff2');
-                        font-weight: normal;
-                        font-style: normal;
-                      }
-                      @font-face {
-                        font-family: 'PT Sans';
-                        src: url('https://fonts.gstatic.com/s/ptsans/v17/jizfRExUiTo99u79B_mh4O3f-A.woff2') format('woff2');
-                        font-weight: bold;
-                        font-style: normal;
-                      }`,
-                });
+                const pdfBlob = await generatePdf(comm);
                 const link = document.createElement('a');
-                link.download = `kommission-${comm.name.replace(/\s+/g, '-')}.png`;
-                link.href = dataUrl;
+                link.href = URL.createObjectURL(pdfBlob);
+                link.download = `kommission-${comm.name.replace(/\s+/g, '-')}.pdf`;
+                document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
                 printedIds.push(comm.id);
             } catch (err) {
                 console.error(err);
@@ -532,7 +510,7 @@ function PrintCommissionLabelDialog({ commission, commissions = [], onOpenChange
             toast({ title: `${printedIds.length} Etikett(en) heruntergeladen` });
             onPrinted?.(printedIds, false);
         }
-    }, [commissionsToPrint, toast, onPrinted]);
+    };
     
     const handleSaveAsDefault = () => {
         if (!appSettings) return;
@@ -1893,6 +1871,7 @@ export default function CommissioningPage() {
     </div>
   );
 }
+
 
 
 
